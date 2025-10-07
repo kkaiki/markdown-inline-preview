@@ -1001,10 +1001,11 @@ function registerCommands(context) {
                 const textContent = text.substring(contentStart).trim();
                 if (textContent === '') {
                     // カーソルを行頭（インデント後）に移動
+                    // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
                     const indentLength = text.match(/^\s*/)[0].length;
                     const newSelection = new vscode.Selection(
-                        new vscode.Position(position.line, indentLength),
-                        new vscode.Position(position.line, text.length)
+                        new vscode.Position(position.line, text.length),
+                        new vscode.Position(position.line, indentLength)
                     );
                     editor.selection = newSelection;
                     return;
@@ -1026,10 +1027,11 @@ function registerCommands(context) {
                 const textContent = text.substring(contentStart).trim();
                 if (textContent === '') {
                     // カーソルを行頭（インデント後）に移動
+                    // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
                     const indentLength = text.match(/^\s*/)[0].length;
                     const newSelection = new vscode.Selection(
-                        new vscode.Position(position.line, indentLength),
-                        new vscode.Position(position.line, text.length)
+                        new vscode.Position(position.line, text.length),
+                        new vscode.Position(position.line, indentLength)
                     );
                     editor.selection = newSelection;
                     return;
@@ -1056,9 +1058,10 @@ function registerCommands(context) {
             // 段階1: コンテンツ部分のみ選択（要素後から行末）
             if (!selection.isEmpty && currentSelectionStart === contentStart && currentSelectionEnd === text.length) {
                 // 段階2: 行全体を選択（インデントを除いた部分）
+                // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
                 const newSelection = new vscode.Selection(
-                    new vscode.Position(position.line, lineIndent),
-                    new vscode.Position(position.line, text.length)
+                    new vscode.Position(position.line, text.length),
+                    new vscode.Position(position.line, lineIndent)
                 );
                 editor.selection = newSelection;
                 lastSelectionRange = 'full-line';
@@ -1095,17 +1098,19 @@ function registerCommands(context) {
                 }
                 
                 // 階層全体を選択
+                // アンカーを下側、アクティブを上側にすることで、カーソルを上側に配置
                 const newSelection = new vscode.Selection(
-                    new vscode.Position(startLine, 0),
-                    new vscode.Position(endLine, editor.document.lineAt(endLine).text.length)
+                    new vscode.Position(endLine, editor.document.lineAt(endLine).text.length),
+                    new vscode.Position(startLine, 0)
                 );
                 editor.selection = newSelection;
                 lastSelectionRange = 'hierarchy';
             } else {
                 // 段階1: コンテンツ部分のみ選択
+                // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
                 const newSelection = new vscode.Selection(
-                    new vscode.Position(position.line, contentStart),
-                    new vscode.Position(position.line, text.length)
+                    new vscode.Position(position.line, text.length),
+                    new vscode.Position(position.line, contentStart)
                 );
                 editor.selection = newSelection;
                 lastSelectionRange = 'content';
