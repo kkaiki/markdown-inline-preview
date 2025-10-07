@@ -1,0 +1,118 @@
+/* Obsidianライクなダークテーマ */
+body {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 20px;
+    margin: 0;
+}
+
+/* 見出し */
+h1 {
+    color: #d79921;
+    border-bottom: 2px solid #d79921;
+    padding-bottom: 0.3em;
+    margin-top: 1.5em;
+}
+
+h2 {
+    color: #98971a;
+    border-bottom: 1px solid #98971a;
+    padding-bottom: 0.2em;
+    margin-top: 1.3em;
+}
+
+h3, h4, h5, h6 {
+    color: #83a598;
+    margin-top: 1.2em;
+}
+
+/* リンク */
+a {
+    color: #458588;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+    color: #83a598;
+}
+
+/* リスト */
+ul, ol {
+    padding-left: 20px;
+}
+
+li {
+    margin: 5px 0;
+}
+
+/* 引用 */
+blockquote {
+    border-left: 4px solid #8ec07c;
+    padding-left: 12px;
+    margin-left: 0;
+    color: #bdae93;
+    font-style: italic;
+}
+
+/* 水平線 */
+hr {
+    border: none;
+    border-top: 1px solid #504945;
+    margin: 20px 0;
+}
+
+/* 強調 */
+strong {
+    color: #fe8019;
+    font-weight: bold;
+}
+
+em {
+    color: #b8bb26;
+    font-style: italic;
+}
+
+/* テーブルのアニメーション */
+table {
+    transition: all 0.3s ease;
+}
+
+td:hover, th:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    cursor: pointer;
+}
+
+/* フォーカス時のハイライト */
+*:focus {
+    outline: 2px solid #458588;
+    outline-offset: 2px;
+}
+
+/* 選択時のハイライト */
+::selection {
+    background-color: #458588;
+    color: #ffffff;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #282828;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #504945;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #665c54;
+}
