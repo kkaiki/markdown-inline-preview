@@ -1,0 +1,41 @@
+{
+  // Markdownファイル専用の設定
+  "[markdown]": {
+    // 自動補完（IntelliSense）を無効化
+    "editor.quickSuggestions": {
+      "other": false,
+      "comments": false,
+      "strings": false
+    },
+    // 入力中の自動提案を無効化
+    "editor.suggestOnTriggerCharacters": false,
+    // スニペットの提案を無効化
+    "editor.snippetSuggestions": "none",
+    // 単語ベースの提案を無効化
+    "editor.wordBasedSuggestions": false,
+    // パラメータヒントを無効化
+    "editor.parameterHints.enabled": false,
+    // テーブルの自動整形を無効化
+    "editor.formatOnType": false,
+    // ペースト時の自動整形を無効化
+    "editor.formatOnPaste": false,
+    // 保存時の自動整形を無効化
+    "editor.formatOnSave": false,
+    // 自動インデントを基本に設定（テーブル整形を防ぐ）
+    "editor.autoIndent": "none",
+    // Markdownの自動補完を無効化
+    "markdown.suggest.paths.enabled": false
+  },
+  
+  // Markdown拡張機能の設定
+  "markdown.extension.completion.enabled": false,
+  "markdown.extension.tableFormatter.enabled": false,
+  "markdown.extension.toc.updateOnSave": false,
+  
+  // Markdown Inline Preview拡張機能の設定
+  "obsidianMarkdown.autoMoveCompletedTasks": false,
+  "obsidianMarkdown.hideStrikethroughOnEdit": true,
+  "obsidianMarkdown.checkboxClickableArea": "checkbox",
+  "obsidianMarkdown.enableHeadingDecorations": true,
+  "obsidianMarkdown.headingColorScheme": "default"
+}

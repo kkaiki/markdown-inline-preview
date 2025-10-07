@@ -1,0 +1,265 @@
+{
+  "name": "markdown-inline-preview",
+  "displayName": "Markdown Inline Preview",
+  "description": "Real-time inline preview and WYSIWYG-like editing experience for Markdown files in VSCode",
+  "version": "1.3.0",
+  "publisher": "markdown-inline-preview",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./src/extension-obsidian.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "obsidianMarkdown.smartEnter",
+        "title": "Smart Enter: Continue/Exit List",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.toggleCheckbox",
+        "title": "Toggle Markdown Checkbox"
+      },
+      {
+        "command": "obsidianMarkdown.clickCheckbox",
+        "title": "Click Checkbox"
+      },
+      {
+        "command": "obsidianMarkdown.toggleCheckboxAtLine",
+        "title": "Toggle Checkbox at Specific Line",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.formatTable",
+        "title": "Format Markdown Table",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.increaseIndent",
+        "title": "Increase List/Checkbox Indent",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.decreaseIndent", 
+        "title": "Decrease List/Checkbox Indent",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.smartMoveLeft",
+        "title": "Smart Move Left (Move cursor after Markdown element)",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.smartSelectLeft",
+        "title": "Smart Select Left (Select from element to end of line)",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.smartSelectAll",
+        "title": "Smart Select All in Code Block",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.moveLineUp",
+        "title": "Move Line/Selection Up",
+        "enablement": "editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.moveLineDown",
+        "title": "Move Line/Selection Down",
+        "enablement": "editorLangId == markdown"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "obsidianMarkdown.smartEnter",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !renameInputVisible && !inSnippetMode && !editorReadonly"
+      },
+      {
+        "command": "obsidianMarkdown.toggleCheckbox",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.increaseIndent",
+        "key": "tab",
+        "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !renameInputVisible && !editorReadonly"
+      },
+      {
+        "command": "obsidianMarkdown.decreaseIndent",
+        "key": "shift+tab",
+        "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !renameInputVisible && !editorReadonly"
+      },
+      {
+        "command": "obsidianMarkdown.smartMoveLeft",
+        "key": "cmd+left",
+        "mac": "cmd+left",
+        "win": "ctrl+left",
+        "linux": "ctrl+left",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.smartSelectLeft",
+        "key": "shift+cmd+left",
+        "mac": "shift+cmd+left",
+        "win": "shift+ctrl+left",
+        "linux": "shift+ctrl+left",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.smartSelectAll",
+        "key": "cmd+a",
+        "mac": "cmd+a",
+        "win": "ctrl+a",
+        "linux": "ctrl+a",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.moveLineUp",
+        "key": "shift+cmd+up",
+        "mac": "shift+cmd+up",
+        "win": "shift+ctrl+up",
+        "linux": "shift+ctrl+up",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "obsidianMarkdown.moveLineDown",
+        "key": "shift+cmd+down",
+        "mac": "shift+cmd+down",
+        "win": "shift+ctrl+down",
+        "linux": "shift+ctrl+down",
+        "when": "editorTextFocus && editorLangId == markdown"
+      }
+    ],
+    "configuration": {
+      "title": "Obsidian-like Markdown Editor",
+      "properties": {
+        "obsidianMarkdown.enablePreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable preview decorations for non-focused lines"
+        },
+        "obsidianMarkdown.checkboxStyle": {
+          "type": "string",
+          "default": "icons",
+          "enum": ["icons", "brackets"],
+          "description": "Style for checkbox display"
+        },
+        "obsidianMarkdown.showCheckboxCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show clickable CodeLens above checkboxes for easy toggling"
+        },
+        "obsidianMarkdown.table.widthCalculation": {
+          "type": "string",
+          "default": "smart",
+          "enum": ["simple", "smart", "fullwidth"],
+          "enumDescriptions": [
+            "Simple: Count each character as 1",
+            "Smart: Consider narrow/wide characters (recommended)",
+            "Full-width: Japanese characters count as 2"
+          ],
+          "description": "How to calculate character width in tables"
+        },
+        "obsidianMarkdown.table.japaneseCharWidth": {
+          "type": "number",
+          "default": 2.0,
+          "minimum": 1.5,
+          "maximum": 2.5,
+          "description": "Width multiplier for Japanese characters"
+        },
+        "obsidianMarkdown.table.narrowCharWidth": {
+          "type": "number",
+          "default": 0.8,
+          "minimum": 0.5,
+          "maximum": 1.0,
+          "description": "Width multiplier for narrow characters (i, l, 1, etc.)"
+        },
+        "obsidianMarkdown.table.wideCharWidth": {
+          "type": "number",
+          "default": 1.3,
+          "minimum": 1.0,
+          "maximum": 1.5,
+          "description": "Width multiplier for wide characters (W, M, m, etc.)"
+        },
+        "obsidianMarkdown.autoMoveCompletedTasks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically move completed tasks to the bottom of the list"
+        },
+        "obsidianMarkdown.hideStrikethroughOnEdit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide strikethrough decoration while editing a line"
+        },
+        "obsidianMarkdown.checkboxClickableArea": {
+          "type": "string",
+          "default": "checkbox",
+          "enum": ["checkbox", "full-line"],
+          "enumDescriptions": [
+            "Only the checkbox itself is clickable",
+            "The entire line is clickable"
+          ],
+          "description": "Defines the clickable area for toggling checkboxes"
+        },
+        "obsidianMarkdown.enableHeadingDecorations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable visual styling for Markdown headings (H1-H6)"
+        },
+        "obsidianMarkdown.headingColorScheme": {
+          "type": "string",
+          "default": "default",
+          "enum": ["default", "monochrome", "vibrant"],
+          "enumDescriptions": [
+            "Default color scheme with different colors per level",
+            "Grayscale scheme with varying intensities",
+            "Vibrant colors with high contrast"
+          ],
+          "description": "Color scheme for heading decorations"
+        }
+      }
+    },
+    "configurationDefaults": {
+      "[markdown]": {
+        "editor.quickSuggestions": false,
+        "editor.suggestOnTriggerCharacters": false,
+        "editor.wordBasedSuggestions": "off",
+        "editor.inlineSuggest.enabled": false,
+        "editor.parameterHints.enabled": false,
+        "editor.acceptSuggestionOnEnter": "off",
+        "editor.acceptSuggestionOnCommitCharacters": false,
+        "editor.tabMovesFocus": false,
+        "editor.tabCompletion": "off",
+        "editor.snippetSuggestions": "none",
+        "editor.suggest.showWords": false,
+        "editor.suggest.showSnippets": false,
+        "editor.suggest.insertMode": "replace",
+        "editor.suggest.snippetsPreventQuickSuggestions": false,
+        "markdown.suggest.paths.enabled": false,
+        "github.copilot.inlineSuggest.enable": false,
+        "github.copilot.editor.enableAutoCompletions": false
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "node ./build.js",
+    "compile": "node ./build.js",
+    "watch": "echo 'No watch mode needed for plain JS'",
+    "test": "echo 'No tests configured'"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x"
+  },
+  "dependencies": {
+    "marked": "^9.0.0",
+    "dompurify": "^3.0.0",
+    "jsdom": "^22.0.0"
+  }
+}
