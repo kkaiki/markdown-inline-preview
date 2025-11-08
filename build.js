@@ -7,7 +7,7 @@ const path = require('path');
 console.log('Building Markdown Inline Preview extension...');
 
 // Verify that main source files exist
-const mainFile = './src/extension-obsidian.js';
+const mainFile = './src/extension-markdown-inline.js';
 if (!fs.existsSync(mainFile)) {
     console.error(`Error: Main file ${mainFile} not found`);
     process.exit(1);

@@ -11,111 +11,111 @@
   "activationEvents": [
     "onLanguage:markdown"
   ],
-  "main": "./src/extension-obsidian.js",
+  "main": "./src/extension-markdown-inline.js",
   "contributes": {
     "commands": [
       {
-        "command": "obsidianMarkdown.smartEnter",
+        "command": "markdownInline.smartEnter",
         "title": "Smart Enter: Continue/Exit List",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.toggleCheckbox",
+        "command": "markdownInline.toggleCheckbox",
         "title": "Toggle Markdown Checkbox"
       },
       {
-        "command": "obsidianMarkdown.clickCheckbox",
+        "command": "markdownInline.clickCheckbox",
         "title": "Click Checkbox"
       },
       {
-        "command": "obsidianMarkdown.toggleCheckboxAtLine",
+        "command": "markdownInline.toggleCheckboxAtLine",
         "title": "Toggle Checkbox at Specific Line",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.formatTable",
+        "command": "markdownInline.formatTable",
         "title": "Format Markdown Table",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.increaseIndent",
+        "command": "markdownInline.increaseIndent",
         "title": "Increase List/Checkbox Indent",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.decreaseIndent", 
+        "command": "markdownInline.decreaseIndent", 
         "title": "Decrease List/Checkbox Indent",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.smartMoveLeft",
+        "command": "markdownInline.smartMoveLeft",
         "title": "Smart Move Left (Move cursor after Markdown element)",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.smartSelectLeft",
+        "command": "markdownInline.smartSelectLeft",
         "title": "Smart Select Left (Select from element to end of line)",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.smartSelectAll",
+        "command": "markdownInline.smartSelectAll",
         "title": "Smart Select All in Code Block",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.moveLineUp",
+        "command": "markdownInline.moveLineUp",
         "title": "Move Line/Selection Up",
         "enablement": "editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.moveLineDown",
+        "command": "markdownInline.moveLineDown",
         "title": "Move Line/Selection Down",
         "enablement": "editorLangId == markdown"
       }
     ],
     "keybindings": [
       {
-        "command": "obsidianMarkdown.smartEnter",
+        "command": "markdownInline.smartEnter",
         "key": "enter",
         "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !renameInputVisible && !inSnippetMode && !editorReadonly"
       },
       {
-        "command": "obsidianMarkdown.toggleCheckbox",
+        "command": "markdownInline.toggleCheckbox",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
         "when": "editorTextFocus && editorLangId == markdown"
       },
       {
-        "command": "obsidianMarkdown.increaseIndent",
+        "command": "markdownInline.increaseIndent",
         "key": "tab",
         "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !renameInputVisible && !editorReadonly"
       },
       {
-        "command": "obsidianMarkdown.decreaseIndent",
+        "command": "markdownInline.decreaseIndent",
         "key": "shift+tab",
         "when": "editorTextFocus && editorLangId == markdown && !suggestWidgetVisible && !inSnippetMode && !editorTabMovesFocus && !renameInputVisible && !editorReadonly"
       }
     ],
     "configuration": {
-      "title": "Obsidian-like Markdown Editor",
+      "title": "Markdown Inline Preview",
       "properties": {
-        "obsidianMarkdown.enablePreview": {
+        "markdownInline.enablePreview": {
           "type": "boolean",
           "default": true,
           "description": "Enable preview decorations for non-focused lines"
         },
-        "obsidianMarkdown.checkboxStyle": {
+        "markdownInline.checkboxStyle": {
           "type": "string",
           "default": "icons",
           "enum": ["icons", "brackets"],
           "description": "Style for checkbox display"
         },
-        "obsidianMarkdown.showCheckboxCodeLens": {
+        "markdownInline.showCheckboxCodeLens": {
           "type": "boolean",
           "default": true,
           "description": "Show clickable CodeLens above checkboxes for easy toggling"
         },
-        "obsidianMarkdown.table.widthCalculation": {
+        "markdownInline.table.widthCalculation": {
           "type": "string",
           "default": "smart",
           "enum": ["simple", "smart", "fullwidth"],
@@ -126,38 +126,38 @@
           ],
           "description": "How to calculate character width in tables"
         },
-        "obsidianMarkdown.table.japaneseCharWidth": {
+        "markdownInline.table.japaneseCharWidth": {
           "type": "number",
           "default": 2.0,
           "minimum": 1.5,
           "maximum": 2.5,
           "description": "Width multiplier for Japanese characters"
         },
-        "obsidianMarkdown.table.narrowCharWidth": {
+        "markdownInline.table.narrowCharWidth": {
           "type": "number",
           "default": 0.8,
           "minimum": 0.5,
           "maximum": 1.0,
           "description": "Width multiplier for narrow characters (i, l, 1, etc.)"
         },
-        "obsidianMarkdown.table.wideCharWidth": {
+        "markdownInline.table.wideCharWidth": {
           "type": "number",
           "default": 1.3,
           "minimum": 1.0,
           "maximum": 1.5,
           "description": "Width multiplier for wide characters (W, M, m, etc.)"
         },
-        "obsidianMarkdown.autoMoveCompletedTasks": {
+        "markdownInline.autoMoveCompletedTasks": {
           "type": "boolean",
           "default": false,
           "description": "Automatically move completed tasks to the bottom of the list"
         },
-        "obsidianMarkdown.hideStrikethroughOnEdit": {
+        "markdownInline.hideStrikethroughOnEdit": {
           "type": "boolean",
           "default": true,
           "description": "Hide strikethrough decoration while editing a line"
         },
-        "obsidianMarkdown.checkboxClickableArea": {
+        "markdownInline.checkboxClickableArea": {
           "type": "string",
           "default": "checkbox",
           "enum": ["checkbox", "full-line"],
@@ -167,12 +167,12 @@
           ],
           "description": "Defines the clickable area for toggling checkboxes"
         },
-        "obsidianMarkdown.enableHeadingDecorations": {
+        "markdownInline.enableHeadingDecorations": {
           "type": "boolean",
           "default": true,
           "description": "Enable visual styling for Markdown headings (H1-H6)"
         },
-        "obsidianMarkdown.headingColorScheme": {
+        "markdownInline.headingColorScheme": {
           "type": "string",
           "default": "default",
           "enum": ["default", "monochrome", "vibrant"],

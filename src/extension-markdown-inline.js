@@ -141,7 +141,7 @@ function activate(context) {
             if (editor.document.languageId !== 'markdown') return;
             
             // 旧スマートEnter（ドキュメント変更ベース）は無効化
-            // Enter 継続処理はコマンド `obsidianMarkdown.smartEnter` に移行
+            // Enter 継続処理はコマンド `markdownInline.smartEnter` に移行
             
             // コードブロックの自動補完
             if (event.contentChanges.length > 0) {
@@ -1307,7 +1307,7 @@ function toggleCheckbox(editor, lineNumber) {
     
     if (line.includes('- [ ]')) {
         newLine = line.replace('- [ ]', '- [x]');
-        shouldMoveToBottom = vscode.workspace.getConfiguration('obsidianMarkdown').get('autoMoveCompletedTasks', false);
+        shouldMoveToBottom = vscode.workspace.getConfiguration('markdownInline').get('autoMoveCompletedTasks', false);
         // チェックした時も、カーソルをチェックボックス後のスペースに配置
         const checkboxEndMatch = newLine.match(/^(\s*-\s\[[xX]\]\s*)/);
         if (checkboxEndMatch) {
@@ -1466,7 +1466,7 @@ function registerCommands(context) {
         }
     };
     // スマートEnter（リスト継続/解除）
-    safeRegister('obsidianMarkdown.smartEnter', async () => {
+    safeRegister('markdownInline.smartEnter', async () => {
         try {
             await smartEnterCommand();
         } catch (e) {
@@ -1476,7 +1476,7 @@ function registerCommands(context) {
     });
 
     // スマートカーソル移動（左）コマンド - Cmd+Left
-    safeRegister('obsidianMarkdown.smartMoveLeft', () => {
+    safeRegister('markdownInline.smartMoveLeft', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         
@@ -1524,7 +1524,7 @@ function registerCommands(context) {
     });
     
     // スマート選択（左）コマンド - Shift+Cmd+Left
-    safeRegister('obsidianMarkdown.smartSelectLeft', () => {
+    safeRegister('markdownInline.smartSelectLeft', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         
@@ -1706,22 +1706,87 @@ function registerCommands(context) {
     });
     
     // 行の上下移動コマンド - Cmd+Shift+Up/Down（階層構造を考慮）
-    safeRegister('obsidianMarkdown.moveLineUp', () => {
+    safeRegister('markdownInline.moveLineUp', () => {
         moveLineWithHierarchy(vscode.window.activeTextEditor, 'up');
     });
     
-    safeRegister('obsidianMarkdown.moveLineDown', () => {
+    safeRegister('markdownInline.moveLineDown', () => {
         moveLineWithHierarchy(vscode.window.activeTextEditor, 'down');
     });
     
     // スマート選択（全体）コマンド
-    safeRegister('obsidianMarkdown.smartSelectAll', () => {
+    safeRegister('markdownInline.smartSelectAll', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
-        
+
         const position = editor.selection.active;
         const document = editor.document;
-        
+
+        // 表の中かチェック
+        const currentLine = document.lineAt(position.line).text;
+        if (currentLine.includes('|')) {
+            // セルの範囲を特定
+            const cells = currentLine.split('|');
+            let charCount = 0;
+
+            for (let i = 0; i < cells.length; i++) {
+                const cellStart = charCount;
+                const cellEnd = charCount + cells[i].length;
+
+                if (position.character >= cellStart && position.character <= cellEnd) {
+                    // セル内のコンテンツ範囲（パイプを除く）
+                    const cellContent = cells[i];
+                    const trimStart = cellContent.search(/\S/);
+                    const trimEnd = cellContent.search(/\s*$/);
+
+                    const contentStartChar = cellStart + (trimStart >= 0 ? trimStart : 0);
+                    const contentEndChar = cellStart + (trimEnd >= 0 ? trimEnd : cellContent.length);
+
+                    const curSel = editor.selection;
+
+                    // 1段階目: セル内のコンテンツのみ選択
+                    const cellContentSelection = new vscode.Selection(
+                        new vscode.Position(position.line, contentStartChar),
+                        new vscode.Position(position.line, contentEndChar)
+                    );
+
+                    // 2段階目: 表の行全体を選択
+                    const rowSelection = new vscode.Selection(
+                        new vscode.Position(position.line, 0),
+                        new vscode.Position(position.line, currentLine.length)
+                    );
+
+                    // 現在の選択状態を判定
+                    const isCellContentSelected =
+                        curSel.start.line === cellContentSelection.start.line &&
+                        curSel.start.character === cellContentSelection.start.character &&
+                        curSel.end.line === cellContentSelection.end.line &&
+                        curSel.end.character === cellContentSelection.end.character;
+
+                    const isRowSelected =
+                        curSel.start.line === rowSelection.start.line &&
+                        curSel.start.character === rowSelection.start.character &&
+                        curSel.end.line === rowSelection.end.line &&
+                        curSel.end.character === rowSelection.end.character;
+
+                    if (isRowSelected) {
+                        // 3段階目: ドキュメント全体を選択
+                        vscode.commands.executeCommand('editor.action.selectAll');
+                    } else if (isCellContentSelected) {
+                        // 2段階目: 表の行全体を選択
+                        editor.selection = rowSelection;
+                    } else {
+                        // 1段階目: セル内のコンテンツのみ選択
+                        editor.selection = cellContentSelection;
+                    }
+
+                    return;
+                }
+
+                charCount += cells[i].length + 1; // +1 for the pipe character
+            }
+        }
+
         // コードブロック内かチェック
         let inFence = false;
         let fenceStart = -1;
@@ -1770,13 +1835,13 @@ function registerCommands(context) {
     });
     
     // その他のコマンド
-    safeRegister('obsidianMarkdown.toggleCheckbox', () => {
+    safeRegister('markdownInline.toggleCheckbox', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         toggleCheckbox(editor, editor.selection.active.line);
     });
 
-    safeRegister('obsidianMarkdown.formatTable', () => {
+    safeRegister('markdownInline.formatTable', () => {
         debugLog('[COMMAND] Format Table command invoked');
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -1788,13 +1853,13 @@ function registerCommands(context) {
         formatTableAtLine(editor, line);
     });
 
-    safeRegister('obsidianMarkdown.increaseIndent', () => {
+    safeRegister('markdownInline.increaseIndent', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         adjustIndent(editor, true);
     });
     
-    safeRegister('obsidianMarkdown.decreaseIndent', () => {
+    safeRegister('markdownInline.decreaseIndent', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         adjustIndent(editor, false);

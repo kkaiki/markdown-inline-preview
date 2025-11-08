@@ -33,9 +33,9 @@
   "markdown.extension.toc.updateOnSave": false,
   
   // Markdown Inline Preview拡張機能の設定
-  "obsidianMarkdown.autoMoveCompletedTasks": false,
-  "obsidianMarkdown.hideStrikethroughOnEdit": true,
-  "obsidianMarkdown.checkboxClickableArea": "checkbox",
-  "obsidianMarkdown.enableHeadingDecorations": true,
-  "obsidianMarkdown.headingColorScheme": "default"
+  "markdownInline.autoMoveCompletedTasks": false,
+  "markdownInline.hideStrikethroughOnEdit": true,
+  "markdownInline.checkboxClickableArea": "checkbox",
+  "markdownInline.enableHeadingDecorations": true,
+  "markdownInline.headingColorScheme": "default"
 }
