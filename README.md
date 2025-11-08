@@ -1,6 +1,6 @@
-# Obsidian-like Markdown Editor for VSCode
+# Markdown Inline Preview for VSCode
 
-ObsidianやNotionのようなWYSIWYG的な編集体験をVSCodeのMarkdownファイルで実現する拡張機能です。
+NotionやObsidianのようなWYSIWYG的な編集体験をVSCodeのMarkdownファイルで実現する拡張機能です。
 
 ## 主な機能
 
@@ -38,9 +38,15 @@ ObsidianやNotionのようなWYSIWYG的な編集体験をVSCodeのMarkdownファ
 - **スマート選択** (`Shift+Cmd+Left` / `Shift+Ctrl+Left`):
   - チェックボックス行で段階的に選択範囲を拡張
   - テキスト部分 → チェックボックス含む → 行全体（インデント含む）
-- **コードブロック内全選択** (`Cmd+A` / `Ctrl+A`):
-  - コードブロック内でCmd+Aを押すとコード部分のみを選択
-  - もう一度押すとファイル全体を選択
+- **コンテキストに応じた全選択** (`Cmd+A` / `Ctrl+A`):
+  - **表のセル内**: 3段階の選択動作
+    - 1回目: セル内のテキストのみ選択
+    - 2回目: 表の行全体を選択
+    - 3回目: ドキュメント全体を選択
+  - **コードブロック内**: 2段階の選択動作
+    - 1回目: コード部分のみを選択
+    - 2回目: ドキュメント全体を選択
+  - **通常のテキスト**: 標準の全選択動作
 - **IntelliSense無効化**: Markdown編集時の不要な自動補完を完全に無効化
 
 ## 実装の詳細
@@ -126,7 +132,7 @@ if (change.text && /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-
 
 ### VSIXファイルからインストール
 ```bash
-code --install-extension obsidian-like-markdown-editor-1.2.1.vsix
+code --install-extension markdown-inline-preview-1.2.1.vsix
 ```
 
 ### ソースからビルド
@@ -141,20 +147,20 @@ npm run compile
 vsce package
 
 # インストール
-code --install-extension obsidian-like-markdown-editor-*.vsix
+code --install-extension markdown-inline-preview-*.vsix
 ```
 
 ## 設定オプション
 
 | 設定項目 | デフォルト値 | 説明 |
 |---------|------------|------|
-| `obsidianMarkdown.enablePreview` | `true` | プレビュー装飾の有効/無効 |
-| `obsidianMarkdown.checkboxStyle` | `icons` | チェックボックスの表示スタイル |
-| `obsidianMarkdown.showCheckboxCodeLens` | `true` | CodeLens表示（現在無効化） |
-| `obsidianMarkdown.table.widthCalculation` | `smart` | テーブル文字幅計算方法 |
-| `obsidianMarkdown.table.japaneseCharWidth` | `2.0` | 日本語文字の幅係数 |
-| `obsidianMarkdown.table.narrowCharWidth` | `0.8` | 狭い文字の幅係数 |
-| `obsidianMarkdown.table.wideCharWidth` | `1.3` | 広い文字の幅係数 |
+| `markdownInline.enablePreview` | `true` | プレビュー装飾の有効/無効 |
+| `markdownInline.checkboxStyle` | `icons` | チェックボックスの表示スタイル |
+| `markdownInline.showCheckboxCodeLens` | `true` | CodeLens表示（現在無効化） |
+| `markdownInline.table.widthCalculation` | `smart` | テーブル文字幅計算方法 |
+| `markdownInline.table.japaneseCharWidth` | `2.0` | 日本語文字の幅係数 |
+| `markdownInline.table.narrowCharWidth` | `0.8` | 狭い文字の幅係数 |
+| `markdownInline.table.wideCharWidth` | `1.3` | 広い文字の幅係数 |
 
 ## キーボードショートカット
 
@@ -164,7 +170,7 @@ code --install-extension obsidian-like-markdown-editor-*.vsix
 | インデント増加 | `Tab` | `Tab` |
 | インデント減少 | `Shift+Tab` | `Shift+Tab` |
 | スマート選択 | `Shift+Cmd+Left` | `Shift+Ctrl+Left` |
-| コードブロック内全選択 | `Cmd+A` | `Ctrl+A` |
+| コンテキスト対応全選択 | `Cmd+A` | `Ctrl+A` |
 
 ## 連携している拡張機能
 

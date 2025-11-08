@@ -95,7 +95,7 @@ Obsidian、Notion といったモダンなノートアプリケーションは�
   ```
 
 - **設定項目**
-  - `obsidianMarkdown.autoMoveCompletedTasks`：デフォルトは `false`
+  - `markdownInline.autoMoveCompletedTasks`：デフォルトは `false`
   - ネストされたリストの階層は維持
   - 空行で区切られたリストは別グループとして扱う
 
@@ -148,11 +148,22 @@ Obsidian、Notion といったモダンなノートアプリケーションは�
   - コピー操作に最適化
   - 記法部分を除いたコンテンツのみ選択可能
 
-#### 4.2 コードブロック内選択
+#### 4.2 コンテキストに応じた全選択
 - **Cmd+A / Ctrl+A**
-  - コードブロック内でのみコードを選択
-  - ` ``` ` マーカーは除外
-  - 通常のテキストでは標準の全選択動作
+  - **表のセル内での動作（3段階選択）**
+    - 1回目：セル内のテキストコンテンツのみ選択（空白を除く）
+    - 2回目：表の行全体を選択
+    - 3回目：ドキュメント全体を選択
+    - パイプ区切りを正確に解析してセル境界を判定
+    - カーソル位置からセルを特定
+
+  - **コードブロック内での動作（2段階選択）**
+    - 1回目：コードブロック内容のみを選択
+    - 2回目：ドキュメント全体を選択
+    - ` ``` ` マーカーは除外
+
+  - **通常のテキスト**
+    - 標準の全選択動作
 
 ### 5. ドラッグ選択時の保護
 
@@ -206,11 +217,11 @@ Obsidian、Notion といったモダンなノートアプリケーションは�
 
 ```json
 {
-  "obsidianMarkdown.autoMoveCompletedTasks": false,      // 完了タスクの自動移動
-  "obsidianMarkdown.hideStrikethroughOnEdit": true,      // 編集中の横線非表示
-  "obsidianMarkdown.checkboxClickableArea": "checkbox",  // クリック可能範囲
-  "obsidianMarkdown.enableHeadingDecorations": true,     // 見出し装飾の有効化
-  "obsidianMarkdown.headingColorScheme": "default"       // 見出しのカラースキーム
+  "markdownInline.autoMoveCompletedTasks": false,      // 完了タスクの自動移動
+  "markdownInline.hideStrikethroughOnEdit": true,      // 編集中の横線非表示
+  "markdownInline.checkboxClickableArea": "checkbox",  // クリック可能範囲
+  "markdownInline.enableHeadingDecorations": true,     // 見出し装飾の有効化
+  "markdownInline.headingColorScheme": "default"       // 見出しのカラースキーム
 }
 ```
 
@@ -270,7 +281,8 @@ Obsidian、Notion といったモダンなノートアプリケーションは�
 ### シナリオ3：快適な編集体験
 1. 完了タスクの編集時、横線が消えて編集しやすい
 2. Cmd+Leftで素早く内容部分へジャンプ
-3. コードブロック内でCmd+Aを押すとコード部分のみ選択
+3. 表のセル内でCmd+Aを押すとセル内容のみ選択、もう一度押すと行全体、さらにもう一度でドキュメント全体
+4. コードブロック内でCmd+Aを押すとコード部分のみ選択、もう一度押すとドキュメント全体
 
 ## 今後の拡張予定
 - タスクの優先度表示（高/中/低）
@@ -290,6 +302,7 @@ Obsidian、Notion といったモダンなノートアプリケーションは�
 - 編集中の横線非表示機能を実装
 - 見出しの視覚的装飾を追加（H1-H6で異なる色・太さ・背景）
 - チェック/解除両方でカーソル位置を設定
+- 表のセル内での3段階Cmd+A選択機能を追加（セル内容→行全体→ドキュメント全体）
 
 ### Version 1.2.0
 - 基本的なチェックボックス装飾機能
