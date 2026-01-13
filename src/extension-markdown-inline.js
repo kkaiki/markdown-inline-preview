@@ -6,6 +6,7 @@ let headingDecorations = []; // H1..H6
 let codeBlockDecoration = null; // Fenced code blocks
 let horizontalRuleDecoration = null; // Horizontal rule (---)
 let updateTimer = null;
+let tocUpdateTimer = null; // 目次自動更新用タイマー
 let currentEditingLine = -1; // 現在編集中の行番号
 let isDragging = false; // ドラッグ選択中かどうか
 let lastSelectionRange = null; // 最後の選択範囲を記憶
@@ -194,9 +195,42 @@ function activate(context) {
             updateTimer = setTimeout(() => {
                 updateAllDecorations(editor);
             }, 50);
+
+            // 目次自動更新（見出し変更時）
+            // 変更された行が見出しかどうかをチェック
+            const hasHeadingChange = event.contentChanges.some(change => {
+                const startLine = change.range.start.line;
+                const endLine = change.range.end.line;
+                for (let i = startLine; i <= endLine; i++) {
+                    if (i < editor.document.lineCount) {
+                        const lineText = editor.document.lineAt(i).text;
+                        if (lineText.match(/^#{1,6}\s/) || change.text.match(/^#{1,6}\s/)) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+
+            if (hasHeadingChange) {
+                // 自動更新設定を確認
+                const config = vscode.workspace.getConfiguration('markdownInline');
+                const autoUpdate = config.get('toc.autoUpdate', true);
+
+                if (autoUpdate) {
+                    // 目次マーカーがあるか確認してから更新
+                    if (tocUpdateTimer) clearTimeout(tocUpdateTimer);
+                    tocUpdateTimer = setTimeout(() => {
+                        const text = editor.document.getText();
+                        if (text.includes('/目次') || text.includes('/toc')) {
+                            updateTableOfContents(editor, true);
+                        }
+                    }, 500); // 500msのデバウンス
+                }
+            }
         })
     );
-    
+
     // エディタ変更イベント
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -297,8 +331,326 @@ function activate(context) {
 }
 
 // =========================
+// Table of Contents (目次)
+// =========================
+
+/**
+ * ドキュメント内の見出しを収集
+ * @param {vscode.TextDocument} document
+ * @returns {Array<{level: number, text: string, line: number}>}
+ */
+function collectHeadings(document) {
+    const headings = [];
+    let inCodeBlock = false;
+
+    for (let i = 0; i < document.lineCount; i++) {
+        const lineText = document.lineAt(i).text;
+
+        // コードブロック内は無視
+        if (lineText.trim().startsWith('```')) {
+            inCodeBlock = !inCodeBlock;
+            continue;
+        }
+        if (inCodeBlock) continue;
+
+        // 見出しを検出 (# から ###### まで)
+        const headingMatch = lineText.match(/^(#{1,6})\s+(.+)$/);
+        if (headingMatch) {
+            const level = headingMatch[1].length;
+            const text = headingMatch[2].trim();
+            headings.push({ level, text, line: i });
+        }
+    }
+
+    return headings;
+}
+
+/**
+ * 見出しテキストからアンカーリンク用のスラッグを生成
+ * @param {string} text
+ * @returns {string}
+ */
+function generateSlug(text) {
+    return text
+        .toLowerCase()
+        .replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s-]/g, '') // 日本語と英数字を保持
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+}
+
+/**
+ * 目次テキストを生成
+ * @param {Array<{level: number, text: string, line: number}>} headings
+ * @param {number} minLevel - 含める最小レベル (default: 1)
+ * @param {number} maxLevel - 含める最大レベル (default: 6)
+ * @returns {string}
+ */
+function generateTableOfContents(headings, minLevel = 1, maxLevel = 6) {
+    if (headings.length === 0) {
+        return '';
+    }
+
+    const lines = [];
+
+    // 最小の見出しレベルを基準にインデントを計算
+    const baseLevel = Math.min(...headings.map(h => h.level));
+
+    for (const heading of headings) {
+        if (heading.level < minLevel || heading.level > maxLevel) continue;
+
+        const indent = '  '.repeat(heading.level - baseLevel);
+        const slug = generateSlug(heading.text);
+        lines.push(`${indent}- [${heading.text}](#${slug})`);
+    }
+
+    return lines.join('\n');
+}
+
+/**
+ * /目次 マーカーを探して目次を更新
+ * @param {vscode.TextEditor} editor
+ * @param {boolean} autoMode - 自動更新モード（変更がない場合は何もしない）
+ */
+async function updateTableOfContents(editor, autoMode = false) {
+    const document = editor.document;
+    const text = document.getText();
+
+    // /目次 または /toc マーカーを検索
+    const tocMarkerRegex = /^(\/目次|\/toc)(\s*)?$/gm;
+    let match;
+    let foundMarker = false;
+
+    while ((match = tocMarkerRegex.exec(text)) !== null) {
+        foundMarker = true;
+        const markerPos = document.positionAt(match.index);
+        const markerLine = markerPos.line;
+
+        // マーカーがコードブロック内か確認
+        if (isInFencedCodeBlock(document, markerLine)) {
+            continue;
+        }
+
+        // 見出しを収集（目次マーカー自体は除外）
+        const headings = collectHeadings(document).filter(h => h.line !== markerLine);
+
+        // 設定から見出しレベルを取得
+        const config = vscode.workspace.getConfiguration('markdownInline');
+        const minLevel = config.get('toc.minLevel', 1);
+        const maxLevel = config.get('toc.maxLevel', 6);
+
+        // 目次を生成
+        const tocContent = generateTableOfContents(headings, minLevel, maxLevel);
+
+        if (!tocContent) {
+            debugLog('[TOC] No headings found');
+            continue;
+        }
+
+        // 既存の目次範囲を検出
+        // 目次マーカーの次の行から、次の空行または非リスト行まで
+        let tocStartLine = markerLine + 1;
+        let tocEndLine = tocStartLine;
+
+        // 既存の目次を探す
+        for (let i = tocStartLine; i < document.lineCount; i++) {
+            const lineText = document.lineAt(i).text;
+            // 空行の場合
+            if (lineText.trim() === '') {
+                // 次の行がリスト項目なら続行
+                if (i + 1 < document.lineCount) {
+                    const nextLine = document.lineAt(i + 1).text;
+                    if (nextLine.match(/^\s*-\s+\[.+\]\(#.+\)/)) {
+                        continue;
+                    }
+                }
+                tocEndLine = i;
+                break;
+            }
+            // 目次のリスト項目でない場合は終了
+            if (!lineText.match(/^\s*-\s+\[.+\]\(#.+\)/)) {
+                tocEndLine = i;
+                break;
+            }
+            tocEndLine = i + 1;
+        }
+
+        // 既存の目次内容を取得
+        let existingToc = '';
+        if (tocEndLine > tocStartLine) {
+            const existingRange = new vscode.Range(
+                new vscode.Position(tocStartLine, 0),
+                new vscode.Position(tocEndLine - 1, document.lineAt(tocEndLine - 1).text.length)
+            );
+            existingToc = document.getText(existingRange);
+        }
+
+        // 自動モードで変更がない場合はスキップ
+        if (autoMode && existingToc.trim() === tocContent.trim()) {
+            debugLog('[TOC] No changes needed');
+            continue;
+        }
+
+        // 目次を更新
+        await editor.edit(editBuilder => {
+            if (tocEndLine > tocStartLine) {
+                // 既存の目次を置換
+                const replaceRange = new vscode.Range(
+                    new vscode.Position(tocStartLine, 0),
+                    new vscode.Position(tocEndLine, 0)
+                );
+                editBuilder.replace(replaceRange, tocContent + '\n\n');
+            } else {
+                // 新しく目次を挿入
+                const insertPos = new vscode.Position(markerLine + 1, 0);
+                editBuilder.insert(insertPos, '\n' + tocContent + '\n');
+            }
+        });
+
+        debugLog(`[TOC] Updated table of contents at line ${markerLine}`);
+    }
+
+    if (!foundMarker && !autoMode) {
+        vscode.window.showInformationMessage('目次マーカー (/目次 または /toc) が見つかりません');
+    }
+}
+
+// =========================
 // Markdown Table Formatting
 // =========================
+
+/**
+ * テーブル行の全セル情報を取得
+ * @param {string} lineText - 行のテキスト
+ * @returns {Array<{start: number, end: number, contentStart: number, contentEnd: number}>|null}
+ */
+function getAllTableCells(lineText) {
+    if (!lineText.includes('|')) {
+        return null;
+    }
+
+    // セパレータ行（|---|---| など）は除外
+    if (lineText.match(/^\s*\|?\s*[-:]+\s*\|/)) {
+        return null;
+    }
+
+    const cells = [];
+    let inCell = false;
+    let cellStart = 0;
+
+    for (let i = 0; i < lineText.length; i++) {
+        if (lineText[i] === '|') {
+            if (inCell) {
+                const cellText = lineText.substring(cellStart, i);
+                const leadingSpaces = cellText.match(/^(\s*)/)[1].length;
+                const trailingMatch = cellText.match(/(\s*)$/);
+                const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+
+                cells.push({
+                    start: cellStart,
+                    end: i,
+                    contentStart: cellStart + leadingSpaces,
+                    contentEnd: i - trailingSpaces
+                });
+            }
+            cellStart = i + 1;
+            inCell = true;
+        }
+    }
+
+    // 最後のセル（末尾に|がない場合）
+    if (inCell && cellStart < lineText.length) {
+        const cellText = lineText.substring(cellStart, lineText.length);
+        const leadingSpaces = cellText.match(/^(\s*)/)[1].length;
+        const trailingMatch = cellText.match(/(\s*)$/);
+        const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+
+        cells.push({
+            start: cellStart,
+            end: lineText.length,
+            contentStart: cellStart + leadingSpaces,
+            contentEnd: lineText.length - trailingSpaces
+        });
+    }
+
+    return cells.length > 0 ? cells : null;
+}
+
+/**
+ * テーブル行かどうかを判定し、カーソル位置のセル情報を返す
+ * @param {string} lineText - 行のテキスト
+ * @param {number} cursorChar - カーソルの文字位置
+ * @returns {null | {isTable: boolean, cellIndex: number, cellStart: number, cellEnd: number, cellContentStart: number, cellContentEnd: number, allCells: Array}}
+ */
+function getTableCellInfo(lineText, cursorChar) {
+    const cells = getAllTableCells(lineText);
+    if (!cells) {
+        return null;
+    }
+
+    // カーソルがどのセルにいるか特定
+    for (let i = 0; i < cells.length; i++) {
+        const cell = cells[i];
+        if (cursorChar >= cell.start && cursorChar <= cell.end) {
+            return {
+                isTable: true,
+                cellIndex: i,
+                cellStart: cell.start,
+                cellEnd: cell.end,
+                cellContentStart: cell.contentStart,
+                cellContentEnd: cell.contentEnd,
+                allCells: cells
+            };
+        }
+    }
+
+    // カーソルが|の上にある場合
+    if (lineText[cursorChar] === '|') {
+        // 前のセルを返す（|の直前にいる場合）
+        for (let i = 0; i < cells.length; i++) {
+            if (cells[i].end === cursorChar) {
+                return {
+                    isTable: true,
+                    cellIndex: i,
+                    cellStart: cells[i].start,
+                    cellEnd: cells[i].end,
+                    cellContentStart: cells[i].contentStart,
+                    cellContentEnd: cells[i].contentEnd,
+                    allCells: cells
+                };
+            }
+        }
+        // 次のセルを返す（|の直後に移動する場合）
+        for (let i = 0; i < cells.length; i++) {
+            if (cells[i].start === cursorChar + 1) {
+                return {
+                    isTable: true,
+                    cellIndex: i,
+                    cellStart: cells[i].start,
+                    cellEnd: cells[i].end,
+                    cellContentStart: cells[i].contentStart,
+                    cellContentEnd: cells[i].contentEnd,
+                    allCells: cells
+                };
+            }
+        }
+    }
+
+    // 行頭（最初の|の前）にいる場合
+    if (cursorChar === 0 && cells.length > 0) {
+        return {
+            isTable: true,
+            cellIndex: -1, // 行頭を示す
+            cellStart: 0,
+            cellEnd: 0,
+            cellContentStart: 0,
+            cellContentEnd: 0,
+            allCells: cells
+        };
+    }
+
+    return null;
+}
 
 // 現在の行がフェンスドコードブロック内か判定
 function isInFencedCodeBlock(document, lineIndex) {
@@ -314,12 +666,15 @@ function isInFencedCodeBlock(document, lineIndex) {
 
 // コマンド版 スマートEnter（リスト継続/解除）
 async function smartEnterCommand() {
+    debugLog('[smartEnter] Command called');
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'markdown') {
+        debugLog('[smartEnter] Not markdown, using default Enter');
         // 非Markdownでは通常の改行
         await vscode.commands.executeCommand('type', { text: '\n' });
         return;
     }
+    debugLog('[smartEnter] Processing markdown file');
 
     const document = editor.document;
     const selections = editor.selections;
@@ -329,6 +684,8 @@ async function smartEnterCommand() {
     const preEdits = [];
     const continuationTexts = new Array(selections.length).fill(null);
     let skipNewlineForSingle = false;
+    let hasOrderedList = false; // 番号付きリストが存在するかフラグ
+    let orderedListLine = -1; // 番号付きリストの行番号を記憶
 
     for (let i = 0; i < selections.length; i++) {
         const sel = selections[i];
@@ -356,6 +713,9 @@ async function smartEnterCommand() {
             const isEmptyItem = content.trim().length === 0;
             const atEndOfLine = pos.character >= lineText.length;
 
+            // チェックボックスマーカーの終了位置を計算（"- [ ] "の部分）
+            const checkboxMarkerEnd = indent.length + marker.length + 5; // marker + " [x] " = 5文字
+
             if (isEmptyItem && atEndOfLine) {
                 // 空のチェックボックスで、カーソルが末尾にある場合
                 // マーカーを削除し、改行しない
@@ -365,21 +725,32 @@ async function smartEnterCommand() {
                 });
                 continuationTexts[i] = null;
                 skipNewlineForSingle = true;
+            } else if (pos.character <= checkboxMarkerEnd) {
+                // カーソルがチェックボックスマーカー内または前にある場合
+                // 継続を追加しない（VSCodeが自動的にコピーするため）
+                continuationTexts[i] = null;
             } else {
-                continuationTexts[i] = `${marker} [ ] `; // インデントはVSCodeが自動付与
+                // カーソルがチェックボックスの後ろにある場合のみ継続を追加
+                continuationTexts[i] = `${indent}${marker} [ ] `;
             }
             continue;
         }
 
         // 箇条書き (- * +)
         if ((m = lineText.match(/^(\s*)([-*+])\s+(.*)$/))) {
+            debugLog(`[smartEnter] Bullet list detected: "${lineText}"`);
             const indent = m[1] || '';
             const marker = m[2];
             const content = (m[3] || '');
             const isEmptyItem = content.trim().length === 0;
             const atEndOfLine = pos.character >= lineText.length;
 
+            // 箇条書きマーカーの終了位置を計算（"- "の部分）
+            const bulletMarkerEnd = indent.length + marker.length + 1; // marker + " " = 1文字
+            debugLog(`[smartEnter] Cursor at ${pos.character}, markerEnd at ${bulletMarkerEnd}, isEmpty: ${isEmptyItem}, atEnd: ${atEndOfLine}`);
+
             if (isEmptyItem && atEndOfLine) {
+                debugLog('[smartEnter] Empty bullet, removing marker');
                 // 空のリストで、カーソルが末尾にある場合
                 // マーカーを削除し、改行しない
                 preEdits.push({
@@ -388,8 +759,15 @@ async function smartEnterCommand() {
                 });
                 continuationTexts[i] = null;
                 skipNewlineForSingle = true;
+            } else if (pos.character <= bulletMarkerEnd) {
+                debugLog('[smartEnter] Cursor in marker, no continuation');
+                // カーソルが箇条書きマーカー内または前にある場合
+                // 継続を追加しない（VSCodeが自動的にコピーするため）
+                continuationTexts[i] = null;
             } else {
-                continuationTexts[i] = `${marker} `;
+                debugLog(`[smartEnter] Adding bullet continuation: "${indent}${marker} "`);
+                // カーソルが箇条書きマーカーの後ろにある場合のみ継続を追加
+                continuationTexts[i] = `${indent}${marker} `;
             }
             continue;
         }
@@ -414,7 +792,9 @@ async function smartEnterCommand() {
                 skipNewlineForSingle = true;
             } else {
                 const next = num + 1;
-                continuationTexts[i] = `${next}${punct} `;
+                continuationTexts[i] = `${indent}${next}${punct} `;
+                hasOrderedList = true; // 番号付きリストフラグを立てる
+                orderedListLine = lineIdx; // 元の行番号を記憶
             }
             continue;
         }
@@ -423,43 +803,32 @@ async function smartEnterCommand() {
         continuationTexts[i] = null;
     }
 
-    // 事前置換（マーカー除去）
-    if (preEdits.length > 0) {
-        await editor.edit(eb => {
-            for (const e of preEdits) eb.replace(e.range, e.text);
-        });
-    }
+    // 全ての編集を一つの操作にまとめる（Undo/Redoを1回で実行できるように）
+    await editor.edit(eb => {
+        // 1. マーカー除去（空のチェックボックス/リストアイテムの削除）
+        for (const e of preEdits) {
+            eb.replace(e.range, e.text);
+        }
 
-    // 改行の実行（単一カーソルで「2回目のEnter」判定時は改行しない）
-    if (!(isSingleCursor && skipNewlineForSingle)) {
-        await vscode.commands.executeCommand('type', { text: '\n' });
-    }
+        // 2. 改行とマーカー挿入を同時に実行
+        if (!(isSingleCursor && skipNewlineForSingle)) {
+            for (let i = 0; i < selections.length; i++) {
+                const sel = selections[i];
+                const cont = continuationTexts[i];
+                const pos = sel.active;
 
-    // 継続挿入（各カーソル位置へマーカーを追加）
-    const afterSelections = editor.selections;
-    const inserts = [];
-    for (let i = 0; i < afterSelections.length; i++) {
-        const cont = continuationTexts[i];
-        if (!cont) continue;
-        const pos = afterSelections[i].active; // 新しい行のインデント位置
-        // コードブロック内は改めて無視
-        if (isInFencedCodeBlock(editor.document, pos.line)) continue;
-        inserts.push({ position: pos, text: cont });
-    }
+                // 改行とマーカーを一緒に挿入
+                if (cont) {
+                    eb.insert(pos, '\n' + cont);
+                } else {
+                    eb.insert(pos, '\n');
+                }
+            }
+        }
+    });
 
-    if (inserts.length > 0) {
-        await editor.edit(eb => {
-            for (const ins of inserts) eb.insert(ins.position, ins.text);
-        });
-        // カーソルをマーカーの後ろへ
-        const finalSelections = editor.selections.map((sel, idx) => {
-            const cont = continuationTexts[idx];
-            if (!cont) return sel;
-            const p = sel.active.translate(0, cont.length);
-            return new vscode.Selection(p, p);
-        });
-        editor.selections = finalSelections;
-    }
+    // editor.edit()のinsertにより、カーソルは自動的に挿入テキストの末尾に移動している
+    debugLog('[smartEnter] Edit complete, cursor should be at end of inserted text');
 
     // Enter確定後にテーブル自動整形（元の行がテーブル行だった場合）
     try {
@@ -473,6 +842,14 @@ async function smartEnterCommand() {
             }
         }
     } catch (_) {}
+
+    // 番号付きリストの場合は番号を再採番
+    if (hasOrderedList && orderedListLine >= 0) {
+        // 挿入後、カーソルは新しい行にあるので、その行を基準に再採番
+        const currentLine = editor.selection.active.line;
+        debugLog('[smartEnter] Renumbering ordered lists from line', currentLine, '(original line was', orderedListLine, ')');
+        renumberLists(editor, currentLine);
+    }
 }
 
 // 全角判定（代表的なCJK/全角記号）
@@ -1467,26 +1844,91 @@ function registerCommands(context) {
     };
     // スマートEnter（リスト継続/解除）
     safeRegister('markdownInline.smartEnter', async () => {
+        debugLog('[REGISTER] smartEnter command triggered');
         try {
             await smartEnterCommand();
         } catch (e) {
+            debugLog(`[ERROR] smartEnter failed: ${e.message || e}`);
+            console.error('[smartEnter] Error:', e);
             // 失敗時は通常の改行にフォールバック
             await vscode.commands.executeCommand('type', { text: '\n' });
         }
+    });
+
+    // 目次更新コマンド
+    safeRegister('markdownInline.updateTableOfContents', async () => {
+        debugLog('[REGISTER] updateTableOfContents command triggered');
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.document.languageId !== 'markdown') {
+            vscode.window.showWarningMessage('Markdownファイルを開いてください');
+            return;
+        }
+        await updateTableOfContents(editor, false);
     });
 
     // スマートカーソル移動（左）コマンド - Cmd+Left
     safeRegister('markdownInline.smartMoveLeft', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
-        
+
         const position = editor.selection.active;
         const line = editor.document.lineAt(position.line);
         const text = line.text;
-        
+
+        debugLog('[smartMoveLeft] Called at position:', position.character, 'line:', text);
+
+        // テーブルセル内かどうかチェック
+        const cellInfo = getTableCellInfo(text, position.character);
+        debugLog('[smartMoveLeft] cellInfo:', cellInfo);
+
+        if (cellInfo && cellInfo.isTable) {
+            // テーブルセル内のナビゲーション（仕様書に従って実装）
+            // 状態遷移: セル中間 → コンテンツ開始 → セル左端 → 前セルコンテンツ末尾 → ... → 行頭
+
+            let targetPos;
+
+            if (position.character > cellInfo.cellContentStart) {
+                // ケース1: セル内の途中 → コンテンツ開始位置へ
+                targetPos = cellInfo.cellContentStart;
+                debugLog('[smartMoveLeft] Case 1: Moving to content start:', targetPos);
+            } else if (position.character > cellInfo.cellStart) {
+                // ケース2: コンテンツ開始位置 → セル左端（|の直後）へ
+                targetPos = cellInfo.cellStart;
+                debugLog('[smartMoveLeft] Case 2: Moving to cell start:', targetPos);
+            } else if (position.character === cellInfo.cellStart) {
+                // ケース3: セル左端 → 前のセルまたは行頭へ
+                if (cellInfo.cellIndex > 0) {
+                    // 前のセルがある場合
+                    const prevCell = cellInfo.allCells[cellInfo.cellIndex - 1];
+                    // 前のセルにコンテンツがあるかチェック
+                    if (prevCell.contentEnd > prevCell.contentStart) {
+                        // コンテンツがある場合: コンテンツ末尾へ
+                        targetPos = prevCell.contentEnd;
+                        debugLog('[smartMoveLeft] Case 3a: Moving to prev cell content end:', targetPos);
+                    } else {
+                        // 空セルの場合: セルの左端へ
+                        targetPos = prevCell.start;
+                        debugLog('[smartMoveLeft] Case 3b: Moving to prev cell start (empty):', targetPos);
+                    }
+                } else {
+                    // 最初のセルの場合: 行頭（位置0）へ
+                    targetPos = 0;
+                    debugLog('[smartMoveLeft] Case 3c: Moving to line start:', targetPos);
+                }
+            } else {
+                // その他（行頭にいる場合など）: デフォルト動作
+                vscode.commands.executeCommand('cursorWordLeft');
+                return;
+            }
+
+            const newPosition = new vscode.Position(position.line, targetPos);
+            editor.selection = new vscode.Selection(newPosition, newPosition);
+            return;
+        }
+
         // パターンマッチングで行頭の要素を検出
         let contentStart = 0;
-        
+
         // ヘッディング（# から ###### まで）
         const headingMatch = text.match(/^(#{1,6}\s+)/);
         if (headingMatch) {
@@ -1517,7 +1959,7 @@ function registerCommands(context) {
             const match = text.match(/^(```\w*\s*)/);
             contentStart = match[1].length;
         }
-        
+
         // Cmd+Left: コンテンツ開始位置にカーソル移動のみ
         const newPosition = new vscode.Position(position.line, contentStart);
         editor.selection = new vscode.Selection(newPosition, newPosition);
@@ -1527,135 +1969,184 @@ function registerCommands(context) {
     safeRegister('markdownInline.smartSelectLeft', () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
-        
+
         const selection = editor.selection;
         const position = selection.active;
         const line = editor.document.lineAt(position.line);
         const text = line.text;
-        
-        // パターンマッチングで行頭の要素を検出
-        let contentStart = 0;
-        let elementMatch = null;
-        const getPrevWordBoundary = (str, from, min) => {
-            // 直前の空白をスキップ
-            let i = from;
-            if (i <= min) return min;
-            while (i > min && /\s/.test(str[i - 1])) i--;
-            if (i <= min) return min;
-            // 単語の種類（英数字/アンダースコア）か、それ以外（記号など）かで連続領域を左へ辿る
-            const isWord = /[A-Za-z0-9_]/.test(str[i - 1]);
-            while (i > min && /[A-Za-z0-9_]/.test(str[i - 1]) === isWord && !/\s/.test(str[i - 1])) {
-                i--;
-            }
-            return i;
-        };
-        
-        // ヘッディング（# から ###### まで）
-        const headingMatch = text.match(/^(#{1,6}\s+)/);
-        if (headingMatch) {
-            contentStart = headingMatch[1].length;
-            elementMatch = headingMatch;
-        }
-        // チェックボックス
-        else if (text.match(/^(\s*-\s\[[\sx]?\]\s*)/i)) {
-            const match = text.match(/^(\s*-\s\[[\sx]?\]\s*)/i);
-            contentStart = match[1].length;
-            elementMatch = match;
-            
-            // 空のチェックボックスの場合（テキストがない場合）
-            const textContent = text.substring(contentStart).trim();
-            if (textContent === '') {
-                // 行全体を選択（行頭から行末）
-                // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
-                const newSelection = new vscode.Selection(
-                    new vscode.Position(position.line, text.length),
-                    new vscode.Position(position.line, 0)
-                );
-                editor.selection = newSelection;
-                return;
-            }
-        }
-        // 順序付きリスト
-        else if (text.match(/^(\s*\d+\.\s+)/)) {
-            const match = text.match(/^(\s*\d+\.\s+)/);
-            contentStart = match[1].length;
-            elementMatch = match;
-        }
-        // 順序なしリスト（- または * または +）
-        else if (text.match(/^(\s*[-*+]\s+)/)) {
-            const match = text.match(/^(\s*[-*+]\s+)/);
-            contentStart = match[1].length;
-            elementMatch = match;
-            
-            // 空のリストの場合（テキストがない場合）
-            const textContent = text.substring(contentStart).trim();
-            if (textContent === '') {
-                // 行全体を選択（行頭から行末）
-                // アンカーを右側、アクティブを左側にすることで、カーソルを左側に配置
-                const newSelection = new vscode.Selection(
-                    new vscode.Position(position.line, text.length),
-                    new vscode.Position(position.line, 0)
-                );
-                editor.selection = newSelection;
-                return;
-            }
-        }
-        // 引用（>）
-        else if (text.match(/^(>\s*)+/)) {
-            const match = text.match(/^(>\s*)+/);
-            contentStart = match[0].length;
-            elementMatch = match;
-        }
-        // コードブロック
-        else if (text.match(/^(```\w*\s*)/)) {
-            const match = text.match(/^(```\w*\s*)/);
-            contentStart = match[1].length;
-            elementMatch = match;
-        }
-        
-        // 現在の選択範囲を確認
-        const currentSelectionStart = selection.start.character;
-        const currentSelectionEnd = selection.end.character;
-        const lineIndent = text.match(/^\s*/)[0].length;
 
-        // まず、コンテンツ内にカーソルがある場合は「左へ1語ずつ」選択を優先
-        if (selection.isEmpty && position.character > contentStart) {
-            const left = getPrevWordBoundary(text, position.character, contentStart);
-            const newSelection = new vscode.Selection(
-                new vscode.Position(position.line, position.character),
-                new vscode.Position(position.line, left)
-            );
-            editor.selection = newSelection;
-            lastSelectionRange = 'word-left';
+        // テーブルセル内かどうかチェック
+        const cellInfo = getTableCellInfo(text, position.character);
+        if (cellInfo && cellInfo.isTable) {
+            // テーブルセル内の選択ロジック
+            if (selection.isEmpty) {
+                // 選択がない場合: カーソル位置からセル内コンテンツ開始位置まで選択
+                if (position.character <= cellInfo.cellContentStart) {
+                    // 既にコンテンツ開始位置にいる場合: セルの左端まで選択
+                    const newSelection = new vscode.Selection(
+                        new vscode.Position(position.line, position.character),
+                        new vscode.Position(position.line, cellInfo.cellStart)
+                    );
+                    editor.selection = newSelection;
+                } else {
+                    // コンテンツ開始位置まで選択
+                    const newSelection = new vscode.Selection(
+                        new vscode.Position(position.line, position.character),
+                        new vscode.Position(position.line, cellInfo.cellContentStart)
+                    );
+                    editor.selection = newSelection;
+                }
+            } else {
+                // 既に選択がある場合: 選択を拡張
+                const anchorChar = selection.anchor.character;
+                const activeChar = selection.active.character;
+
+                if (activeChar === cellInfo.cellContentStart) {
+                    // セル内コンテンツ開始位置まで選択されている場合: セルの左端まで拡張
+                    const newSelection = new vscode.Selection(
+                        new vscode.Position(position.line, anchorChar),
+                        new vscode.Position(position.line, cellInfo.cellStart)
+                    );
+                    editor.selection = newSelection;
+                } else if (activeChar > cellInfo.cellContentStart) {
+                    // セル内コンテンツ開始位置まで選択
+                    const newSelection = new vscode.Selection(
+                        new vscode.Position(position.line, anchorChar),
+                        new vscode.Position(position.line, cellInfo.cellContentStart)
+                    );
+                    editor.selection = newSelection;
+                } else {
+                    // 標準の動作にフォールバック
+                    vscode.commands.executeCommand('cursorLeftSelect');
+                }
+            }
             return;
         }
 
-        // 既にコンテンツ内で選択済みなら、さらに左へ1語分拡張
-        if (!selection.isEmpty && selection.start.character >= contentStart && selection.end.character > selection.start.character) {
-            const left = getPrevWordBoundary(text, selection.start.character, contentStart);
-            const newSelection = new vscode.Selection(
-                new vscode.Position(position.line, selection.end.character),
-                new vscode.Position(position.line, left)
-            );
-            editor.selection = newSelection;
-            lastSelectionRange = 'word-left';
+        // マーカーの終了位置を検出
+        let markerEnd = 0;
+        let hasMarker = false;
+
+        // チェックボックス (- [ ] または - [x])
+        if (text.match(/^(\s*-\s\[[xX ]?\]\s+)/)) {
+            const match = text.match(/^(\s*-\s\[[xX ]?\]\s+)/);
+            markerEnd = match[1].length;
+            hasMarker = true;
+        }
+        // 順序付きリスト (1. または 1) )
+        else if (text.match(/^(\s*\d+[\.)])\s+/)) {
+            const match = text.match(/^(\s*\d+[\.)])\s+/);
+            markerEnd = match[0].length;
+            hasMarker = true;
+        }
+        // 順序なしリスト (- * +)
+        else if (text.match(/^(\s*[-*+])\s+/)) {
+            const match = text.match(/^(\s*[-*+])\s+/);
+            markerEnd = match[0].length;
+            hasMarker = true;
+        }
+
+        // マーカーがない行の場合は、標準のVSCode動作にフォールバック
+        if (!hasMarker) {
+            vscode.commands.executeCommand('cursorLeftSelect');
             return;
         }
 
-        // ここからは段階的な拡大（コンテンツ -> 行全体 -> 階層）
-        if (!selection.isEmpty && currentSelectionStart === contentStart && currentSelectionEnd === text.length) {
-            // 段階2: 行全体を選択（行頭から行末）
+        // 空の行（マーカーのみ）の場合
+        if (text.substring(markerEnd).trim() === '') {
+            // 行全体を選択
             const newSelection = new vscode.Selection(
                 new vscode.Position(position.line, text.length),
                 new vscode.Position(position.line, 0)
             );
             editor.selection = newSelection;
-            lastSelectionRange = 'full-line';
             return;
         }
 
-        if (!selection.isEmpty && currentSelectionStart === 0 && currentSelectionEnd === text.length) {
-            // 段階3: 同じインデントの階層全体を選択
+        // ケース1: 選択がない状態（カーソルのみ）
+        if (selection.isEmpty) {
+            if (position.character <= markerEnd) {
+                // カーソルがマーカー内にある場合: 行頭からマーカー終了位置まで選択
+                // anchor=markerEnd, active=0 でカーソルは左側（行頭）
+                const newSelection = new vscode.Selection(
+                    new vscode.Position(position.line, markerEnd),
+                    new vscode.Position(position.line, 0)
+                );
+                editor.selection = newSelection;
+            } else {
+                // カーソルがマーカーの後ろにある場合: カーソル位置からマーカー終了位置まで選択
+                // anchor=position.character, active=markerEnd でカーソルは左側（markerEnd）
+                const newSelection = new vscode.Selection(
+                    new vscode.Position(position.line, position.character),
+                    new vscode.Position(position.line, markerEnd)
+                );
+                editor.selection = newSelection;
+            }
+            return;
+        }
+
+        // ケース2: 既に選択がある状態
+        const selStart = selection.start.character;
+        const selEnd = selection.end.character;
+        const anchorChar = selection.anchor.character;
+        const activeChar = selection.active.character;
+
+        console.log(`[smartSelectLeft] selStart=${selStart}, selEnd=${selEnd}, anchor=${anchorChar}, active=${activeChar}, markerEnd=${markerEnd}`);
+
+        // 選択がマーカー終了位置で止まっている場合: マーカーも含めて選択（行頭まで）
+        if (selStart === markerEnd && selEnd > markerEnd) {
+            // anchor=selEnd, active=0 でカーソルは左側（行頭）
+            const newSelection = new vscode.Selection(
+                new vscode.Position(position.line, selEnd),
+                new vscode.Position(position.line, 0)
+            );
+            editor.selection = newSelection;
+            return;
+        }
+
+        // 選択が行頭からマーカー終了位置までの場合: 行末まで拡張
+        if (selStart === 0 && selEnd === markerEnd) {
+            // anchor=text.length, active=0 でカーソルは左側（行頭）
+            const newSelection = new vscode.Selection(
+                new vscode.Position(position.line, text.length),
+                new vscode.Position(position.line, 0)
+            );
+            editor.selection = newSelection;
+            return;
+        }
+
+        // 選択が行全体の場合: 階層選択へ
+        if (selStart === 0 && selEnd >= text.length) {
+            // 階層選択のロジックへ（次のブロックで処理）
+        }
+        // 選択がマーカーの後ろにある場合: マーカー終了位置まで拡張
+        else if (selStart > markerEnd) {
+            // anchor=selEnd, active=markerEnd でカーソルは左側
+            const newSelection = new vscode.Selection(
+                new vscode.Position(position.line, selEnd),
+                new vscode.Position(position.line, markerEnd)
+            );
+            editor.selection = newSelection;
+            return;
+        }
+        // 選択が行頭とマーカーの間にある場合: 行頭まで拡張
+        else if (selStart > 0 && selStart < markerEnd) {
+            // anchor=selEnd, active=0 でカーソルは左側
+            const newSelection = new vscode.Selection(
+                new vscode.Position(position.line, selEnd),
+                new vscode.Position(position.line, 0)
+            );
+            editor.selection = newSelection;
+            return;
+        } else if (selEnd < text.length) {
+            // anchor=text.length, active=0 でカーソルは左側
+            const newSelection = new vscode.Selection(
+                new vscode.Position(position.line, text.length),
+                new vscode.Position(position.line, 0)
+            );
+            editor.selection = newSelection;
+        } else {
+            // 行全体が選択されている場合: 同じインデントの階層全体を選択
             const currentIndent = text.match(/^\s*/)[0].length;
             let startLine = position.line;
             let endLine = position.line;
@@ -1692,19 +2183,124 @@ function registerCommands(context) {
                 new vscode.Position(startLine, 0)
             );
             editor.selection = newSelection;
-            lastSelectionRange = 'hierarchy';
+        }
+    });
+
+    // スマートカーソル移動（右）コマンド - Cmd+Right
+    safeRegister('markdownInline.smartMoveRight', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+
+        const position = editor.selection.active;
+        const line = editor.document.lineAt(position.line);
+        const text = line.text;
+
+        debugLog('[smartMoveRight] Called at position:', position.character, 'line:', text);
+
+        // テーブルセル内かどうかチェック
+        const cellInfo = getTableCellInfo(text, position.character);
+        debugLog('[smartMoveRight] cellInfo:', cellInfo);
+
+        if (cellInfo && cellInfo.isTable) {
+            // テーブルセル内のナビゲーション（仕様書に従って実装）
+            // 状態遷移: セル中間 → コンテンツ末尾 → セル右端 → 次セルコンテンツ開始 → ... → 行末
+
+            let targetPos;
+
+            if (position.character < cellInfo.cellContentEnd) {
+                // ケース1: セル内の途中 → コンテンツ末尾へ
+                targetPos = cellInfo.cellContentEnd;
+                debugLog('[smartMoveRight] Case 1: Moving to content end:', targetPos);
+            } else if (position.character < cellInfo.cellEnd) {
+                // ケース2: コンテンツ末尾 → セル右端（|の直前）へ
+                targetPos = cellInfo.cellEnd;
+                debugLog('[smartMoveRight] Case 2: Moving to cell end:', targetPos);
+            } else if (position.character === cellInfo.cellEnd) {
+                // ケース3: セル右端 → 次のセルまたは行末へ
+                if (cellInfo.cellIndex < cellInfo.allCells.length - 1) {
+                    // 次のセルがある場合: 次のセルのコンテンツ開始位置へ
+                    const nextCell = cellInfo.allCells[cellInfo.cellIndex + 1];
+                    targetPos = nextCell.contentStart;
+                    debugLog('[smartMoveRight] Case 3a: Moving to next cell content start:', targetPos);
+                } else {
+                    // 最後のセルの場合: 行末へ
+                    targetPos = text.length;
+                    debugLog('[smartMoveRight] Case 3b: Moving to line end:', targetPos);
+                }
+            } else {
+                // その他: デフォルト動作
+                vscode.commands.executeCommand('cursorWordRight');
+                return;
+            }
+
+            const newPosition = new vscode.Position(position.line, targetPos);
+            editor.selection = new vscode.Selection(newPosition, newPosition);
             return;
         }
 
-        // デフォルトの段階1: コンテンツ部分（要素後から行末）
-        const newSelection = new vscode.Selection(
-            new vscode.Position(position.line, text.length),
-            new vscode.Position(position.line, contentStart)
-        );
-        editor.selection = newSelection;
-        lastSelectionRange = 'content';
+        // テーブル外の場合: デフォルトのCmd+Right動作
+        vscode.commands.executeCommand('cursorWordEndRight');
     });
-    
+
+    // テーブルナビゲーション（右）コマンド - 次のセルへ移動
+    safeRegister('markdownInline.tableNavigateRight', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+
+        const position = editor.selection.active;
+        const lineText = editor.document.lineAt(position.line).text;
+        const cellInfo = getTableCellInfo(lineText, position.character);
+
+        if (cellInfo && cellInfo.isTable && cellInfo.cellIndex >= 0) {
+            if (cellInfo.cellIndex < cellInfo.allCells.length - 1) {
+                const nextCell = cellInfo.allCells[cellInfo.cellIndex + 1];
+                const newPosition = new vscode.Position(position.line, nextCell.contentStart);
+                editor.selection = new vscode.Selection(newPosition, newPosition);
+            } else {
+                // 最後のセル: 次の行の最初のセルへ
+                const nextLineIndex = position.line + 1;
+                if (nextLineIndex < editor.document.lineCount) {
+                    const nextLineText = editor.document.lineAt(nextLineIndex).text;
+                    const nextLineCells = getAllTableCells(nextLineText);
+                    if (nextLineCells && nextLineCells.length > 0) {
+                        const newPosition = new vscode.Position(nextLineIndex, nextLineCells[0].contentStart);
+                        editor.selection = new vscode.Selection(newPosition, newPosition);
+                    }
+                }
+            }
+        }
+    });
+
+    // テーブルナビゲーション（左）コマンド - 前のセルへ移動
+    safeRegister('markdownInline.tableNavigateLeft', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+
+        const position = editor.selection.active;
+        const lineText = editor.document.lineAt(position.line).text;
+        const cellInfo = getTableCellInfo(lineText, position.character);
+
+        if (cellInfo && cellInfo.isTable && cellInfo.cellIndex >= 0) {
+            if (cellInfo.cellIndex > 0) {
+                const prevCell = cellInfo.allCells[cellInfo.cellIndex - 1];
+                const newPosition = new vscode.Position(position.line, prevCell.contentStart);
+                editor.selection = new vscode.Selection(newPosition, newPosition);
+            } else {
+                // 最初のセル: 前の行の最後のセルへ
+                const prevLineIndex = position.line - 1;
+                if (prevLineIndex >= 0) {
+                    const prevLineText = editor.document.lineAt(prevLineIndex).text;
+                    const prevLineCells = getAllTableCells(prevLineText);
+                    if (prevLineCells && prevLineCells.length > 0) {
+                        const lastCell = prevLineCells[prevLineCells.length - 1];
+                        const newPosition = new vscode.Position(prevLineIndex, lastCell.contentStart);
+                        editor.selection = new vscode.Selection(newPosition, newPosition);
+                    }
+                }
+            }
+        }
+    });
+
     // 行の上下移動コマンド - Cmd+Shift+Up/Down（階層構造を考慮）
     safeRegister('markdownInline.moveLineUp', () => {
         moveLineWithHierarchy(vscode.window.activeTextEditor, 'up');
@@ -1713,7 +2309,39 @@ function registerCommands(context) {
     safeRegister('markdownInline.moveLineDown', () => {
         moveLineWithHierarchy(vscode.window.activeTextEditor, 'down');
     });
-    
+
+    // 番号リスト自動整形コマンド
+    safeRegister('markdownInline.renumberLists', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        renumberLists(editor);
+    });
+
+    // リストタイプ変換コマンド
+    safeRegister('markdownInline.convertToBullet', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        convertLineToType(editor, 'bullet');
+    });
+
+    safeRegister('markdownInline.convertToNumbered', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        convertLineToType(editor, 'numbered');
+    });
+
+    safeRegister('markdownInline.convertToCheckbox', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        convertLineToType(editor, 'checkbox');
+    });
+
+    safeRegister('markdownInline.convertToNormal', () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        convertLineToType(editor, 'normal');
+    });
+
     // スマート選択（全体）コマンド
     safeRegister('markdownInline.smartSelectAll', () => {
         const editor = vscode.window.activeTextEditor;
@@ -1879,17 +2507,69 @@ function adjustIndent(editor, increase) {
     const document = editor.document;
     // 常に2つのスペースを使用
     const indentStr = '  ';
-    
+
+    // テーブル内の場合: セル間ナビゲーション
+    if (selection.isEmpty) {
+        const position = selection.active;
+        const lineText = document.lineAt(position.line).text;
+        const cellInfo = getTableCellInfo(lineText, position.character);
+
+        if (cellInfo && cellInfo.isTable && cellInfo.cellIndex >= 0) {
+            // テーブルセル内: Tab/Shift+Tabでセル間を移動
+            if (increase) {
+                // Tab: 次のセルへ
+                if (cellInfo.cellIndex < cellInfo.allCells.length - 1) {
+                    // 次のセルのコンテンツ開始位置へ
+                    const nextCell = cellInfo.allCells[cellInfo.cellIndex + 1];
+                    const newPosition = new vscode.Position(position.line, nextCell.contentStart);
+                    editor.selection = new vscode.Selection(newPosition, newPosition);
+                } else {
+                    // 最後のセル: 次の行の最初のセルへ（次の行がテーブル行の場合）
+                    const nextLineIndex = position.line + 1;
+                    if (nextLineIndex < document.lineCount) {
+                        const nextLineText = document.lineAt(nextLineIndex).text;
+                        const nextLineCells = getAllTableCells(nextLineText);
+                        if (nextLineCells && nextLineCells.length > 0) {
+                            const newPosition = new vscode.Position(nextLineIndex, nextLineCells[0].contentStart);
+                            editor.selection = new vscode.Selection(newPosition, newPosition);
+                        }
+                    }
+                }
+            } else {
+                // Shift+Tab: 前のセルへ
+                if (cellInfo.cellIndex > 0) {
+                    // 前のセルのコンテンツ開始位置へ
+                    const prevCell = cellInfo.allCells[cellInfo.cellIndex - 1];
+                    const newPosition = new vscode.Position(position.line, prevCell.contentStart);
+                    editor.selection = new vscode.Selection(newPosition, newPosition);
+                } else {
+                    // 最初のセル: 前の行の最後のセルへ（前の行がテーブル行の場合）
+                    const prevLineIndex = position.line - 1;
+                    if (prevLineIndex >= 0) {
+                        const prevLineText = document.lineAt(prevLineIndex).text;
+                        const prevLineCells = getAllTableCells(prevLineText);
+                        if (prevLineCells && prevLineCells.length > 0) {
+                            const lastCell = prevLineCells[prevLineCells.length - 1];
+                            const newPosition = new vscode.Position(prevLineIndex, lastCell.contentStart);
+                            editor.selection = new vscode.Selection(newPosition, newPosition);
+                        }
+                    }
+                }
+            }
+            return; // テーブルナビゲーション完了、インデント処理をスキップ
+        }
+    }
+
     // 複数行選択の場合
     if (!selection.isEmpty) {
         const startLine = selection.start.line;
         const endLine = selection.end.line;
-        
+
         editor.edit(editBuilder => {
             for (let i = startLine; i <= endLine; i++) {
                 const line = document.lineAt(i).text;
                 const range = new vscode.Range(i, 0, i, line.length);
-                
+
                 if (increase) {
                     // 行頭にスペースでインデント追加
                     editBuilder.replace(range, indentStr + line);
@@ -1907,6 +2587,11 @@ function adjustIndent(editor, increase) {
                     if (newLine !== line) editBuilder.replace(range, newLine);
                 }
             }
+        }).then(() => {
+            // インデント変更後に番号付きリストを自動整形
+            try {
+                renumberLists(editor);
+            } catch (_) {}
         });
     } else {
         // 単一行の場合
@@ -1948,8 +2633,219 @@ function adjustIndent(editor, increase) {
                 const newPosition = new vscode.Position(selection.active.line, newPos);
                 editor.selection = new vscode.Selection(newPosition, newPosition);
             }
+            // インデント変更後に番号付きリストを自動整形
+            try {
+                renumberLists(editor);
+            } catch (_) {}
         });
     }
+}
+
+// リストタイプを変換する関数
+function convertLineToType(editor, targetType) {
+    const document = editor.document;
+    const selection = editor.selection;
+    const startLine = selection.start.line;
+    const endLine = selection.end.line;
+
+    editor.edit(editBuilder => {
+        for (let i = startLine; i <= endLine; i++) {
+            const line = document.lineAt(i).text;
+
+            // 現在の行のインデントとコンテンツを抽出
+            let indent = '';
+            let content = '';
+            let match;
+
+            // 各タイプにマッチするか確認
+            if ((match = line.match(/^(\s*)-\s\[[xX ]?\]\s+(.*)$/))) {
+                // チェックボックス
+                indent = match[1];
+                content = match[2];
+            } else if ((match = line.match(/^(\s*)[-*+]\s+(.*)$/))) {
+                // 箇条書き
+                indent = match[1];
+                content = match[2];
+            } else if ((match = line.match(/^(\s*)\d+[\.)]\s+(.*)$/))) {
+                // 番号付きリスト
+                indent = match[1];
+                content = match[2];
+            } else if ((match = line.match(/^(\s*)(.*)$/))) {
+                // ノーマルテキスト
+                indent = match[1];
+                content = match[2];
+            } else {
+                continue;
+            }
+
+            let newLine = '';
+            switch (targetType) {
+                case 'bullet':
+                    newLine = `${indent}- ${content}`;
+                    break;
+                case 'numbered':
+                    newLine = `${indent}1. ${content}`;
+                    break;
+                case 'checkbox':
+                    newLine = `${indent}- [ ] ${content}`;
+                    break;
+                case 'normal':
+                    newLine = `${indent}${content}`;
+                    break;
+            }
+
+            const range = new vscode.Range(i, 0, i, line.length);
+            editBuilder.replace(range, newLine);
+        }
+    }).then(() => {
+        // 番号付きリストに変換した場合は自動整形
+        if (targetType === 'numbered') {
+            try {
+                renumberLists(editor);
+            } catch (_) {}
+        }
+    });
+}
+
+// 番号付きリストの自動整形関数
+// インデント深さを計算（タブは1、スペースは2または4で1レベル）
+function getIndentLevel(indentStr) {
+    if (!indentStr) return 0;
+
+    // タブの数をカウント
+    const tabs = (indentStr.match(/\t/g) || []).length;
+
+    // スペースの数をカウント
+    const spaces = (indentStr.match(/ /g) || []).length;
+
+    // タブ1つ = 1レベル、スペース2つまたは4つ = 1レベル
+    // スペースは2で割って、余りがあれば切り上げ（2スペースでも4スペースでも認識）
+    return tabs + Math.ceil(spaces / 2);
+}
+
+function renumberLists(editor, lineNumber = null) {
+    const document = editor.document;
+    const selection = editor.selection;
+    const currentLine = lineNumber !== null ? lineNumber : selection.active.line;
+
+    // 現在の行がリストアイテムかチェック
+    const lineText = document.lineAt(currentLine).text;
+    const match = lineText.match(/^(\s*)(\d+)([\.)])\s*/); // \s* に変更（コンテンツがなくてもOK）
+
+    if (!match) {
+        // 番号付きリストではない場合は何もしない
+        return;
+    }
+
+    // リストの開始と終了を見つける
+    let startLine = currentLine;
+    let endLine = currentLine;
+    let emptyLineCount = 0;
+    const MAX_EMPTY_LINES = 1; // 連続する空行が1つまでならリスト内とみなす
+
+    // 上方向に探索
+    emptyLineCount = 0;
+    for (let i = currentLine - 1; i >= 0; i--) {
+        const text = document.lineAt(i).text;
+
+        if (text.trim() === '') {
+            emptyLineCount++;
+            if (emptyLineCount > MAX_EMPTY_LINES) {
+                break;
+            }
+            continue;
+        }
+
+        // 番号付きリストか確認
+        if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
+            startLine = i;
+            emptyLineCount = 0; // リスト項目が見つかったらリセット
+        } else {
+            break;
+        }
+    }
+
+    // 下方向に探索
+    emptyLineCount = 0;
+    for (let i = currentLine + 1; i < document.lineCount; i++) {
+        const text = document.lineAt(i).text;
+
+        if (text.trim() === '') {
+            emptyLineCount++;
+            if (emptyLineCount > MAX_EMPTY_LINES) {
+                break;
+            }
+            continue;
+        }
+
+        // 番号付きリストか確認
+        if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
+            endLine = i;
+            emptyLineCount = 0; // リスト項目が見つかったらリセット
+        } else {
+            break;
+        }
+    }
+
+    // 各インデントレベルごとに番号を整形（レベルで管理）
+    const indentCounters = new Map(); // インデントレベル -> 現在の番号
+    let previousLevel = -1;
+
+    editor.edit(editBuilder => {
+        for (let i = startLine; i <= endLine; i++) {
+            const line = document.lineAt(i).text;
+
+            // 空行はスキップ
+            if (line.trim() === '') {
+                continue;
+            }
+
+            const m = line.match(/^(\s*)(\d+)([\.)])\s*(.*)/);
+
+            if (m) {
+                const indent = m[1];
+                const punct = m[3];
+                const content = m[4];
+
+                // インデント深さを計算
+                const level = getIndentLevel(indent);
+
+                // より浅いレベルに戻った場合、より深いレベルのカウンターをリセット
+                if (level < previousLevel) {
+                    for (const [key] of indentCounters.entries()) {
+                        if (key > level) {
+                            indentCounters.delete(key);
+                        }
+                    }
+                }
+
+                // このインデントレベルのカウンターを取得または初期化
+                if (!indentCounters.has(level)) {
+                    indentCounters.set(level, 1);
+                } else {
+                    indentCounters.set(level, indentCounters.get(level) + 1);
+                }
+
+                // より深いインデントのカウンターをリセット
+                for (const [key] of indentCounters.entries()) {
+                    if (key > level) {
+                        indentCounters.delete(key);
+                    }
+                }
+
+                previousLevel = level;
+                const newNumber = indentCounters.get(level);
+                // コンテンツがある場合はスペースを追加、ない場合はスペースなし
+                const newLine = content.length > 0
+                    ? `${indent}${newNumber}${punct} ${content}`
+                    : `${indent}${newNumber}${punct} `;
+
+                // 行を置換
+                const range = new vscode.Range(i, 0, i, line.length);
+                editBuilder.replace(range, newLine);
+            }
+        }
+    });
 }
 
 function moveLineWithHierarchy(editor, direction) {
@@ -2090,7 +2986,7 @@ function deactivate() {
         horizontalRuleDecoration = null;
     }
     // 言語装飾を破棄
-    for (const [lang, decorations] of languageDecorations) {
+    for (const decorations of languageDecorations.values()) {
         for (const decoration of decorations.values()) {
             decoration.dispose();
         }
@@ -2098,6 +2994,9 @@ function deactivate() {
     languageDecorations.clear();
     if (updateTimer) {
         clearTimeout(updateTimer);
+    }
+    if (tocUpdateTimer) {
+        clearTimeout(tocUpdateTimer);
     }
 }
 
