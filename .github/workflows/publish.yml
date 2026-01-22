@@ -1,4 +1,4 @@
-name: Publish to VS Code Marketplace
+name: Publish Extension
 
 on:
   push:
@@ -9,57 +9,55 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: markdown-wysiwyg-extension/package-lock.json
-      
+
       - name: Install dependencies
-        working-directory: ./markdown-wysiwyg-extension
         run: npm ci
-      
-      - name: Install vsce
-        run: npm install -g @vscode/vsce
-      
+
+      - name: Install vsce and ovsx
+        run: npm install -g @vscode/vsce ovsx
+
       - name: Package extension
-        working-directory: ./markdown-wysiwyg-extension
         run: vsce package
-      
-      - name: Publish to Marketplace
-        working-directory: ./markdown-wysiwyg-extension
-        run: vsce publish
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-      
+
+      - name: Publish to VS Code Marketplace
+        run: vsce publish -p ${{ secrets.VSCE_PAT }}
+        continue-on-error: true  # VSCE_PATがない場合もOpen VSXへの公開を続行
+
+      - name: Publish to Open VSX
+        run: ovsx publish *.vsix -p ${{ secrets.OVSX_PAT }}
+
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vsix-package
-          path: markdown-wysiwyg-extension/*.vsix
+          path: '*.vsix'
           retention-days: 30
 
   create-release:
     needs: publish
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      
+        uses: actions/checkout@v4
+
       - name: Download VSIX artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: vsix-package
           path: ./artifacts
-      
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
