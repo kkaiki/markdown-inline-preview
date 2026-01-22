@@ -1,78 +1,106 @@
-"use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.activate = activate;
-exports.deactivate = deactivate;
-const vscode = __importStar(require("vscode"));
+import * as vscode from 'vscode';
+
 // コマンドモジュールのインポート
-const commandsModule = __importStar(require("./commands"));
+import * as commandsModule from './commands';
+
+// 型定義
+interface TableCell {
+    start: number;
+    end: number;
+    contentStart: number;
+    contentEnd: number;
+    index: number;
+}
+
+interface TableCellInfo {
+    isTable: boolean;
+    cellIndex: number;
+    cellStart: number;
+    cellEnd: number;
+    cellContentStart: number;
+    cellContentEnd: number;
+    allCells: TableCell[];
+}
+
+interface TableRow {
+    line: number;
+    cells: string[];
+    isSep: boolean;
+}
+
+interface HeadingInfo {
+    level: number;
+    text: string;
+    line: number;
+}
+
+interface CodeBlock {
+    language: string;
+    startLine: number;
+    endLine: number;
+}
+
+interface PreEdit {
+    range: vscode.Range;
+    text: string;
+}
+
+interface Replacement {
+    line: number;
+    text: string;
+}
+
+interface TaskInfo {
+    line: number;
+    text: string;
+    isChecked: boolean;
+}
+
+type ConvertType = 'bullet' | 'numbered' | 'checkbox' | 'normal';
+type Direction = 'up' | 'down';
+
 // グローバルな装飾タイプ（再利用）
-let checkedDecoration = null;
-let headingDecorations = [];
-let codeBlockDecoration = null;
-let horizontalRuleDecoration = null;
-let updateTimer = null;
-let tocUpdateTimer = null;
+let checkedDecoration: vscode.TextEditorDecorationType | null = null;
+let headingDecorations: vscode.TextEditorDecorationType[] = [];
+let codeBlockDecoration: vscode.TextEditorDecorationType | null = null;
+let horizontalRuleDecoration: vscode.TextEditorDecorationType | null = null;
+let updateTimer: NodeJS.Timeout | null = null;
+let tocUpdateTimer: NodeJS.Timeout | null = null;
 let currentEditingLine = -1;
 let isDragging = false;
-let languageDecorations = new Map();
+let languageDecorations = new Map<string, Map<string, vscode.TextEditorDecorationType>>();
+
 // デバッグ用出力チャンネル
-let debugChannel = null;
-function debugLog(message, ...args) {
+let debugChannel: vscode.OutputChannel | null = null;
+
+function debugLog(message: string, ...args: unknown[]): void {
     if (debugChannel) {
         const timestamp = new Date().toISOString().substring(11, 23);
         const formattedArgs = args.length > 0 ? ' ' + args.map(a => JSON.stringify(a)).join(' ') : '';
         debugChannel.appendLine(`[${timestamp}] ${message}${formattedArgs}`);
     }
 }
-function activate(context) {
+
+export function activate(context: vscode.ExtensionContext): void {
     console.log('Markdown Inline Preview Active');
+
     // デバッグ用出力チャンネルを作成
     debugChannel = vscode.window.createOutputChannel('Markdown Table Debug');
     debugLog('=== Markdown Inline Preview Extension Activated ===');
+
     // Markdown特有の自動補完とテーブル整形を無効化
     applyMarkdownSettings();
+
     // 装飾タイプを一度だけ作成
     checkedDecoration = vscode.window.createTextEditorDecorationType({
         textDecoration: 'line-through !important',
         color: 'rgba(136, 136, 136, 0.6)',
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     });
+
     // 見出し装飾（H1〜H6）
     headingDecorations = [
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H1
             fontWeight: '900',
             color: '#e06c75',
             backgroundColor: 'rgba(224,108,117,0.06)',
@@ -80,7 +108,7 @@ function activate(context) {
             borderRadius: '3px',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         }),
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H2
             fontWeight: '800',
             color: '#d19a66',
             backgroundColor: 'rgba(209,154,102,0.06)',
@@ -88,7 +116,7 @@ function activate(context) {
             borderRadius: '3px',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         }),
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H3
             fontWeight: '800',
             color: '#e5c07b',
             backgroundColor: 'rgba(229,192,123,0.06)',
@@ -96,7 +124,7 @@ function activate(context) {
             borderRadius: '3px',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         }),
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H4
             fontWeight: '700',
             color: '#98c379',
             backgroundColor: 'rgba(152,195,121,0.06)',
@@ -104,7 +132,7 @@ function activate(context) {
             borderRadius: '3px',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         }),
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H5
             fontWeight: '700',
             color: '#56b6c2',
             backgroundColor: 'rgba(86,182,194,0.06)',
@@ -112,7 +140,7 @@ function activate(context) {
             borderRadius: '3px',
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         }),
-        vscode.window.createTextEditorDecorationType({
+        vscode.window.createTextEditorDecorationType({ // H6
             fontWeight: '700',
             color: '#61afef',
             backgroundColor: 'rgba(97,175,239,0.06)',
@@ -121,12 +149,14 @@ function activate(context) {
             rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         })
     ];
+
     // コードブロック装飾
     codeBlockDecoration = vscode.window.createTextEditorDecorationType({
         isWholeLine: true,
         backgroundColor: 'rgba(40, 44, 52, 0.85)',
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     });
+
     // 水平線装飾
     horizontalRuleDecoration = vscode.window.createTextEditorDecorationType({
         isWholeLine: true,
@@ -140,6 +170,7 @@ function activate(context) {
         },
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     });
+
     // コマンド登録
     commandsModule.setDebugLog(debugLog);
     commandsModule.registerCommands(context, {
@@ -154,6 +185,7 @@ function activate(context) {
         moveLineWithHierarchy,
         updateTableOfContents
     });
+
     // 初期化時に更新
     const editor = vscode.window.activeTextEditor;
     if (editor) {
@@ -162,172 +194,198 @@ function activate(context) {
             debugLog('Applying initial decorations to markdown file');
             updateAllDecorations(editor);
         }
-    }
-    else {
+    } else {
         debugLog('No active editor found on activation');
     }
+
     // ドキュメント変更イベント
-    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(event => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.document !== event.document)
-            return;
-        if (editor.document.languageId !== 'markdown')
-            return;
-        // コードブロックの自動補完
-        if (event.contentChanges.length > 0) {
-            const change = event.contentChanges[0];
-            const changeText = change.text;
-            if (changeText === '```') {
-                const position = editor.selection.active;
-                const line = position.line;
-                const character = position.character;
-                let codeBlockCount = 0;
-                for (let i = 0; i <= line; i++) {
-                    const lineText = editor.document.lineAt(i).text;
-                    const matches = lineText.match(/```/g);
-                    if (matches) {
-                        if (i < line) {
-                            codeBlockCount += matches.length;
-                        }
-                        else {
-                            const beforeText = lineText.substring(0, character);
-                            const beforeMatches = beforeText.match(/```/g);
-                            if (beforeMatches) {
-                                codeBlockCount += beforeMatches.length;
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(event => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document !== event.document) return;
+            if (editor.document.languageId !== 'markdown') return;
+
+            // コードブロックの自動補完
+            if (event.contentChanges.length > 0) {
+                const change = event.contentChanges[0];
+                const changeText = change.text;
+
+                if (changeText === '```') {
+                    const position = editor.selection.active;
+                    const line = position.line;
+                    const character = position.character;
+
+                    let codeBlockCount = 0;
+                    for (let i = 0; i <= line; i++) {
+                        const lineText = editor.document.lineAt(i).text;
+                        const matches = lineText.match(/```/g);
+                        if (matches) {
+                            if (i < line) {
+                                codeBlockCount += matches.length;
+                            } else {
+                                const beforeText = lineText.substring(0, character);
+                                const beforeMatches = beforeText.match(/```/g);
+                                if (beforeMatches) {
+                                    codeBlockCount += beforeMatches.length;
+                                }
                             }
                         }
                     }
-                }
-                if (codeBlockCount % 2 === 1) {
-                    editor.edit(editBuilder => {
-                        const currentLine = editor.document.lineAt(line);
-                        const endOfLine = new vscode.Position(line, currentLine.text.length);
-                        editBuilder.insert(endOfLine, '\n\n```');
-                    }).then(() => {
-                        const newPosition = new vscode.Position(line + 1, 0);
-                        editor.selection = new vscode.Selection(newPosition, newPosition);
-                    });
-                }
-            }
-        }
-        // デバウンス処理
-        if (updateTimer)
-            clearTimeout(updateTimer);
-        updateTimer = setTimeout(() => {
-            updateAllDecorations(editor);
-        }, 50);
-        // 目次自動更新
-        const hasHeadingChange = event.contentChanges.some(change => {
-            const startLine = change.range.start.line;
-            const endLine = change.range.end.line;
-            for (let i = startLine; i <= endLine; i++) {
-                if (i < editor.document.lineCount) {
-                    const lineText = editor.document.lineAt(i).text;
-                    if (lineText.match(/^#{1,6}\s/) || change.text.match(/^#{1,6}\s/)) {
-                        return true;
+
+                    if (codeBlockCount % 2 === 1) {
+                        editor.edit(editBuilder => {
+                            const currentLine = editor.document.lineAt(line);
+                            const endOfLine = new vscode.Position(line, currentLine.text.length);
+                            editBuilder.insert(endOfLine, '\n\n```');
+                        }).then(() => {
+                            const newPosition = new vscode.Position(line + 1, 0);
+                            editor.selection = new vscode.Selection(newPosition, newPosition);
+                        });
                     }
                 }
             }
-            return false;
-        });
-        if (hasHeadingChange) {
-            const config = vscode.workspace.getConfiguration('markdownInline');
-            const autoUpdate = config.get('toc.autoUpdate', true);
-            if (autoUpdate) {
-                if (tocUpdateTimer)
-                    clearTimeout(tocUpdateTimer);
-                tocUpdateTimer = setTimeout(() => {
-                    const text = editor.document.getText();
-                    if (text.includes('/目次') || text.includes('/toc')) {
-                        updateTableOfContents(editor, true);
+
+            // デバウンス処理
+            if (updateTimer) clearTimeout(updateTimer);
+            updateTimer = setTimeout(() => {
+                updateAllDecorations(editor);
+            }, 50);
+
+            // 目次自動更新
+            const hasHeadingChange = event.contentChanges.some(change => {
+                const startLine = change.range.start.line;
+                const endLine = change.range.end.line;
+                for (let i = startLine; i <= endLine; i++) {
+                    if (i < editor.document.lineCount) {
+                        const lineText = editor.document.lineAt(i).text;
+                        if (lineText.match(/^#{1,6}\s/) || change.text.match(/^#{1,6}\s/)) {
+                            return true;
+                        }
                     }
-                }, 500);
+                }
+                return false;
+            });
+
+            if (hasHeadingChange) {
+                const config = vscode.workspace.getConfiguration('markdownInline');
+                const autoUpdate = config.get<boolean>('toc.autoUpdate', true);
+
+                if (autoUpdate) {
+                    if (tocUpdateTimer) clearTimeout(tocUpdateTimer);
+                    tocUpdateTimer = setTimeout(() => {
+                        const text = editor.document.getText();
+                        if (text.includes('/目次') || text.includes('/toc')) {
+                            updateTableOfContents(editor, true);
+                        }
+                    }, 500);
+                }
             }
-        }
-    }));
+        })
+    );
+
     // エディタ変更イベント
-    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor && editor.document.languageId === 'markdown') {
-            updateAllDecorations(editor);
-        }
-    }));
-    // カーソル移動イベント
-    debugLog('Registering onDidChangeTextEditorSelection event handler');
-    context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(event => {
-        const editor = event.textEditor;
-        debugLog(`[EVENT] Selection changed - Editor: ${editor ? editor.document.fileName : 'none'}`);
-        if (!editor || editor.document.languageId !== 'markdown') {
-            debugLog(`Selection changed: Not a markdown file (language: ${editor ? editor.document.languageId : 'no editor'})`);
-            return;
-        }
-        const position = event.selections[0].active;
-        if (position.line !== currentEditingLine) {
-            const previousEditingLine = currentEditingLine;
-            currentEditingLine = position.line;
-            debugLog(`Line changed: ${previousEditingLine} -> ${currentEditingLine}`);
-            if (previousEditingLine !== -1 && previousEditingLine !== position.line) {
-                try {
-                    const prevLine = editor.document.lineAt(previousEditingLine).text;
-                    debugLog(`Previous line text: "${prevLine}"`);
-                    if (prevLine.includes('|')) {
-                        debugLog(`Table detected on line ${previousEditingLine}, formatting...`);
-                        formatTableAtLine(editor, previousEditingLine);
-                    }
-                    else {
-                        debugLog('Previous line is not a table (no | character)');
-                    }
-                }
-                catch (e) {
-                    const error = e;
-                    debugLog(`Error reading previous line: ${error.message}`);
-                }
-            }
-            if (previousEditingLine !== -1 || currentEditingLine !== -1) {
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor && editor.document.languageId === 'markdown') {
                 updateAllDecorations(editor);
             }
-        }
-        if (event.kind === vscode.TextEditorSelectionChangeKind.Mouse) {
-            const selection = event.selections[0];
-            const isSelecting = !selection.isEmpty;
-            if (isSelecting) {
-                isDragging = true;
-            }
-            else if (isDragging) {
-                isDragging = false;
+        })
+    );
+
+    // カーソル移動イベント
+    debugLog('Registering onDidChangeTextEditorSelection event handler');
+    context.subscriptions.push(
+        vscode.window.onDidChangeTextEditorSelection(event => {
+            const editor = event.textEditor;
+
+            debugLog(`[EVENT] Selection changed - Editor: ${editor ? editor.document.fileName : 'none'}`);
+
+            if (!editor || editor.document.languageId !== 'markdown') {
+                debugLog(`Selection changed: Not a markdown file (language: ${editor ? editor.document.languageId : 'no editor'})`);
                 return;
             }
-            if (!isDragging && selection.isEmpty) {
-                const line = editor.document.lineAt(position.line);
-                const text = line.text;
-                const checkboxMatch = text.match(/^(\s*)-\s\[[\sx]?\]/i);
-                if (checkboxMatch) {
-                    const checkboxStart = text.indexOf('[');
-                    const checkboxEnd = text.indexOf(']');
-                    if (position.character >= checkboxStart && position.character <= checkboxEnd) {
-                        setTimeout(() => {
-                            toggleCheckbox(editor, position.line);
-                        }, 10);
+
+            const position = event.selections[0].active;
+
+            if (position.line !== currentEditingLine) {
+                const previousEditingLine = currentEditingLine;
+                currentEditingLine = position.line;
+
+                debugLog(`Line changed: ${previousEditingLine} -> ${currentEditingLine}`);
+
+                if (previousEditingLine !== -1 && previousEditingLine !== position.line) {
+                    try {
+                        const prevLine = editor.document.lineAt(previousEditingLine).text;
+                        debugLog(`Previous line text: "${prevLine}"`);
+
+                        if (prevLine.includes('|')) {
+                            debugLog(`Table detected on line ${previousEditingLine}, formatting...`);
+                            formatTableAtLine(editor, previousEditingLine);
+                        } else {
+                            debugLog('Previous line is not a table (no | character)');
+                        }
+                    } catch (e) {
+                        const error = e as Error;
+                        debugLog(`Error reading previous line: ${error.message}`);
+                    }
+                }
+
+                if (previousEditingLine !== -1 || currentEditingLine !== -1) {
+                    updateAllDecorations(editor);
+                }
+            }
+
+            if (event.kind === vscode.TextEditorSelectionChangeKind.Mouse) {
+                const selection = event.selections[0];
+                const isSelecting = !selection.isEmpty;
+
+                if (isSelecting) {
+                    isDragging = true;
+                } else if (isDragging) {
+                    isDragging = false;
+                    return;
+                }
+
+                if (!isDragging && selection.isEmpty) {
+                    const line = editor.document.lineAt(position.line);
+                    const text = line.text;
+
+                    const checkboxMatch = text.match(/^(\s*)-\s\[[\sx]?\]/i);
+                    if (checkboxMatch) {
+                        const checkboxStart = text.indexOf('[');
+                        const checkboxEnd = text.indexOf(']');
+
+                        if (position.character >= checkboxStart && position.character <= checkboxEnd) {
+                            setTimeout(() => {
+                                toggleCheckbox(editor, position.line);
+                            }, 10);
+                        }
                     }
                 }
             }
-        }
-    }));
+        })
+    );
+
     debugLog('=== Extension activation completed successfully ===');
 }
+
 // =========================
 // Table of Contents (目次)
 // =========================
-function collectHeadings(document) {
-    const headings = [];
+
+function collectHeadings(document: vscode.TextDocument): HeadingInfo[] {
+    const headings: HeadingInfo[] = [];
     let inCodeBlock = false;
+
     for (let i = 0; i < document.lineCount; i++) {
         const lineText = document.lineAt(i).text;
+
         if (lineText.trim().startsWith('```')) {
             inCodeBlock = !inCodeBlock;
             continue;
         }
-        if (inCodeBlock)
-            continue;
+        if (inCodeBlock) continue;
+
         const headingMatch = lineText.match(/^(#{1,6})\s+(.+)$/);
         if (headingMatch) {
             const level = headingMatch[1].length;
@@ -335,9 +393,11 @@ function collectHeadings(document) {
             headings.push({ level, text, line: i });
         }
     }
+
     return headings;
 }
-function generateSlug(text) {
+
+function generateSlug(text: string): string {
     return text
         .toLowerCase()
         .replace(/[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\s-]/g, '')
@@ -345,45 +405,59 @@ function generateSlug(text) {
         .replace(/-+/g, '-')
         .trim();
 }
-function generateTableOfContents(headings, minLevel = 1, maxLevel = 6) {
+
+function generateTableOfContents(headings: HeadingInfo[], minLevel = 1, maxLevel = 6): string {
     if (headings.length === 0) {
         return '';
     }
-    const lines = [];
+
+    const lines: string[] = [];
     const baseLevel = Math.min(...headings.map(h => h.level));
+
     for (const heading of headings) {
-        if (heading.level < minLevel || heading.level > maxLevel)
-            continue;
+        if (heading.level < minLevel || heading.level > maxLevel) continue;
+
         const indent = '  '.repeat(heading.level - baseLevel);
         const slug = generateSlug(heading.text);
         lines.push(`${indent}- [${heading.text}](#${slug})`);
     }
+
     return lines.join('\n');
 }
-async function updateTableOfContents(editor, autoMode = false) {
+
+async function updateTableOfContents(editor: vscode.TextEditor, autoMode = false): Promise<void> {
     const document = editor.document;
     const text = document.getText();
+
     const tocMarkerRegex = /^(\/目次|\/toc)(\s*)?$/gm;
-    let match;
+    let match: RegExpExecArray | null;
     let foundMarker = false;
+
     while ((match = tocMarkerRegex.exec(text)) !== null) {
         foundMarker = true;
         const markerPos = document.positionAt(match.index);
         const markerLine = markerPos.line;
+
         if (isInFencedCodeBlock(document, markerLine)) {
             continue;
         }
+
         const headings = collectHeadings(document).filter(h => h.line !== markerLine);
+
         const config = vscode.workspace.getConfiguration('markdownInline');
-        const minLevel = config.get('toc.minLevel', 1);
-        const maxLevel = config.get('toc.maxLevel', 6);
+        const minLevel = config.get<number>('toc.minLevel', 1);
+        const maxLevel = config.get<number>('toc.maxLevel', 6);
+
         const tocContent = generateTableOfContents(headings, minLevel, maxLevel);
+
         if (!tocContent) {
             debugLog('[TOC] No headings found');
             continue;
         }
+
         let tocStartLine = markerLine + 1;
         let tocEndLine = tocStartLine;
+
         for (let i = tocStartLine; i < document.lineCount; i++) {
             const lineText = document.lineAt(i).text;
             if (lineText.trim() === '') {
@@ -402,44 +476,59 @@ async function updateTableOfContents(editor, autoMode = false) {
             }
             tocEndLine = i + 1;
         }
+
         let existingToc = '';
         if (tocEndLine > tocStartLine) {
-            const existingRange = new vscode.Range(new vscode.Position(tocStartLine, 0), new vscode.Position(tocEndLine - 1, document.lineAt(tocEndLine - 1).text.length));
+            const existingRange = new vscode.Range(
+                new vscode.Position(tocStartLine, 0),
+                new vscode.Position(tocEndLine - 1, document.lineAt(tocEndLine - 1).text.length)
+            );
             existingToc = document.getText(existingRange);
         }
+
         if (autoMode && existingToc.trim() === tocContent.trim()) {
             debugLog('[TOC] No changes needed');
             continue;
         }
+
         await editor.edit(editBuilder => {
             if (tocEndLine > tocStartLine) {
-                const replaceRange = new vscode.Range(new vscode.Position(tocStartLine, 0), new vscode.Position(tocEndLine, 0));
+                const replaceRange = new vscode.Range(
+                    new vscode.Position(tocStartLine, 0),
+                    new vscode.Position(tocEndLine, 0)
+                );
                 editBuilder.replace(replaceRange, tocContent + '\n\n');
-            }
-            else {
+            } else {
                 const insertPos = new vscode.Position(markerLine + 1, 0);
                 editBuilder.insert(insertPos, '\n' + tocContent + '\n');
             }
         });
+
         debugLog(`[TOC] Updated table of contents at line ${markerLine}`);
     }
+
     if (!foundMarker && !autoMode) {
         vscode.window.showInformationMessage('目次マーカー (/目次 または /toc) が見つかりません');
     }
 }
+
 // =========================
 // Markdown Table Formatting
 // =========================
-function getAllTableCells(lineText) {
+
+function getAllTableCells(lineText: string): TableCell[] | null {
     if (!lineText.includes('|')) {
         return null;
     }
+
     if (lineText.match(/^\s*\|?\s*[-:]+\s*\|/)) {
         return null;
     }
-    const cells = [];
+
+    const cells: TableCell[] = [];
     let inCell = false;
     let cellStart = 0;
+
     for (let i = 0; i < lineText.length; i++) {
         if (lineText[i] === '|') {
             if (inCell) {
@@ -448,51 +537,63 @@ function getAllTableCells(lineText) {
                 const leadingSpaces = leadingMatch ? leadingMatch[1].length : 0;
                 const trailingMatch = cellText.match(/(\s*)$/);
                 const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+
                 let contentStart = cellStart + leadingSpaces;
                 let contentEnd = i - trailingSpaces;
+
                 if (contentStart >= contentEnd) {
                     const padding = Math.min(1, cellText.length);
                     contentStart = cellStart + padding;
                     contentEnd = contentStart;
                 }
+
                 cells.push({
                     start: cellStart,
                     end: i,
                     contentStart: contentStart,
-                    contentEnd: contentEnd
+                    contentEnd: contentEnd,
+                    index: cells.length
                 });
             }
             cellStart = i + 1;
             inCell = true;
         }
     }
+
     if (inCell && cellStart < lineText.length) {
         const cellText = lineText.substring(cellStart, lineText.length);
         const leadingMatch = cellText.match(/^(\s*)/);
         const leadingSpaces = leadingMatch ? leadingMatch[1].length : 0;
         const trailingMatch = cellText.match(/(\s*)$/);
         const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+
         let contentStart = cellStart + leadingSpaces;
         let contentEnd = lineText.length - trailingSpaces;
+
         if (contentStart >= contentEnd) {
             const padding = Math.min(1, cellText.length);
             contentStart = cellStart + padding;
             contentEnd = contentStart;
         }
+
         cells.push({
             start: cellStart,
             end: lineText.length,
             contentStart: contentStart,
-            contentEnd: contentEnd
+            contentEnd: contentEnd,
+            index: cells.length
         });
     }
+
     return cells.length > 0 ? cells : null;
 }
-function getTableCellInfo(lineText, cursorChar) {
+
+function getTableCellInfo(lineText: string, cursorChar: number): TableCellInfo | null {
     const cells = getAllTableCells(lineText);
     if (!cells) {
         return null;
     }
+
     for (let i = 0; i < cells.length; i++) {
         const cell = cells[i];
         if (cursorChar >= cell.start && cursorChar <= cell.end) {
@@ -507,6 +608,7 @@ function getTableCellInfo(lineText, cursorChar) {
             };
         }
     }
+
     if (lineText[cursorChar] === '|') {
         for (let i = 0; i < cells.length; i++) {
             if (cells[i].end === cursorChar) {
@@ -535,6 +637,7 @@ function getTableCellInfo(lineText, cursorChar) {
             }
         }
     }
+
     if (cursorChar === 0 && cells.length > 0) {
         return {
             isTable: true,
@@ -546,9 +649,11 @@ function getTableCellInfo(lineText, cursorChar) {
             allCells: cells
         };
     }
+
     return null;
 }
-function isInFencedCodeBlock(document, lineIndex) {
+
+function isInFencedCodeBlock(document: vscode.TextDocument, lineIndex: number): boolean {
     let inFence = false;
     for (let i = 0; i <= lineIndex; i++) {
         const t = document.lineAt(i).text;
@@ -558,8 +663,9 @@ function isInFencedCodeBlock(document, lineIndex) {
     }
     return inFence;
 }
+
 // コマンド版 スマートEnter
-async function smartEnterCommand() {
+async function smartEnterCommand(): Promise<void> {
     debugLog('[smartEnter] Command called');
     const editor = vscode.window.activeTextEditor;
     if (!editor || editor.document.languageId !== 'markdown') {
@@ -568,28 +674,33 @@ async function smartEnterCommand() {
         return;
     }
     debugLog('[smartEnter] Processing markdown file');
+
     const document = editor.document;
     const selections = editor.selections;
     const isSingleCursor = selections.length === 1;
-    const preEdits = [];
-    const continuationTexts = new Array(selections.length).fill(null);
+
+    const preEdits: PreEdit[] = [];
+    const continuationTexts: (string | null)[] = new Array(selections.length).fill(null);
     let skipNewlineForSingle = false;
     let hasOrderedList = false;
     let orderedListLine = -1;
+
     for (let i = 0; i < selections.length; i++) {
         const sel = selections[i];
         const pos = sel.active;
         const lineIdx = pos.line;
-        if (lineIdx < 0 || lineIdx >= document.lineCount)
-            continue;
+        if (lineIdx < 0 || lineIdx >= document.lineCount) continue;
         const lineText = document.lineAt(lineIdx).text;
+
         if (isInFencedCodeBlock(document, lineIdx)) {
             continuationTexts[i] = null;
             continue;
         }
-        let m;
+
+        let m: RegExpMatchArray | null;
         const indentMatch = lineText.match(/^(\s*)/);
         const baseIndent = indentMatch ? indentMatch[1] : '';
+
         // チェックボックス付き
         if ((m = lineText.match(/^(\s*)([-*+])\s+\[(x|X| )\]\s*(.*)$/))) {
             const indent = m[1] || '';
@@ -598,6 +709,7 @@ async function smartEnterCommand() {
             const isEmptyItem = content.trim().length === 0;
             const atEndOfLine = pos.character >= lineText.length;
             const checkboxMarkerEnd = indent.length + marker.length + 5;
+
             if (isEmptyItem && atEndOfLine) {
                 preEdits.push({
                     range: new vscode.Range(lineIdx, 0, lineIdx, lineText.length),
@@ -605,15 +717,14 @@ async function smartEnterCommand() {
                 });
                 continuationTexts[i] = null;
                 skipNewlineForSingle = true;
-            }
-            else if (pos.character < checkboxMarkerEnd) {
+            } else if (pos.character < checkboxMarkerEnd) {
                 continuationTexts[i] = null;
-            }
-            else {
+            } else {
                 continuationTexts[i] = `${indent}${marker} [ ] `;
             }
             continue;
         }
+
         // 箇条書き
         if ((m = lineText.match(/^(\s*)([-*+])\s+(.*)$/))) {
             debugLog(`[smartEnter] Bullet list detected: "${lineText}"`);
@@ -624,6 +735,7 @@ async function smartEnterCommand() {
             const atEndOfLine = pos.character >= lineText.length;
             const bulletMarkerEnd = indent.length + marker.length + 1;
             debugLog(`[smartEnter] Cursor at ${pos.character}, markerEnd at ${bulletMarkerEnd}, isEmpty: ${isEmptyItem}, atEnd: ${atEndOfLine}`);
+
             if (isEmptyItem && atEndOfLine) {
                 debugLog('[smartEnter] Empty bullet, removing marker');
                 preEdits.push({
@@ -632,17 +744,16 @@ async function smartEnterCommand() {
                 });
                 continuationTexts[i] = null;
                 skipNewlineForSingle = true;
-            }
-            else if (pos.character < bulletMarkerEnd) {
+            } else if (pos.character < bulletMarkerEnd) {
                 debugLog('[smartEnter] Cursor in marker, no continuation');
                 continuationTexts[i] = null;
-            }
-            else {
+            } else {
                 debugLog(`[smartEnter] Adding bullet continuation: "${indent}${marker} "`);
                 continuationTexts[i] = `${indent}${marker} `;
             }
             continue;
         }
+
         // 番号付き
         if ((m = lineText.match(/^(\s*)(\d+)([\.)])\s+(.*)$/))) {
             const indent = m[1] || '';
@@ -654,6 +765,7 @@ async function smartEnterCommand() {
             const numStr = String(num);
             const numberedMarkerEnd = indent.length + numStr.length + punct.length + 1;
             debugLog(`[smartEnter] Numbered list - Cursor at ${pos.character}, markerEnd at ${numberedMarkerEnd}`);
+
             if (isEmptyItem && atEndOfLine) {
                 preEdits.push({
                     range: new vscode.Range(lineIdx, 0, lineIdx, lineText.length),
@@ -661,12 +773,10 @@ async function smartEnterCommand() {
                 });
                 continuationTexts[i] = null;
                 skipNewlineForSingle = true;
-            }
-            else if (pos.character < numberedMarkerEnd) {
+            } else if (pos.character < numberedMarkerEnd) {
                 debugLog('[smartEnter] Cursor in numbered marker, no continuation');
                 continuationTexts[i] = null;
-            }
-            else {
+            } else {
                 const next = num + 1;
                 continuationTexts[i] = `${indent}${next}${punct} `;
                 hasOrderedList = true;
@@ -674,67 +784,79 @@ async function smartEnterCommand() {
             }
             continue;
         }
+
         // ラベル付きリスト
         if ((m = lineText.match(/^(\s*)([^\s:]+):\s/))) {
             const indent = m[1] || '';
             const currentLabel = m[2];
             const labelMarkerEnd = indent.length + currentLabel.length + 2;
+
             debugLog(`[smartEnter] Labeled list detected: "${currentLabel}:" at line ${lineIdx}`);
+
             if (pos.character < labelMarkerEnd) {
                 debugLog('[smartEnter] Cursor in label marker, no continuation');
                 continuationTexts[i] = null;
                 continue;
             }
-            const labels = [];
+
+            const labels: string[] = [];
             let searchLine = lineIdx;
+
             while (searchLine >= 0) {
                 const searchText = document.lineAt(searchLine).text;
                 const searchMatch = searchText.match(/^(\s*)([^\s:]+):\s/);
+
                 if (searchMatch && searchMatch[1] === indent) {
                     labels.unshift(searchMatch[2]);
                     searchLine--;
-                }
-                else if (searchText.trim() === '') {
+                } else if (searchText.trim() === '') {
                     break;
-                }
-                else {
+                } else {
                     break;
                 }
             }
+
             debugLog(`[smartEnter] Found labels: [${labels.join(', ')}]`);
+
             if (labels.length > 0) {
                 const currentIndex = labels.indexOf(currentLabel);
                 const nextIndex = (currentIndex + 1) % labels.length;
                 const nextLabel = labels[nextIndex];
+
                 debugLog(`[smartEnter] Current: ${currentLabel} (${currentIndex}), Next: ${nextLabel} (${nextIndex})`);
+
                 continuationTexts[i] = `${indent}${nextLabel}: `;
-            }
-            else {
+            } else {
                 continuationTexts[i] = `${indent}${currentLabel}: `;
             }
             continue;
         }
+
         continuationTexts[i] = null;
     }
+
     await editor.edit(eb => {
         for (const e of preEdits) {
             eb.replace(e.range, e.text);
         }
+
         if (!(isSingleCursor && skipNewlineForSingle)) {
             for (let i = 0; i < selections.length; i++) {
                 const sel = selections[i];
                 const cont = continuationTexts[i];
                 const pos = sel.active;
+
                 if (cont) {
                     eb.insert(pos, '\n' + cont);
-                }
-                else {
+                } else {
                     eb.insert(pos, '\n');
                 }
             }
         }
     });
+
     debugLog('[smartEnter] Edit complete, cursor should be at end of inserted text');
+
     try {
         for (const sel of selections) {
             const prevLineIndex = Math.max(0, sel.active.line);
@@ -745,17 +867,19 @@ async function smartEnterCommand() {
                 }
             }
         }
-    }
-    catch (_) { }
+    } catch (_) {}
+
     if (hasOrderedList && orderedListLine >= 0) {
         const currentLine = editor.selection.active.line;
         debugLog('[smartEnter] Renumbering ordered lists from line', currentLine, '(original line was', orderedListLine, ')');
         renumberLists(editor, currentLine);
     }
 }
+
 // 全角判定
-function isZeroWidthCombining(cp) {
-    return ((cp >= 0x0300 && cp <= 0x036F) ||
+function isZeroWidthCombining(cp: number): boolean {
+    return (
+        (cp >= 0x0300 && cp <= 0x036F) ||
         (cp >= 0x1AB0 && cp <= 0x1AFF) ||
         (cp >= 0x1DC0 && cp <= 0x1DFF) ||
         (cp >= 0x20D0 && cp <= 0x20FF) ||
@@ -763,12 +887,14 @@ function isZeroWidthCombining(cp) {
         cp === 0x200B ||
         cp === 0x200C ||
         cp === 0x200D ||
-        (cp >= 0xFE00 && cp <= 0xFE0F));
+        (cp >= 0xFE00 && cp <= 0xFE0F)
+    );
 }
-function isFullWidthCodePoint(cp) {
-    if (cp < 0x1100)
-        return false;
-    return ((cp >= 0x1100 && cp <= 0x115F) ||
+
+function isFullWidthCodePoint(cp: number): boolean {
+    if (cp < 0x1100) return false;
+    return (
+        (cp >= 0x1100 && cp <= 0x115F) ||
         cp === 0x2329 || cp === 0x232A ||
         (cp >= 0x2E80 && cp <= 0x303E) ||
         (cp >= 0x3040 && cp <= 0xA4CF) ||
@@ -780,34 +906,30 @@ function isFullWidthCodePoint(cp) {
         (cp >= 0xFFE0 && cp <= 0xFFE6) ||
         (cp >= 0x1F300 && cp <= 0x1F64F) ||
         (cp >= 0x1F900 && cp <= 0x1F9FF) ||
-        (cp >= 0x20000 && cp <= 0x3FFFD));
+        (cp >= 0x20000 && cp <= 0x3FFFD)
+    );
 }
-function getStringWidth(str) {
-    if (!str)
-        return 0;
+
+function getStringWidth(str: string): number {
+    if (!str) return 0;
     let width = 0;
     for (const ch of str) {
         const cp = ch.codePointAt(0);
-        if (cp === undefined)
-            continue;
-        if (isZeroWidthCombining(cp))
-            continue;
+        if (cp === undefined) continue;
+        if (isZeroWidthCombining(cp)) continue;
         width += isFullWidthCodePoint(cp) ? 2 : 1;
     }
     return width;
 }
-function getDisplayWidthWithHeuristics(text) {
-    if (!text)
-        return 0;
+
+function getDisplayWidthWithHeuristics(text: string): number {
+    if (!text) return 0;
     const s = String(text).trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s))
-        return 10;
-    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s))
-        return Math.max(10, getStringWidth(s));
-    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(s))
-        return 16;
-    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(s))
-        return 19;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return 10;
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) return Math.max(10, getStringWidth(s));
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(s)) return 16;
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(s)) return 19;
+
     if (/^[+-]?\d{1,3}([,\s]\d{3})+(?:[.,]\d+)?$/.test(s)) {
         return getStringWidth(s) + 1;
     }
@@ -816,79 +938,76 @@ function getDisplayWidthWithHeuristics(text) {
     }
     return getStringWidth(s);
 }
-function padCell(content, targetWidth, columnHasFullWidth = false) {
+
+function padCell(content: string, targetWidth: number, columnHasFullWidth = false): string {
     const current = getDisplayWidthWithHeuristics(content);
     let remain = targetWidth - current;
-    if (remain < 2)
-        remain = 2;
+    if (remain < 2) remain = 2;
+
     const wideSpace = '　';
     const narrowSpace = ' ';
+
     const leftPadStr = narrowSpace;
     const rightPad = remain - 1;
+
     let rightPadStr = '';
+
     if (columnHasFullWidth) {
         let rightRemain = Math.max(1, rightPad);
-        while (rightRemain >= 2) {
-            rightPadStr += wideSpace;
-            rightRemain -= 2;
-        }
-        while (rightRemain > 0) {
-            rightPadStr += narrowSpace;
-            rightRemain -= 1;
-        }
-    }
-    else {
+        while (rightRemain >= 2) { rightPadStr += wideSpace; rightRemain -= 2; }
+        while (rightRemain > 0) { rightPadStr += narrowSpace; rightRemain -= 1; }
+    } else {
         rightPadStr = narrowSpace.repeat(Math.max(1, rightPad));
     }
+
     return leftPadStr + content + rightPadStr;
 }
-function splitTableLine(line) {
-    if (!line.includes('|'))
-        return null;
+
+function splitTableLine(line: string): string[] | null {
+    if (!line.includes('|')) return null;
     let cells = line.split('|');
-    if (cells.length && cells[0].trim() === '')
-        cells = cells.slice(1);
-    if (cells.length && cells[cells.length - 1].trim() === '')
-        cells = cells.slice(0, -1);
+    if (cells.length && cells[0].trim() === '') cells = cells.slice(1);
+    if (cells.length && cells[cells.length - 1].trim() === '') cells = cells.slice(0, -1);
     return cells.map(c => c.trim());
 }
-function isSeparatorRow(cells) {
-    if (!cells || cells.length === 0)
-        return false;
+
+function isSeparatorRow(cells: string[]): boolean {
+    if (!cells || cells.length === 0) return false;
     return cells.every(c => /^:?-+:?$/.test(c.replace(/\s+/g, '')));
 }
-function findTableBlock(document, lineIndex) {
+
+function findTableBlock(document: vscode.TextDocument, lineIndex: number): { start: number; end: number } {
     const lineCount = document.lineCount;
     let start = lineIndex;
     let end = lineIndex;
+
     for (let i = lineIndex; i >= 0; i--) {
         const t = document.lineAt(i).text;
         if (t.includes('|')) {
             start = i;
-        }
-        else if (t.trim() !== '') {
+        } else if (t.trim() !== '') {
             break;
-        }
-        else {
+        } else {
             break;
         }
     }
+
     for (let i = lineIndex + 1; i < lineCount; i++) {
         const t = document.lineAt(i).text;
         if (t.includes('|')) {
             end = i;
-        }
-        else if (t.trim() !== '') {
+        } else if (t.trim() !== '') {
             break;
-        }
-        else {
+        } else {
             break;
         }
     }
     return { start, end };
 }
-function formatTableAtLine(editor, lineIndex) {
+
+function formatTableAtLine(editor: vscode.TextEditor, lineIndex: number): void {
     debugLog(`formatTableAtLine called for line ${lineIndex}`);
+
     if (!editor) {
         debugLog('No editor, aborting');
         return;
@@ -898,47 +1017,51 @@ function formatTableAtLine(editor, lineIndex) {
         debugLog(`Invalid line index ${lineIndex} (lineCount: ${document.lineCount})`);
         return;
     }
+
     if (isInFencedCodeBlock(document, lineIndex)) {
         debugLog('Line is inside fenced code block, skipping');
         return;
     }
+
     const { start, end } = findTableBlock(document, lineIndex);
     if (start === undefined || end === undefined) {
         debugLog('Could not find table block');
         return;
     }
     debugLog(`Table block found: lines ${start} to ${end}`);
-    const rows = [];
+
+    const rows: TableRow[] = [];
     let maxCols = 0;
     for (let i = start; i <= end; i++) {
         const text = document.lineAt(i).text;
-        if (!text.includes('|'))
-            continue;
+        if (!text.includes('|')) continue;
         const cells = splitTableLine(text);
-        if (!cells || cells.length === 0)
-            continue;
+        if (!cells || cells.length === 0) continue;
         rows.push({ line: i, cells, isSep: isSeparatorRow(cells) });
         maxCols = Math.max(maxCols, cells.length);
     }
     debugLog(`Parsed ${rows.length} rows, max columns: ${maxCols}`);
+
     if (rows.length < 2) {
         debugLog('Not enough rows (< 2), aborting');
         return;
     }
+
     if (!rows.some(r => r.isSep)) {
         debugLog('No separator row found, aborting');
         return;
     }
-    const colWidths = Array(maxCols).fill(5);
-    const colHasFullWidth = Array(maxCols).fill(false);
+
+    const colWidths: number[] = Array(maxCols).fill(5);
+    const colHasFullWidth: boolean[] = Array(maxCols).fill(false);
+
     for (const r of rows) {
-        if (r.isSep)
-            continue;
+        if (r.isSep) continue;
         for (let c = 0; c < maxCols; c++) {
             const cell = (r.cells[c] || '').trim();
             const w = Math.max(5, getDisplayWidthWithHeuristics(cell) + 2);
-            if (w > colWidths[c])
-                colWidths[c] = w;
+            if (w > colWidths[c]) colWidths[c] = w;
+
             if (!colHasFullWidth[c] && cell) {
                 const hasFullWidth = [...cell].some(ch => {
                     const cp = ch.codePointAt(0);
@@ -951,9 +1074,11 @@ function formatTableAtLine(editor, lineIndex) {
             }
         }
     }
+
     debugLog(`Column widths: ${colWidths.join(', ')}`);
     debugLog(`Column full-width flags: ${colHasFullWidth.join(', ')}`);
-    const replacements = [];
+
+    const replacements: Replacement[] = [];
     for (const r of rows) {
         let out = '|';
         if (r.isSep) {
@@ -963,16 +1088,12 @@ function formatTableAtLine(editor, lineIndex) {
                 const right = raw.endsWith(':');
                 const dashes = '-'.repeat(Math.max(5, colWidths[c]));
                 let seg = dashes;
-                if (left && right)
-                    seg = ':' + dashes.slice(1, -1) + ':';
-                else if (left)
-                    seg = ':' + dashes.slice(1);
-                else if (right)
-                    seg = dashes.slice(0, -1) + ':';
+                if (left && right) seg = ':' + dashes.slice(1, -1) + ':';
+                else if (left) seg = ':' + dashes.slice(1);
+                else if (right) seg = dashes.slice(0, -1) + ':';
                 out += ' ' + seg + '|';
             }
-        }
-        else {
+        } else {
             for (let c = 0; c < maxCols; c++) {
                 const cell = (r.cells[c] || '').trim();
                 const padded = padCell(cell, colWidths[c], colHasFullWidth[c]);
@@ -981,8 +1102,10 @@ function formatTableAtLine(editor, lineIndex) {
         }
         replacements.push({ line: r.line, text: out });
     }
+
     debugLog(`Applying ${replacements.length} replacements`);
     let replacedCount = 0;
+
     editor.edit(editBuilder => {
         for (const rep of replacements) {
             const orig = document.lineAt(rep.line).text;
@@ -998,67 +1121,82 @@ function formatTableAtLine(editor, lineIndex) {
     }).then(success => {
         if (success) {
             debugLog(`✓ Table formatting completed: ${replacedCount} lines modified`);
-        }
-        else {
+        } else {
             debugLog(`✗ Table formatting failed`);
         }
     });
 }
-function updateAllDecorations(editor) {
-    if (!editor || !checkedDecoration)
-        return;
+
+function updateAllDecorations(editor: vscode.TextEditor): void {
+    if (!editor || !checkedDecoration) return;
+
     console.log(`[updateAllDecorations] Starting update (editing line: ${currentEditingLine})`);
+
     const document = editor.document;
-    const ranges = [];
+    const ranges: vscode.Range[] = [];
+
     for (let i = 0; i < document.lineCount; i++) {
         if (i === currentEditingLine) {
             console.log(`[updateAllDecorations] Skipping editing line ${i}`);
             continue;
         }
+
         const line = document.lineAt(i).text;
+
         const match = line.match(/^\s*-\s\[[xX]\]\s*/);
         if (match) {
             const startPos = match[0].length;
             if (startPos < line.length) {
-                const range = new vscode.Range(new vscode.Position(i, startPos), new vscode.Position(i, line.length));
+                const range = new vscode.Range(
+                    new vscode.Position(i, startPos),
+                    new vscode.Position(i, line.length)
+                );
                 ranges.push(range);
                 console.log(`[updateAllDecorations] Adding range for line ${i}: "${line.substring(startPos)}"`);
             }
         }
     }
+
     editor.setDecorations(checkedDecoration, ranges);
     console.log(`[updateAllDecorations] Applied ${ranges.length} checkbox decorations`);
+
     updateHeadingDecorations(editor);
     updateCodeBlockDecorations(editor);
     updateHorizontalRuleDecorations(editor);
 }
-function updateHeadingDecorations(editor) {
-    if (!editor || headingDecorations.length !== 6)
-        return;
+
+function updateHeadingDecorations(editor: vscode.TextEditor): void {
+    if (!editor || headingDecorations.length !== 6) return;
+
     const document = editor.document;
-    const perLevel = [[], [], [], [], [], []];
+    const perLevel: vscode.Range[][] = [[], [], [], [], [], []];
+
     for (let i = 0; i < document.lineCount; i++) {
         const lineText = document.lineAt(i).text;
         const m = lineText.match(/^(#{1,6})\s+.+/);
-        if (!m)
-            continue;
+        if (!m) continue;
+
         const level = Math.min(m[1].length, 6) - 1;
         const range = new vscode.Range(new vscode.Position(i, 0), new vscode.Position(i, lineText.length));
         perLevel[level].push(range);
     }
+
     for (let l = 0; l < 6; l++) {
         editor.setDecorations(headingDecorations[l], perLevel[l]);
     }
 }
-function updateCodeBlockDecorations(editor) {
-    if (!editor || !codeBlockDecoration)
-        return;
+
+function updateCodeBlockDecorations(editor: vscode.TextEditor): void {
+    if (!editor || !codeBlockDecoration) return;
+
     const document = editor.document;
-    const backgroundRanges = [];
-    const codeBlocks = [];
+    const backgroundRanges: vscode.Range[] = [];
+    const codeBlocks: CodeBlock[] = [];
+
     let inFence = false;
     let fenceStart = -1;
     let fenceLanguage = '';
+
     for (let i = 0; i < document.lineCount; i++) {
         const lineText = document.lineAt(i).text;
         if (lineText.startsWith('```')) {
@@ -1067,11 +1205,11 @@ function updateCodeBlockDecorations(editor) {
                 fenceStart = i;
                 const langMatch = lineText.match(/^```([a-zA-Z0-9_+\-#]+)/);
                 fenceLanguage = langMatch ? langMatch[1].toLowerCase() : '';
-            }
-            else {
+            } else {
                 if (fenceStart >= 0) {
                     const range = new vscode.Range(new vscode.Position(fenceStart, 0), new vscode.Position(i, lineText.length));
                     backgroundRanges.push(range);
+
                     if (fenceLanguage) {
                         codeBlocks.push({
                             language: fenceLanguage,
@@ -1086,10 +1224,12 @@ function updateCodeBlockDecorations(editor) {
             }
         }
     }
+
     if (inFence && fenceStart >= 0) {
         const lastLine = document.lineCount - 1;
         const range = new vscode.Range(new vscode.Position(fenceStart, 0), new vscode.Position(lastLine, document.lineAt(lastLine).text.length));
         backgroundRanges.push(range);
+
         if (fenceLanguage) {
             codeBlocks.push({
                 language: fenceLanguage,
@@ -1098,24 +1238,32 @@ function updateCodeBlockDecorations(editor) {
             });
         }
     }
+
     editor.setDecorations(codeBlockDecoration, backgroundRanges);
+
     applyLanguageHighlighting(editor, codeBlocks);
 }
-function applyLanguageHighlighting(editor, codeBlocks) {
+
+function applyLanguageHighlighting(editor: vscode.TextEditor, codeBlocks: CodeBlock[]): void {
     const document = editor.document;
+
     for (const [lang, decorations] of languageDecorations) {
         for (const decoration of decorations.values()) {
             editor.setDecorations(decoration, []);
         }
     }
     languageDecorations.clear();
+
     for (const block of codeBlocks) {
         const { language, startLine, endLine } = block;
         const syntaxRanges = getSyntaxRanges(document, language, startLine, endLine);
+
         if (!languageDecorations.has(language)) {
             languageDecorations.set(language, new Map());
         }
-        const langDecorations = languageDecorations.get(language);
+
+        const langDecorations = languageDecorations.get(language)!;
+
         for (const [tokenType, ranges] of syntaxRanges) {
             if (!langDecorations.has(tokenType)) {
                 const decoration = createDecorationForToken(tokenType);
@@ -1123,6 +1271,7 @@ function applyLanguageHighlighting(editor, codeBlocks) {
                     langDecorations.set(tokenType, decoration);
                 }
             }
+
             const decoration = langDecorations.get(tokenType);
             if (decoration) {
                 editor.setDecorations(decoration, ranges);
@@ -1130,8 +1279,9 @@ function applyLanguageHighlighting(editor, codeBlocks) {
         }
     }
 }
-function createDecorationForToken(tokenType) {
-    const colors = {
+
+function createDecorationForToken(tokenType: string): vscode.TextEditorDecorationType | null {
+    const colors: Record<string, string> = {
         'keyword': '#c678dd',
         'string': '#98c379',
         'comment': '#5c6370',
@@ -1155,24 +1305,34 @@ function createDecorationForToken(tokenType) {
         'builtin': '#56b6c2',
         'symbol': '#56b6c2'
     };
+
     const color = colors[tokenType];
-    if (!color)
-        return null;
-    const options = {
+    if (!color) return null;
+
+    const options: vscode.DecorationRenderOptions = {
         color: color,
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     };
+
     if (tokenType === 'keyword' || tokenType === 'class' || tokenType === 'type' || tokenType === 'section') {
         options.fontWeight = 'bold';
     }
     if (tokenType === 'comment') {
         options.fontStyle = 'italic';
     }
+
     return vscode.window.createTextEditorDecorationType(options);
 }
-function getSyntaxRanges(document, language, startLine, endLine) {
-    const syntaxRanges = new Map();
-    const languagePatterns = {
+
+function getSyntaxRanges(
+    document: vscode.TextDocument,
+    language: string,
+    startLine: number,
+    endLine: number
+): Map<string, vscode.Range[]> {
+    const syntaxRanges = new Map<string, vscode.Range[]>();
+
+    const languagePatterns: Record<string, Record<string, RegExp>> = {
         'python': {
             'keyword': /\b(def|class|if|else|elif|for|while|return|import|from|as|try|except|finally|with|lambda|yield|assert|break|continue|pass|raise|global|nonlocal|del|is|in|not|and|or|None|True|False)\b/g,
             'string': /(["'])(?:(?=(\\?))\2.)*?\1/g,
@@ -1206,14 +1366,17 @@ function getSyntaxRanges(document, language, startLine, endLine) {
             'keyword': /\b(true|false|null)\b/g
         }
     };
-    const aliases = {
+
+    const aliases: Record<string, string> = {
         'js': 'javascript', 'mjs': 'javascript', 'cjs': 'javascript',
         'ts': 'typescript',
         'py': 'python',
         'jsx': 'javascript', 'tsx': 'typescript'
     };
+
     const resolvedLanguage = aliases[language] || language;
     let patterns = languagePatterns[resolvedLanguage];
+
     if (!patterns) {
         patterns = {
             'string': /(["'`])(?:(?=(\\?))\2.)*?\1/g,
@@ -1221,30 +1384,37 @@ function getSyntaxRanges(document, language, startLine, endLine) {
             'number': /\b\d+(\.\d+)?\b/g
         };
     }
+
     for (let lineNum = startLine; lineNum <= endLine && lineNum < document.lineCount; lineNum++) {
         const line = document.lineAt(lineNum);
         const lineText = line.text;
+
         for (const [tokenType, pattern] of Object.entries(patterns)) {
-            let match;
+            let match: RegExpExecArray | null;
             pattern.lastIndex = 0;
+
             while ((match = pattern.exec(lineText)) !== null) {
                 const startPos = new vscode.Position(lineNum, match.index);
                 const endPos = new vscode.Position(lineNum, match.index + match[0].length);
                 const range = new vscode.Range(startPos, endPos);
+
                 if (!syntaxRanges.has(tokenType)) {
                     syntaxRanges.set(tokenType, []);
                 }
-                syntaxRanges.get(tokenType).push(range);
+                syntaxRanges.get(tokenType)!.push(range);
             }
         }
     }
+
     return syntaxRanges;
 }
-function updateHorizontalRuleDecorations(editor) {
-    if (!editor || !horizontalRuleDecoration)
-        return;
+
+function updateHorizontalRuleDecorations(editor: vscode.TextEditor): void {
+    if (!editor || !horizontalRuleDecoration) return;
+
     const document = editor.document;
-    const ranges = [];
+    const ranges: vscode.Range[] = [];
+
     for (let i = 0; i < document.lineCount; i++) {
         const lineText = document.lineAt(i).text.trim();
         if (/^(-{3,}|\*{3,}|_{3,})$/.test(lineText)) {
@@ -1252,95 +1422,106 @@ function updateHorizontalRuleDecorations(editor) {
             ranges.push(range);
         }
     }
+
     editor.setDecorations(horizontalRuleDecoration, ranges);
 }
-function toggleCheckbox(editor, lineNumber) {
+
+function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): void {
     const line = editor.document.lineAt(lineNumber).text;
-    let newLine;
+    let newLine: string;
     let shouldMoveToBottom = false;
-    let cursorPosition = null;
+    let cursorPosition: number | null = null;
+
     console.log(`[toggleCheckbox] Toggling line ${lineNumber}: "${line}"`);
+
     if (line.includes('- [ ]')) {
         newLine = line.replace('- [ ]', '- [x]');
-        shouldMoveToBottom = vscode.workspace.getConfiguration('markdownInline').get('autoMoveCompletedTasks', false) || false;
+        shouldMoveToBottom = vscode.workspace.getConfiguration('markdownInline').get<boolean>('autoMoveCompletedTasks', false) || false;
         const checkboxEndMatch = newLine.match(/^(\s*-\s\[[xX]\]\s*)/);
         if (checkboxEndMatch) {
             cursorPosition = checkboxEndMatch[1].length;
         }
         console.log('[toggleCheckbox] Checking checkbox');
-    }
-    else if (line.includes('- [x]') || line.includes('- [X]')) {
+    } else if (line.includes('- [x]') || line.includes('- [X]')) {
         newLine = line.replace(/- \[[xX]\]/, '- [ ]');
         const checkboxEndMatch = newLine.match(/^(\s*-\s\[\s\]\s*)/);
         if (checkboxEndMatch) {
             cursorPosition = checkboxEndMatch[1].length;
         }
         console.log('[toggleCheckbox] Unchecking checkbox');
-    }
-    else {
+    } else {
         return;
     }
+
     editor.edit(editBuilder => {
-        const range = new vscode.Range(lineNumber, 0, lineNumber, line.length);
+        const range = new vscode.Range(
+            lineNumber, 0,
+            lineNumber, line.length
+        );
         editBuilder.replace(range, newLine);
     }).then(() => {
         if (cursorPosition !== null) {
             const newPosition = new vscode.Position(lineNumber, cursorPosition);
             editor.selection = new vscode.Selection(newPosition, newPosition);
         }
+
         if (shouldMoveToBottom) {
             moveCompletedTaskToBottom(editor, lineNumber);
         }
+
         console.log('[toggleCheckbox] Edit complete, updating decorations');
         updateAllDecorations(editor);
     });
 }
-function moveCompletedTaskToBottom(editor, lineNumber) {
+
+function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number): void {
     const document = editor.document;
     const currentLine = document.lineAt(lineNumber).text;
     const indentMatch = currentLine.match(/^\s*/);
     const currentIndent = indentMatch ? indentMatch[0].length : 0;
     const isCompleted = currentLine.match(/^\s*-\s\[[xX]\]/);
+
     let taskStart = lineNumber;
     let taskEnd = lineNumber;
     let lastUncheckedLine = -1;
     let firstCheckedLine = -1;
-    const tasks = [];
+    const tasks: TaskInfo[] = [];
+
     for (let i = lineNumber - 1; i >= 0; i--) {
         const line = document.lineAt(i).text;
-        if (line.trim() === '')
-            break;
+        if (line.trim() === '') break;
+
         const lineIndentMatch = line.match(/^\s*/);
         const lineIndent = lineIndentMatch ? lineIndentMatch[0].length : 0;
-        if (lineIndent < currentIndent)
-            break;
+        if (lineIndent < currentIndent) break;
         if (lineIndent === currentIndent && line.match(/^\s*-\s\[[ xX]\]/)) {
             taskStart = i;
         }
-        if (lineIndent > currentIndent)
-            break;
+        if (lineIndent > currentIndent) break;
     }
+
     for (let i = lineNumber + 1; i < document.lineCount; i++) {
         const line = document.lineAt(i).text;
-        if (line.trim() === '')
-            break;
+        if (line.trim() === '') break;
+
         const lineIndentMatch = line.match(/^\s*/);
         const lineIndent = lineIndentMatch ? lineIndentMatch[0].length : 0;
-        if (lineIndent < currentIndent)
-            break;
+        if (lineIndent < currentIndent) break;
         if (lineIndent === currentIndent && line.match(/^\s*-\s\[[ xX]\]/)) {
             taskEnd = i;
         }
-        if (lineIndent > currentIndent)
-            break;
+        if (lineIndent > currentIndent) break;
     }
+
     for (let i = taskStart; i <= taskEnd; i++) {
         const line = document.lineAt(i).text;
         const lineIndentMatch = line.match(/^\s*/);
         const lineIndent = lineIndentMatch ? lineIndentMatch[0].length : 0;
+
         if (lineIndent === currentIndent && line.match(/^\s*-\s\[[ xX]\]/)) {
             const isChecked = line.match(/^\s*-\s\[[xX]\]/);
             tasks.push({ line: i, text: line, isChecked: !!isChecked });
+
             if (!isChecked && i !== lineNumber) {
                 lastUncheckedLine = i;
             }
@@ -1349,24 +1530,32 @@ function moveCompletedTaskToBottom(editor, lineNumber) {
             }
         }
     }
+
     let targetLine = -1;
+
     if (isCompleted) {
         targetLine = lastUncheckedLine !== -1 ? lastUncheckedLine : taskEnd;
-    }
-    else {
+    } else {
         if (firstCheckedLine !== -1) {
             targetLine = firstCheckedLine - 1;
         }
     }
+
     if (targetLine !== -1 && targetLine !== lineNumber) {
         editor.edit(editBuilder => {
             const textToMove = currentLine + '\n';
+
             if (targetLine < lineNumber) {
                 editBuilder.insert(new vscode.Position(targetLine + 1, 0), textToMove);
-                editBuilder.delete(new vscode.Range(lineNumber + 1, 0, lineNumber + 2, 0));
-            }
-            else {
-                editBuilder.delete(new vscode.Range(lineNumber, 0, lineNumber + 1, 0));
+                editBuilder.delete(new vscode.Range(
+                    lineNumber + 1, 0,
+                    lineNumber + 2, 0
+                ));
+            } else {
+                editBuilder.delete(new vscode.Range(
+                    lineNumber, 0,
+                    lineNumber + 1, 0
+                ));
                 editBuilder.insert(new vscode.Position(targetLine, 0), textToMove);
             }
         }).then(() => {
@@ -1375,22 +1564,24 @@ function moveCompletedTaskToBottom(editor, lineNumber) {
         });
     }
 }
-function adjustIndent(editor, increase) {
+
+function adjustIndent(editor: vscode.TextEditor, increase: boolean): void {
     const selection = editor.selection;
     const document = editor.document;
     const indentStr = '  ';
+
     if (selection.isEmpty) {
         const position = selection.active;
         const lineText = document.lineAt(position.line).text;
         const cellInfo = getTableCellInfo(lineText, position.character);
+
         if (cellInfo && cellInfo.isTable && cellInfo.cellIndex >= 0) {
             if (increase) {
                 if (cellInfo.cellIndex < cellInfo.allCells.length - 1) {
                     const nextCell = cellInfo.allCells[cellInfo.cellIndex + 1];
                     const newPosition = new vscode.Position(position.line, nextCell.contentStart);
                     editor.selection = new vscode.Selection(newPosition, newPosition);
-                }
-                else {
+                } else {
                     const nextLineIndex = position.line + 1;
                     if (nextLineIndex < document.lineCount) {
                         const nextLineText = document.lineAt(nextLineIndex).text;
@@ -1401,14 +1592,12 @@ function adjustIndent(editor, increase) {
                         }
                     }
                 }
-            }
-            else {
+            } else {
                 if (cellInfo.cellIndex > 0) {
                     const prevCell = cellInfo.allCells[cellInfo.cellIndex - 1];
                     const newPosition = new vscode.Position(position.line, prevCell.contentStart);
                     editor.selection = new vscode.Selection(newPosition, newPosition);
-                }
-                else {
+                } else {
                     const prevLineIndex = position.line - 1;
                     if (prevLineIndex >= 0) {
                         const prevLineText = document.lineAt(prevLineIndex).text;
@@ -1424,66 +1613,63 @@ function adjustIndent(editor, increase) {
             return;
         }
     }
+
     if (!selection.isEmpty) {
         const startLine = selection.start.line;
         const endLine = selection.end.line;
+
         editor.edit(editBuilder => {
             for (let i = startLine; i <= endLine; i++) {
                 const line = document.lineAt(i).text;
                 const range = new vscode.Range(i, 0, i, line.length);
+
                 if (increase) {
                     editBuilder.replace(range, indentStr + line);
-                }
-                else {
+                } else {
                     let newLine = line;
                     if (/^\t/.test(newLine)) {
                         newLine = newLine.replace(/^\t/, '');
-                    }
-                    else if (newLine.startsWith('  ')) {
+                    } else if (newLine.startsWith('  ')) {
                         newLine = newLine.slice(2);
-                    }
-                    else if (/^ /.test(newLine)) {
+                    } else if (/^ /.test(newLine)) {
                         newLine = newLine.slice(1);
                     }
-                    if (newLine !== line)
-                        editBuilder.replace(range, newLine);
+                    if (newLine !== line) editBuilder.replace(range, newLine);
                 }
             }
         }).then(() => {
             try {
                 renumberLists(editor);
-            }
-            catch (_) { }
+            } catch (_) {}
         });
-    }
-    else {
+    } else {
         const line = document.lineAt(selection.active.line).text;
         const cursorPos = selection.active.character;
+
         editor.edit(editBuilder => {
-            const range = new vscode.Range(selection.active.line, 0, selection.active.line, line.length);
+            const range = new vscode.Range(
+                selection.active.line, 0,
+                selection.active.line, line.length
+            );
+
             if (increase) {
                 editBuilder.replace(range, indentStr + line);
-            }
-            else {
+            } else {
                 let newLine = line;
                 if (/^\t/.test(newLine)) {
                     newLine = newLine.replace(/^\t/, '');
-                }
-                else if (newLine.startsWith('  ')) {
+                } else if (newLine.startsWith('  ')) {
                     newLine = newLine.slice(2);
-                }
-                else if (/^ /.test(newLine)) {
+                } else if (/^ /.test(newLine)) {
                     newLine = newLine.slice(1);
                 }
-                if (newLine !== line)
-                    editBuilder.replace(range, newLine);
+                if (newLine !== line) editBuilder.replace(range, newLine);
             }
         }).then(() => {
             if (increase) {
                 const newPosition = new vscode.Position(selection.active.line, cursorPos + 2);
                 editor.selection = new vscode.Selection(newPosition, newPosition);
-            }
-            else {
+            } else {
                 const currentLine = document.lineAt(selection.active.line).text;
                 const diff = line.length - currentLine.length;
                 const newPos = Math.max(0, cursorPos - diff);
@@ -1492,19 +1678,21 @@ function adjustIndent(editor, increase) {
             }
             try {
                 renumberLists(editor);
-            }
-            catch (_) { }
+            } catch (_) {}
         });
     }
 }
-function convertLineToType(editor, targetType) {
+
+function convertLineToType(editor: vscode.TextEditor, targetType: ConvertType): void {
     const document = editor.document;
     const selection = editor.selection;
     const startLine = selection.start.line;
     const endLine = selection.end.line;
+
     editor.edit(editBuilder => {
         for (let i = startLine; i <= endLine; i++) {
             const line = document.lineAt(i).text;
+
             let quotePrefix = '';
             let restOfLine = line;
             const quoteMatch = line.match(/^((?:>\s*)+)/);
@@ -1512,28 +1700,27 @@ function convertLineToType(editor, targetType) {
                 quotePrefix = quoteMatch[1];
                 restOfLine = line.substring(quotePrefix.length);
             }
+
             let indent = '';
             let content = '';
-            let match;
+            let match: RegExpMatchArray | null;
+
             if ((match = restOfLine.match(/^(\s*)-\s\[[xX ]?\]\s+(.*)$/))) {
                 indent = match[1];
                 content = match[2];
-            }
-            else if ((match = restOfLine.match(/^(\s*)[-*+]\s+(.*)$/))) {
+            } else if ((match = restOfLine.match(/^(\s*)[-*+]\s+(.*)$/))) {
                 indent = match[1];
                 content = match[2];
-            }
-            else if ((match = restOfLine.match(/^(\s*)\d+[\.)]\s+(.*)$/))) {
+            } else if ((match = restOfLine.match(/^(\s*)\d+[\.)]\s+(.*)$/))) {
                 indent = match[1];
                 content = match[2];
-            }
-            else if ((match = restOfLine.match(/^(\s*)(.*)$/))) {
+            } else if ((match = restOfLine.match(/^(\s*)(.*)$/))) {
                 indent = match[1];
                 content = match[2];
-            }
-            else {
+            } else {
                 continue;
             }
+
             let newLine = '';
             switch (targetType) {
                 case 'bullet':
@@ -1549,6 +1736,7 @@ function convertLineToType(editor, targetType) {
                     newLine = `${quotePrefix}${indent}${content}`;
                     break;
             }
+
             const range = new vscode.Range(i, 0, i, line.length);
             editBuilder.replace(range, newLine);
         }
@@ -1556,34 +1744,41 @@ function convertLineToType(editor, targetType) {
         if (targetType === 'numbered') {
             try {
                 renumberLists(editor);
-            }
-            catch (_) { }
+            } catch (_) {}
         }
     });
 }
-function getIndentLevel(indentStr) {
-    if (!indentStr)
-        return 0;
+
+function getIndentLevel(indentStr: string): number {
+    if (!indentStr) return 0;
+
     const tabs = (indentStr.match(/\t/g) || []).length;
     const spaces = (indentStr.match(/ /g) || []).length;
+
     return tabs + Math.ceil(spaces / 2);
 }
-function renumberLists(editor, lineNumber = null) {
+
+function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = null): void {
     const document = editor.document;
     const selection = editor.selection;
     const currentLine = lineNumber !== null ? lineNumber : selection.active.line;
+
     const lineText = document.lineAt(currentLine).text;
     const match = lineText.match(/^(\s*)(\d+)([\.)])\s*/);
+
     if (!match) {
         return;
     }
+
     let startLine = currentLine;
     let endLine = currentLine;
     let emptyLineCount = 0;
     const MAX_EMPTY_LINES = 1;
+
     emptyLineCount = 0;
     for (let i = currentLine - 1; i >= 0; i--) {
         const text = document.lineAt(i).text;
+
         if (text.trim() === '') {
             emptyLineCount++;
             if (emptyLineCount > MAX_EMPTY_LINES) {
@@ -1591,17 +1786,19 @@ function renumberLists(editor, lineNumber = null) {
             }
             continue;
         }
+
         if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
             startLine = i;
             emptyLineCount = 0;
-        }
-        else {
+        } else {
             break;
         }
     }
+
     emptyLineCount = 0;
     for (let i = currentLine + 1; i < document.lineCount; i++) {
         const text = document.lineAt(i).text;
+
         if (text.trim() === '') {
             emptyLineCount++;
             if (emptyLineCount > MAX_EMPTY_LINES) {
@@ -1609,28 +1806,35 @@ function renumberLists(editor, lineNumber = null) {
             }
             continue;
         }
+
         if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
             endLine = i;
             emptyLineCount = 0;
-        }
-        else {
+        } else {
             break;
         }
     }
-    const indentCounters = new Map();
+
+    const indentCounters = new Map<number, number>();
     let previousLevel = -1;
+
     editor.edit(editBuilder => {
         for (let i = startLine; i <= endLine; i++) {
             const line = document.lineAt(i).text;
+
             if (line.trim() === '') {
                 continue;
             }
+
             const m = line.match(/^(\s*)(\d+)([\.)])\s*(.*)/);
+
             if (m) {
                 const indent = m[1];
                 const punct = m[3];
                 const content = m[4];
+
                 const level = getIndentLevel(indent);
+
                 if (level < previousLevel) {
                     for (const [key] of indentCounters.entries()) {
                         if (key > level) {
@@ -1638,54 +1842,59 @@ function renumberLists(editor, lineNumber = null) {
                         }
                     }
                 }
+
                 if (!indentCounters.has(level)) {
                     indentCounters.set(level, 1);
+                } else {
+                    indentCounters.set(level, indentCounters.get(level)! + 1);
                 }
-                else {
-                    indentCounters.set(level, indentCounters.get(level) + 1);
-                }
+
                 for (const [key] of indentCounters.entries()) {
                     if (key > level) {
                         indentCounters.delete(key);
                     }
                 }
+
                 previousLevel = level;
-                const newNumber = indentCounters.get(level);
+                const newNumber = indentCounters.get(level)!;
                 const newLine = content.length > 0
                     ? `${indent}${newNumber}${punct} ${content}`
                     : `${indent}${newNumber}${punct} `;
+
                 const range = new vscode.Range(i, 0, i, line.length);
                 editBuilder.replace(range, newLine);
             }
         }
     });
 }
-function moveLineWithHierarchy(editor, direction) {
-    if (!editor)
-        return;
+
+function moveLineWithHierarchy(editor: vscode.TextEditor | undefined, direction: Direction): void {
+    if (!editor) return;
+
     const selection = editor.selection;
     const startLine = selection.start.line;
     const endLine = selection.end.line;
     const document = editor.document;
-    if (direction === 'up' && startLine === 0)
-        return;
-    if (direction === 'down' && endLine === document.lineCount - 1)
-        return;
+
+    if (direction === 'up' && startLine === 0) return;
+    if (direction === 'down' && endLine === document.lineCount - 1) return;
+
     const indentMatch = document.lineAt(startLine).text.match(/^\s*/);
     const currentIndent = indentMatch ? indentMatch[0].length : 0;
     let blockEndLine = endLine;
+
     for (let i = endLine + 1; i < document.lineCount; i++) {
         const line = document.lineAt(i).text;
-        if (line.trim() === '')
-            break;
+        if (line.trim() === '') break;
         const lineIndentMatch = line.match(/^\s*/);
         const indent = lineIndentMatch ? lineIndentMatch[0].length : 0;
-        if (indent <= currentIndent)
-            break;
+        if (indent <= currentIndent) break;
         blockEndLine = i;
     }
+
     let targetIndent = currentIndent;
     const targetLine = direction === 'up' ? startLine - 1 : blockEndLine + 1;
+
     if (direction === 'up') {
         if (targetLine >= 0) {
             const targetText = document.lineAt(targetLine).text;
@@ -1696,8 +1905,7 @@ function moveLineWithHierarchy(editor, direction) {
                 }
             }
         }
-    }
-    else {
+    } else {
         if (targetLine < document.lineCount) {
             const targetText = document.lineAt(targetLine).text;
             if (targetText.trim() !== '') {
@@ -1708,50 +1916,63 @@ function moveLineWithHierarchy(editor, direction) {
             }
         }
     }
+
     const indentDiff = targetIndent - currentIndent;
     const indentString = indentDiff > 0 ? ' '.repeat(indentDiff) : '';
+
     editor.edit(editBuilder => {
-        const lines = [];
+        const lines: string[] = [];
         for (let i = startLine; i <= blockEndLine; i++) {
             let lineText = document.lineAt(i).text;
             if (indentDiff > 0) {
                 lineText = indentString + lineText;
-            }
-            else if (indentDiff < 0) {
+            } else if (indentDiff < 0) {
                 lineText = lineText.substring(-indentDiff);
             }
             lines.push(lineText);
         }
         const blockText = lines.join('\n');
+
         if (direction === 'up') {
             const lineAbove = document.lineAt(targetLine).text;
-            const deleteRange = new vscode.Range(targetLine, 0, blockEndLine + 1, 0);
+
+            const deleteRange = new vscode.Range(
+                targetLine, 0,
+                blockEndLine + 1, 0
+            );
             const newText = blockText + '\n' + lineAbove + '\n';
             editBuilder.replace(deleteRange, newText);
-        }
-        else {
+        } else {
             const lineBelow = document.lineAt(targetLine).text;
-            const deleteRange = new vscode.Range(startLine, 0, targetLine + 1, 0);
+
+            const deleteRange = new vscode.Range(
+                startLine, 0,
+                targetLine + 1, 0
+            );
             const newText = lineBelow + '\n' + blockText + '\n';
             editBuilder.replace(deleteRange, newText);
         }
     }).then(() => {
         const lineDiff = direction === 'up' ? -1 : 1;
-        const newSelection = new vscode.Selection(startLine + lineDiff, selection.start.character, endLine + lineDiff, selection.end.character);
+        const newSelection = new vscode.Selection(
+            startLine + lineDiff, selection.start.character,
+            endLine + lineDiff, selection.end.character
+        );
         editor.selection = newSelection;
         try {
             formatTableAtLine(editor, editor.selection.active.line);
-        }
-        catch (_) { }
+        } catch (_) {}
     });
 }
-function applyMarkdownSettings() {
+
+function applyMarkdownSettings(): void {
     const config = vscode.workspace.getConfiguration();
     config.update('markdown.extension.completion.enabled', false, vscode.ConfigurationTarget.Workspace);
     config.update('markdown.extension.tableFormatter.enabled', false, vscode.ConfigurationTarget.Workspace);
     console.log('Disabled competing Markdown extension features (completion/tableFormatter)');
 }
-function deactivate() {
+
+export function deactivate(): void {
     if (checkedDecoration) {
         checkedDecoration.dispose();
         checkedDecoration = null;
@@ -1781,4 +2002,3 @@ function deactivate() {
         clearTimeout(tocUpdateTimer);
     }
 }
-//# sourceMappingURL=extension-markdown-inline.js.map
