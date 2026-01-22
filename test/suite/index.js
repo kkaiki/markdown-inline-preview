@@ -13,7 +13,9 @@ function run() {
     const testsRoot = path.resolve(__dirname, '..');
 
     return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
+        // VS Code統合テストはTDD形式のテストのみを読み込む
+        // BDD形式のユニットテストは npm run test:unit で別途実行
+        glob('extension.test.js', { cwd: testsRoot }, (err, files) => {
             if (err) {
                 return e(err);
             }
