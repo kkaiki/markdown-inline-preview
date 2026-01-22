@@ -4,46 +4,48 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'markdown-wysiwyg-extension/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'markdown-wysiwyg-extension/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
 
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      
+        uses: actions/checkout@v4
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-          cache-dependency-path: markdown-wysiwyg-extension/package-lock.json
-      
+
       - name: Install dependencies
-        working-directory: ./markdown-wysiwyg-extension
         run: npm ci
-      
+
       - name: Build extension
-        working-directory: ./markdown-wysiwyg-extension
         run: npm run compile
-      
+
       - name: Install vsce
         run: npm install -g @vscode/vsce
-      
+
       - name: Package extension (test)
-        working-directory: ./markdown-wysiwyg-extension
         run: vsce package
-      
+
       - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vsix-ci-build
-          path: markdown-wysiwyg-extension/*.vsix
+          path: '*.vsix'
           retention-days: 7

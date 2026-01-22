@@ -5,3 +5,19 @@ node_modules/
 *.log
 .vscode-test/
 .env
+
+# Build outputs
+/commands/
+/utils/
+/extension-markdown-inline.js
+*.js.map
+*.d.ts
+
+# Compiled JS in src (keep .ts source files)
+src/**/*.js
+
+# Test coverage
+coverage/
+
+# Claude Code local settings
+.claude/settings.local.json
