@@ -22,10 +22,10 @@
 
 | 変換先 | Mac | Windows/Linux |
 |--------|-----|---------------|
-| 箇条書き (`- `) | `Cmd+Shift+5` | `Ctrl+Shift+5` |
-| 番号付き (`1. `) | `Cmd+Shift+6` | `Ctrl+Shift+6` |
-| チェックボックス (`- [ ] `) | `Cmd+Shift+4` | `Ctrl+Shift+4` |
-| 通常テキスト | `Cmd+Shift+0` | `Ctrl+Shift+0` |
+| 箇条書き (`- `) | `Alt+Cmd+5` | `Alt+Ctrl+5` |
+| 番号付き (`1. `) | `Alt+Cmd+6` | `Alt+Ctrl+6` |
+| チェックボックス (`- [ ] `) | `Alt+Cmd+4` | `Alt+Ctrl+4` |
+| 通常テキスト | `Alt+Cmd+0` | `Alt+Ctrl+0` |
 
 ### インデント操作
 - **Tab**: インデント追加
@@ -52,9 +52,10 @@
   - `markdownInline.table.narrowCharWidth`: 0.8
   - `markdownInline.table.wideCharWidth`: 1.3
 
-### セル内ナビゲーション（実装予定）
+### セル内ナビゲーション
 - `Cmd+Left`: セル内のコンテンツ開始位置に移動
-- `Tab`: 右のセルに移動
+- `Cmd+Right`: セル内のコンテンツ末尾または次セルへ移動
+- `Up` / `Down`: 同じ列位置を維持して上下移動
 - 詳細: [テーブルナビゲーション仕様](../specifications/table-navigation.md)
 
 ---

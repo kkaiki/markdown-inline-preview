@@ -5,7 +5,7 @@
 ### 方法1: VSIXファイルからインストール（推奨）
 
 ```bash
-code --install-extension markdown-inline-preview-1.4.0.vsix
+code --install-extension markdown-inline-preview-1.4.9.vsix
 ```
 
 ### 方法2: ソースからビルド
@@ -55,9 +55,9 @@ code --install-extension markdown-inline-preview-*.vsix
 
 - **Tab**: インデント追加
 - **Shift+Tab**: インデント削除
-- **Cmd+Shift+4**: チェックボックスに変換
-- **Cmd+Shift+5**: 箇条書きに変換
-- **Cmd+Shift+6**: 番号付きに変換
+- **Alt+Cmd+4**: チェックボックスに変換
+- **Alt+Cmd+5**: 箇条書きに変換
+- **Alt+Cmd+6**: 番号付きに変換
 
 ### 3. テーブル
 
