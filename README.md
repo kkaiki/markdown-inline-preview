@@ -6,10 +6,10 @@ A VSCode extension that provides a Notion-like or Obsidian-like WYSIWYG editing 
 
 ### List Type Conversion
 Convert between different list types with a single keystroke:
-- `Cmd+Shift+5` / `Ctrl+Shift+5`: Convert to bullet list (`- item`)
-- `Cmd+Shift+6` / `Ctrl+Shift+6`: Convert to numbered list (`1. item`)
-- `Cmd+Shift+4` / `Ctrl+Shift+4`: Convert to checkbox (`- [ ] task`)
-- `Cmd+Shift+0` / `Ctrl+Shift+0`: Convert to plain text
+- `Alt+Cmd+5` / `Alt+Ctrl+5`: Convert to bullet list (`- item`)
+- `Alt+Cmd+6` / `Alt+Ctrl+6`: Convert to numbered list (`1. item`)
+- `Alt+Cmd+4` / `Alt+Ctrl+4`: Convert to checkbox (`- [ ] task`)
+- `Alt+Cmd+0` / `Alt+Ctrl+0`: Convert to plain text
 
 Preserves indentation and supports multi-line selection.
 
@@ -28,10 +28,9 @@ Preserves indentation and supports multi-line selection.
 ### Table Formatting
 - **Auto-format**: Real-time column width adjustment while editing
 - **Japanese support**: Accurate width calculation for CJK characters
-- **CSV conversion**: Paste CSV data and press Enter to convert to Markdown table
 - **Smart navigation**:
   - `Cmd+Left/Right`: Navigate within and between table cells
-  - `Tab/Shift+Tab`: Move to next/previous cell
+  - `Up/Down`: Keep the same table cell column across rows
 
 ### Rich Heading Display
 - Hides `#` symbols on non-focused lines for cleaner display
@@ -68,10 +67,10 @@ Preserves indentation and supports multi-line selection.
 ### List Conversion
 | Function | Mac | Windows/Linux |
 |----------|-----|---------------|
-| Bullet list | `Cmd+Shift+5` | `Ctrl+Shift+5` |
-| Numbered list | `Cmd+Shift+6` | `Ctrl+Shift+6` |
-| Checkbox | `Cmd+Shift+4` | `Ctrl+Shift+4` |
-| Plain text | `Cmd+Shift+0` | `Ctrl+Shift+0` |
+| Bullet list | `Alt+Cmd+5` | `Alt+Ctrl+5` |
+| Numbered list | `Alt+Cmd+6` | `Alt+Ctrl+6` |
+| Checkbox | `Alt+Cmd+4` | `Alt+Ctrl+4` |
+| Plain text | `Alt+Cmd+0` | `Alt+Ctrl+0` |
 
 ### Checkbox Operations
 | Function | Mac | Windows/Linux |
@@ -83,15 +82,21 @@ Preserves indentation and supports multi-line selection.
 |----------|-----|---------------|
 | Smart move left | `Cmd+Left` | `Home` |
 | Smart move right | `Cmd+Right` | `End` |
+| Smart move up | `Up` | `Up` |
+| Smart move down | `Down` | `Down` |
 | Smart select left | `Shift+Cmd+Left` | `Shift+Home` |
+| Smart select all | `Cmd+A` | `Ctrl+A` |
 | Update TOC | `Cmd+Shift+T` | `Ctrl+Shift+T` |
 
-### Table Navigation
+### Command Palette Only
 | Function | Mac | Windows/Linux |
 |----------|-----|---------------|
-| Next cell | `Tab` | `Tab` |
-| Previous cell | `Shift+Tab` | `Shift+Tab` |
-| Cell start/end | `Cmd+Left/Right` | `Home/End` |
+| Renumber ordered lists | No default | No default |
+| Format table | No default | No default |
+| Next table cell | No default | No default |
+| Previous table cell | No default | No default |
+| Move line up | No default | No default |
+| Move line down | No default | No default |
 
 ## Configuration
 
@@ -99,8 +104,16 @@ Preserves indentation and supports multi-line selection.
 |---------|---------|-------------|
 | `markdownInline.enablePreview` | `true` | Enable preview decorations |
 | `markdownInline.checkboxStyle` | `icons` | Checkbox display style |
+| `markdownInline.showCheckboxCodeLens` | `true` | Show checkbox CodeLens when supported |
 | `markdownInline.table.widthCalculation` | `smart` | Table width calculation method |
 | `markdownInline.table.japaneseCharWidth` | `2.0` | Width multiplier for Japanese characters |
+| `markdownInline.table.narrowCharWidth` | `0.8` | Width multiplier for narrow characters |
+| `markdownInline.table.wideCharWidth` | `1.3` | Width multiplier for wide characters |
+| `markdownInline.autoMoveCompletedTasks` | `false` | Move completed tasks to the bottom |
+| `markdownInline.hideStrikethroughOnEdit` | `true` | Hide strikethrough while editing |
+| `markdownInline.checkboxClickableArea` | `checkbox` | Click target for checkbox toggle |
+| `markdownInline.enableHeadingDecorations` | `true` | Enable heading styling |
+| `markdownInline.headingColorScheme` | `default` | Heading color scheme |
 | `markdownInline.toc.autoUpdate` | `true` | Auto-update table of contents |
 | `markdownInline.toc.minLevel` | `1` | Minimum heading level for TOC |
 | `markdownInline.toc.maxLevel` | `6` | Maximum heading level for TOC |
@@ -139,7 +152,7 @@ MIT
 
 ## Contributing
 
-Bug reports and feature requests are welcome on the [GitHub repository](https://github.com/your-repo/markdown-inline-preview/issues).
+Bug reports and feature requests are welcome on the [GitHub repository](https://github.com/kkaiki/markdown-inline-preview/issues).
 
 ## Changelog
 
@@ -151,7 +164,6 @@ Bug reports and feature requests are welcome on the [GitHub repository](https://
 ### v1.2.1
 - Added automatic checkbox continuation
 - Improved Japanese character support in tables
-- Added CSV to table conversion
 - Performance improvements
 
 ### v1.0.0
