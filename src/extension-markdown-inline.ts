@@ -2,6 +2,20 @@ import * as vscode from 'vscode';
 
 // コマンドモジュールのインポート
 import * as commandsModule from './commands';
+import {
+    buildCallout,
+    buildCodeBlock,
+    buildHeadingLine,
+    createDefaultTableTemplate,
+    expandShorthandHeading,
+    getAdvancedBooleanSetting,
+    getAdvancedOrLegacyBooleanSetting,
+    parseHeadingSlashCommand,
+    parseSlashCommandLine,
+    parseTableNormalizeSlashCommand,
+    resolveCalloutType,
+    resolveCodeLanguage
+} from './utils';
 
 // 型定義
 interface TableCell {
@@ -67,8 +81,9 @@ let horizontalRuleDecoration: vscode.TextEditorDecorationType | null = null;
 let updateTimer: NodeJS.Timeout | null = null;
 let tocUpdateTimer: NodeJS.Timeout | null = null;
 let currentEditingLine = -1;
+let slashTableNormalizeOverride: boolean | null = null;
 let isDragging = false;
-let languageDecorations = new Map<string, Map<string, vscode.TextEditorDecorationType>>();
+const languageDecorations = new Map<string, Map<string, vscode.TextEditorDecorationType>>();
 
 // デバッグ用出力チャンネル
 let debugChannel: vscode.OutputChannel | null = null;
@@ -81,15 +96,77 @@ function debugLog(message: string, ...args: unknown[]): void {
     }
 }
 
-export function activate(context: vscode.ExtensionContext): void {
-    console.log('Markdown Inline Preview Active');
+function getMarkdownInlineConfig(): vscode.WorkspaceConfiguration {
+    return vscode.workspace.getConfiguration('markdownInline');
+}
 
+function isPreviewEnabled(): boolean {
+    return getMarkdownInlineConfig().get<boolean>('enablePreview', true);
+}
+
+function isAutoTableFormattingEnabled(): boolean {
+    if (slashTableNormalizeOverride !== null) {
+        return slashTableNormalizeOverride;
+    }
+    return getAdvancedBooleanSetting(getMarkdownInlineConfig(), 'autoFormatTables', true);
+}
+
+function setSlashTableNormalizeOverride(enabled: boolean | null): void {
+    slashTableNormalizeOverride = enabled;
+    debugLog(`[table] slash normalize override set to ${enabled ?? 'null'}`);
+}
+
+function isCheckboxMouseToggleEnabled(): boolean {
+    return getAdvancedBooleanSetting(getMarkdownInlineConfig(), 'enableCheckboxMouseToggle', true);
+}
+
+function isCodeBlockAutoCompleteEnabled(): boolean {
+    return getAdvancedBooleanSetting(getMarkdownInlineConfig(), 'enableCodeBlockAutoComplete', true);
+}
+
+function isHeadingDecorationsEnabled(): boolean {
+    return getAdvancedOrLegacyBooleanSetting(
+        getMarkdownInlineConfig(),
+        'enableHeadingDecorations',
+        'enableHeadingDecorations',
+        true
+    );
+}
+
+function isCodeBlockDecorationsEnabled(): boolean {
+    return getAdvancedBooleanSetting(getMarkdownInlineConfig(), 'enableCodeBlockDecorations', true);
+}
+
+function isHorizontalRuleDecorationsEnabled(): boolean {
+    return getAdvancedBooleanSetting(getMarkdownInlineConfig(), 'enableHorizontalRuleDecorations', true);
+}
+
+function isAutoUpdateTocEnabled(): boolean {
+    return getAdvancedOrLegacyBooleanSetting(
+        getMarkdownInlineConfig(),
+        'autoUpdateTableOfContents',
+        'toc.autoUpdate',
+        true
+    );
+}
+
+function shouldDisableCompetingMarkdownFeatures(): boolean {
+    return getAdvancedBooleanSetting(
+        getMarkdownInlineConfig(),
+        'disableCompetingMarkdownFeatures',
+        true
+    );
+}
+
+export function activate(context: vscode.ExtensionContext): void {
     // デバッグ用出力チャンネルを作成
     debugChannel = vscode.window.createOutputChannel('Markdown Table Debug');
     debugLog('=== Markdown Inline Preview Extension Activated ===');
 
     // Markdown特有の自動補完とテーブル整形を無効化
-    applyMarkdownSettings();
+    if (shouldDisableCompetingMarkdownFeatures()) {
+        applyMarkdownSettings();
+    }
 
     // 装飾タイプを一度だけ作成
     checkedDecoration = vscode.window.createTextEditorDecorationType({
@@ -153,7 +230,12 @@ export function activate(context: vscode.ExtensionContext): void {
     // コードブロック装飾
     codeBlockDecoration = vscode.window.createTextEditorDecorationType({
         isWholeLine: true,
-        backgroundColor: 'rgba(40, 44, 52, 0.85)',
+        light: {
+            backgroundColor: 'rgba(0, 0, 0, 0.05)'
+        },
+        dark: {
+            backgroundColor: 'rgba(40, 44, 52, 0.85)'
+        },
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     });
 
@@ -186,6 +268,67 @@ export function activate(context: vscode.ExtensionContext): void {
         updateTableOfContents
     });
 
+    // Notion 式スラッシュコマンド補完メニュー
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(
+            { language: 'markdown' },
+            {
+                provideCompletionItems(document, position) {
+                    if (isInFencedCodeBlock(document, position.line)) return null;
+
+                    const lineText = document.lineAt(position.line).text;
+                    const beforeCursor = lineText.substring(0, position.character);
+                    if (!beforeCursor.startsWith('/')) return null;
+
+                    // 行全体を置換するレンジ
+                    const lineRange = new vscode.Range(
+                        position.line, 0,
+                        position.line, lineText.length
+                    );
+
+                    function makeItem(
+                        label: string,
+                        detail: string,
+                        snippet: string,
+                        filterText: string,
+                        sortText: string
+                    ): vscode.CompletionItem {
+                        const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Snippet);
+                        item.detail = detail;
+                        item.insertText = new vscode.SnippetString(snippet);
+                        item.range = lineRange;
+                        item.filterText = filterText;
+                        item.sortText = sortText;
+                        return item;
+                    }
+
+                    return [
+                        makeItem('h1',              'H1 大見出し',              '# $0',                    'h1',              '01'),
+                        makeItem('h2',              'H2 中見出し',              '## $0',                   'h2',              '02'),
+                        makeItem('h3',              'H3 小見出し',              '### $0',                  'h3',              '03'),
+                        makeItem('h4',              'H4 見出し',                '#### $0',                 'h4',              '04'),
+                        makeItem('h5',              'H5 見出し',                '##### $0',                'h5',              '05'),
+                        makeItem('h6',              'H6 見出し',                '###### $0',               'h6',              '06'),
+                        makeItem('table',           'テーブルを挿入 (2列)',      '| ${1:Header 1} | ${2:Header 2} |\n| --- | --- |\n| $3 | $0 |', 'table', '07'),
+                        makeItem('code',            'コードブロック',            '```${1:bash}\n$0\n```',   'code',            '08'),
+                        makeItem('quote',           '引用ブロック',              '> $0',                    'quote',           '09'),
+                        makeItem('divider',         '水平線 (---)',              '---',                     'divider',         '10'),
+                        makeItem('callout',         'コールアウト 💡',           '> 💡 $0',                 'callout',         '11'),
+                        makeItem('callout warning', '警告コールアウト ⚠️',       '> ⚠️ $0',                'callout warning', '12'),
+                        makeItem('callout danger',  '危険コールアウト 🚨',       '> 🚨 $0',                 'callout danger',  '13'),
+                        makeItem('callout info',    '情報コールアウト ℹ️',       '> ℹ️ $0',                'callout info',    '14'),
+                        makeItem('bullet',          '箇条書きリスト',            '- $0',                    'bullet',          '15'),
+                        makeItem('numbered',        '番号付きリスト',            '1. $0',                   'numbered',        '16'),
+                        makeItem('todo',            'チェックボックス',          '- [ ] $0',                'todo',            '17'),
+                        makeItem('toc',             '目次を生成',               '/toc',                    'toc',             '18'),
+                        makeItem('heading',         '見出し (レベル指定)',        '/heading ${1:2} $0',      'heading',         '19'),
+                    ];
+                }
+            },
+            '/'
+        )
+    );
+
     // 初期化時に更新
     const editor = vscode.window.activeTextEditor;
     if (editor) {
@@ -210,7 +353,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 const change = event.contentChanges[0];
                 const changeText = change.text;
 
-                if (changeText === '```') {
+                if (isCodeBlockAutoCompleteEnabled() && changeText === '```') {
                     const position = editor.selection.active;
                     const line = position.line;
                     const character = position.character;
@@ -267,18 +410,33 @@ export function activate(context: vscode.ExtensionContext): void {
             });
 
             if (hasHeadingChange) {
-                const config = vscode.workspace.getConfiguration('markdownInline');
-                const autoUpdate = config.get<boolean>('toc.autoUpdate', true);
-
-                if (autoUpdate) {
+                if (isAutoUpdateTocEnabled()) {
                     if (tocUpdateTimer) clearTimeout(tocUpdateTimer);
                     tocUpdateTimer = setTimeout(() => {
                         const text = editor.document.getText();
                         if (text.includes('/目次') || text.includes('/toc')) {
-                            updateTableOfContents(editor, true);
+                            void updateTableOfContents(editor, true);
                         }
                     }, 500);
                 }
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (!event.affectsConfiguration('markdownInline')) {
+                return;
+            }
+
+            if (event.affectsConfiguration('markdownInline.advanced.disableCompetingMarkdownFeatures')
+                && shouldDisableCompetingMarkdownFeatures()) {
+                applyMarkdownSettings();
+            }
+
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && activeEditor.document.languageId === 'markdown') {
+                updateAllDecorations(activeEditor);
             }
         })
     );
@@ -318,7 +476,7 @@ export function activate(context: vscode.ExtensionContext): void {
                         const prevLine = editor.document.lineAt(previousEditingLine).text;
                         debugLog(`Previous line text: "${prevLine}"`);
 
-                        if (prevLine.includes('|')) {
+                        if (isAutoTableFormattingEnabled() && prevLine.includes('|')) {
                             debugLog(`Table detected on line ${previousEditingLine}, formatting...`);
                             formatTableAtLine(editor, previousEditingLine);
                         } else {
@@ -351,13 +509,13 @@ export function activate(context: vscode.ExtensionContext): void {
                     const text = line.text;
 
                     const checkboxMatch = text.match(/^(\s*)-\s\[[\sx]?\]/i);
-                    if (checkboxMatch) {
+                    if (isCheckboxMouseToggleEnabled() && checkboxMatch) {
                         const checkboxStart = text.indexOf('[');
                         const checkboxEnd = text.indexOf(']');
 
                         if (position.character >= checkboxStart && position.character <= checkboxEnd) {
                             setTimeout(() => {
-                                toggleCheckbox(editor, position.line);
+                                void vscode.commands.executeCommand('markdownInline.clickCheckbox');
                             }, 10);
                         }
                     }
@@ -455,7 +613,7 @@ async function updateTableOfContents(editor: vscode.TextEditor, autoMode = false
             continue;
         }
 
-        let tocStartLine = markerLine + 1;
+        const tocStartLine = markerLine + 1;
         let tocEndLine = tocStartLine;
 
         for (let i = tocStartLine; i < document.lineCount; i++) {
@@ -542,8 +700,7 @@ function getAllTableCells(lineText: string): TableCell[] | null {
                 let contentEnd = i - trailingSpaces;
 
                 if (contentStart >= contentEnd) {
-                    const padding = Math.min(1, cellText.length);
-                    contentStart = cellStart + padding;
+                    contentStart = cellStart;
                     contentEnd = contentStart;
                 }
 
@@ -571,8 +728,7 @@ function getAllTableCells(lineText: string): TableCell[] | null {
         let contentEnd = lineText.length - trailingSpaces;
 
         if (contentStart >= contentEnd) {
-            const padding = Math.min(1, cellText.length);
-            contentStart = cellStart + padding;
+            contentStart = cellStart;
             contentEnd = contentStart;
         }
 
@@ -664,6 +820,184 @@ function isInFencedCodeBlock(document: vscode.TextDocument, lineIndex: number): 
     return inFence;
 }
 
+async function applySlashCommandLine(editor: vscode.TextEditor): Promise<boolean> {
+    const document = editor.document;
+    if (editor.selections.length !== 1) {
+        return false;
+    }
+
+    const position = editor.selection.active;
+    const lineIdx = position.line;
+    if (lineIdx < 0 || lineIdx >= document.lineCount) {
+        return false;
+    }
+
+    if (isInFencedCodeBlock(document, lineIdx)) {
+        return false;
+    }
+
+    // /h1〜/h6 を /heading N に前処理展開
+    const rawLineText = document.lineAt(lineIdx).text;
+    const lineText = expandShorthandHeading(rawLineText);
+
+    const parsed = parseSlashCommandLine(lineText);
+    if (!parsed) {
+        return false;
+    }
+
+    const command = parsed.command.toLowerCase();
+    debugLog(`[slash] Parsed command "${command}" with args "${parsed.argsText}"`);
+
+    // --- toc / 目次 ---
+    if (command === 'toc' || command === '目次') {
+        await updateTableOfContents(editor, false);
+        return true;
+    }
+
+    // --- heading ---
+    if (command === 'heading') {
+        const heading = parseHeadingSlashCommand(parsed.argsText);
+        if (!heading) {
+            vscode.window.showWarningMessage('無効な heading スラッシュコマンドです');
+            return true;
+        }
+        const headingLine = buildHeadingLine(heading.level, heading.title);
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), headingLine);
+        });
+        const newCursor = new vscode.Position(lineIdx, headingLine.length);
+        editor.selection = new vscode.Selection(newCursor, newCursor);
+        return true;
+    }
+
+    // --- table ---
+    if (command === 'table') {
+        const normalizeMode = parseTableNormalizeSlashCommand(parsed.argsText);
+        if (normalizeMode === null && /^(?:normalize|normilize)\b/i.test(parsed.argsText)) {
+            vscode.window.showWarningMessage('無効な table normalize スラッシュコマンドです');
+            return true;
+        }
+        if (normalizeMode !== null) {
+            // ワークスペース設定に永続反映
+            await vscode.workspace.getConfiguration('markdownInline.advanced')
+                .update('autoFormatTables', normalizeMode, vscode.ConfigurationTarget.Workspace);
+            setSlashTableNormalizeOverride(normalizeMode);
+            await editor.edit(eb => {
+                eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '');
+            });
+            const targetPos = new vscode.Position(Math.min(lineIdx, document.lineCount - 1), 0);
+            editor.selection = new vscode.Selection(targetPos, targetPos);
+            vscode.window.showInformationMessage(
+                `テーブル自動整形を ${normalizeMode ? '有効' : '無効'} にしました（ワークスペース設定に保存）`
+            );
+            return true;
+        }
+        const insertText = createDefaultTableTemplate(2).join('\n');
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), insertText);
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, 2),
+            new vscode.Position(lineIdx, 2)
+        );
+        return true;
+    }
+
+    // --- code [language] ---
+    if (command === 'code') {
+        const lang = resolveCodeLanguage(parsed.argsText);
+        const lines = buildCodeBlock(lang);
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), lines.join('\n'));
+        });
+        // カーソルをコードブロック内（2行目）に移動
+        const innerLine = lineIdx + 1;
+        editor.selection = new vscode.Selection(
+            new vscode.Position(innerLine, 0),
+            new vscode.Position(innerLine, 0)
+        );
+        return true;
+    }
+
+    // --- quote ---
+    if (command === 'quote') {
+        const bodyText = parsed.argsText.trim();
+        const result = bodyText ? `> ${bodyText}` : '> ';
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), result);
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, result.length),
+            new vscode.Position(lineIdx, result.length)
+        );
+        return true;
+    }
+
+    // --- divider ---
+    if (command === 'divider') {
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '---');
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, 3),
+            new vscode.Position(lineIdx, 3)
+        );
+        return true;
+    }
+
+    // --- callout [type] ---
+    if (command === 'callout') {
+        const type = resolveCalloutType(parsed.args[0] ?? '');
+        const result = buildCallout(type);
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), result);
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, result.length),
+            new vscode.Position(lineIdx, result.length)
+        );
+        return true;
+    }
+
+    // --- bullet ---
+    if (command === 'bullet') {
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '- ');
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, 2),
+            new vscode.Position(lineIdx, 2)
+        );
+        return true;
+    }
+
+    // --- numbered ---
+    if (command === 'numbered') {
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '1. ');
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, 3),
+            new vscode.Position(lineIdx, 3)
+        );
+        return true;
+    }
+
+    // --- todo ---
+    if (command === 'todo') {
+        await editor.edit(eb => {
+            eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '- [ ] ');
+        });
+        editor.selection = new vscode.Selection(
+            new vscode.Position(lineIdx, 6),
+            new vscode.Position(lineIdx, 6)
+        );
+        return true;
+    }
+
+    return false;
+}
+
 // コマンド版 スマートEnter
 async function smartEnterCommand(): Promise<void> {
     debugLog('[smartEnter] Command called');
@@ -674,6 +1008,11 @@ async function smartEnterCommand(): Promise<void> {
         return;
     }
     debugLog('[smartEnter] Processing markdown file');
+
+    if (await applySlashCommandLine(editor)) {
+        debugLog('[smartEnter] Slash command handled');
+        return;
+    }
 
     const document = editor.document;
     const selections = editor.selections;
@@ -699,7 +1038,7 @@ async function smartEnterCommand(): Promise<void> {
 
         let m: RegExpMatchArray | null;
         const indentMatch = lineText.match(/^(\s*)/);
-        const baseIndent = indentMatch ? indentMatch[1] : '';
+        const _baseIndent = indentMatch ? indentMatch[1] : '';
 
         // チェックボックス付き
         if ((m = lineText.match(/^(\s*)([-*+])\s+\[(x|X| )\]\s*(.*)$/))) {
@@ -1130,14 +1469,19 @@ function formatTableAtLine(editor: vscode.TextEditor, lineIndex: number): void {
 function updateAllDecorations(editor: vscode.TextEditor): void {
     if (!editor || !checkedDecoration) return;
 
-    console.log(`[updateAllDecorations] Starting update (editing line: ${currentEditingLine})`);
+    if (!isPreviewEnabled()) {
+        clearAllDecorations(editor);
+        return;
+    }
+
+    debugLog(`[updateAllDecorations] Starting update (editing line: ${currentEditingLine})`);
 
     const document = editor.document;
     const ranges: vscode.Range[] = [];
 
     for (let i = 0; i < document.lineCount; i++) {
         if (i === currentEditingLine) {
-            console.log(`[updateAllDecorations] Skipping editing line ${i}`);
+            debugLog(`[updateAllDecorations] Skipping editing line ${i}`);
             continue;
         }
 
@@ -1152,21 +1496,54 @@ function updateAllDecorations(editor: vscode.TextEditor): void {
                     new vscode.Position(i, line.length)
                 );
                 ranges.push(range);
-                console.log(`[updateAllDecorations] Adding range for line ${i}: "${line.substring(startPos)}"`);
+                debugLog(`[updateAllDecorations] Adding range for line ${i}: "${line.substring(startPos)}"`);
             }
         }
     }
 
     editor.setDecorations(checkedDecoration, ranges);
-    console.log(`[updateAllDecorations] Applied ${ranges.length} checkbox decorations`);
+    debugLog(`[updateAllDecorations] Applied ${ranges.length} checkbox decorations`);
 
     updateHeadingDecorations(editor);
     updateCodeBlockDecorations(editor);
     updateHorizontalRuleDecorations(editor);
 }
 
+function clearLanguageDecorations(editor: vscode.TextEditor): void {
+    for (const decorations of languageDecorations.values()) {
+        for (const decoration of decorations.values()) {
+            editor.setDecorations(decoration, []);
+        }
+    }
+}
+
+function clearAllDecorations(editor: vscode.TextEditor): void {
+    if (checkedDecoration) editor.setDecorations(checkedDecoration, []);
+
+    for (const decoration of headingDecorations) {
+        editor.setDecorations(decoration, []);
+    }
+
+    if (codeBlockDecoration) {
+        editor.setDecorations(codeBlockDecoration, []);
+    }
+
+    if (horizontalRuleDecoration) {
+        editor.setDecorations(horizontalRuleDecoration, []);
+    }
+
+    clearLanguageDecorations(editor);
+}
+
 function updateHeadingDecorations(editor: vscode.TextEditor): void {
     if (!editor || headingDecorations.length !== 6) return;
+
+    if (!isHeadingDecorationsEnabled()) {
+        for (const decoration of headingDecorations) {
+            editor.setDecorations(decoration, []);
+        }
+        return;
+    }
 
     const document = editor.document;
     const perLevel: vscode.Range[][] = [[], [], [], [], [], []];
@@ -1188,6 +1565,12 @@ function updateHeadingDecorations(editor: vscode.TextEditor): void {
 
 function updateCodeBlockDecorations(editor: vscode.TextEditor): void {
     if (!editor || !codeBlockDecoration) return;
+
+    if (!isCodeBlockDecorationsEnabled()) {
+        editor.setDecorations(codeBlockDecoration, []);
+        clearLanguageDecorations(editor);
+        return;
+    }
 
     const document = editor.document;
     const backgroundRanges: vscode.Range[] = [];
@@ -1247,11 +1630,7 @@ function updateCodeBlockDecorations(editor: vscode.TextEditor): void {
 function applyLanguageHighlighting(editor: vscode.TextEditor, codeBlocks: CodeBlock[]): void {
     const document = editor.document;
 
-    for (const [lang, decorations] of languageDecorations) {
-        for (const decoration of decorations.values()) {
-            editor.setDecorations(decoration, []);
-        }
-    }
+    clearLanguageDecorations(editor);
     languageDecorations.clear();
 
     for (const block of codeBlocks) {
@@ -1262,7 +1641,7 @@ function applyLanguageHighlighting(editor: vscode.TextEditor, codeBlocks: CodeBl
             languageDecorations.set(language, new Map());
         }
 
-        const langDecorations = languageDecorations.get(language)!;
+        const langDecorations = languageDecorations.get(language) ?? new Map<string, vscode.TextEditorDecorationType>();
 
         for (const [tokenType, ranges] of syntaxRanges) {
             if (!langDecorations.has(tokenType)) {
@@ -1401,7 +1780,7 @@ function getSyntaxRanges(
                 if (!syntaxRanges.has(tokenType)) {
                     syntaxRanges.set(tokenType, []);
                 }
-                syntaxRanges.get(tokenType)!.push(range);
+                syntaxRanges.get(tokenType)?.push(range);
             }
         }
     }
@@ -1411,6 +1790,11 @@ function getSyntaxRanges(
 
 function updateHorizontalRuleDecorations(editor: vscode.TextEditor): void {
     if (!editor || !horizontalRuleDecoration) return;
+
+    if (!isHorizontalRuleDecorationsEnabled()) {
+        editor.setDecorations(horizontalRuleDecoration, []);
+        return;
+    }
 
     const document = editor.document;
     const ranges: vscode.Range[] = [];
@@ -1432,23 +1816,23 @@ function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): void {
     let shouldMoveToBottom = false;
     let cursorPosition: number | null = null;
 
-    console.log(`[toggleCheckbox] Toggling line ${lineNumber}: "${line}"`);
+    debugLog(`[toggleCheckbox] Toggling line ${lineNumber}: "${line}"`);
 
     if (line.includes('- [ ]')) {
         newLine = line.replace('- [ ]', '- [x]');
-        shouldMoveToBottom = vscode.workspace.getConfiguration('markdownInline').get<boolean>('autoMoveCompletedTasks', false) || false;
+        shouldMoveToBottom = vscode.workspace.getConfiguration('markdownInline').get<boolean>('autoMoveCompletedTasks', false) ?? false;
         const checkboxEndMatch = newLine.match(/^(\s*-\s\[[xX]\]\s*)/);
         if (checkboxEndMatch) {
             cursorPosition = checkboxEndMatch[1].length;
         }
-        console.log('[toggleCheckbox] Checking checkbox');
+        debugLog('[toggleCheckbox] Checking checkbox');
     } else if (line.includes('- [x]') || line.includes('- [X]')) {
         newLine = line.replace(/- \[[xX]\]/, '- [ ]');
         const checkboxEndMatch = newLine.match(/^(\s*-\s\[\s\]\s*)/);
         if (checkboxEndMatch) {
             cursorPosition = checkboxEndMatch[1].length;
         }
-        console.log('[toggleCheckbox] Unchecking checkbox');
+        debugLog('[toggleCheckbox] Unchecking checkbox');
     } else {
         return;
     }
@@ -1469,7 +1853,7 @@ function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): void {
             moveCompletedTaskToBottom(editor, lineNumber);
         }
 
-        console.log('[toggleCheckbox] Edit complete, updating decorations');
+        debugLog('[toggleCheckbox] Edit complete, updating decorations');
         updateAllDecorations(editor);
     });
 }
@@ -1560,7 +1944,7 @@ function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number
             }
         }).then(() => {
             const action = isCompleted ? 'completed' : 'unchecked';
-            console.log(`[moveCompletedTaskToBottom] Moved ${action} task from line ${lineNumber} to ${targetLine}`);
+            debugLog(`[moveCompletedTaskToBottom] Moved ${action} task from line ${lineNumber} to ${targetLine}`);
         });
     }
 }
@@ -1752,8 +2136,8 @@ function convertLineToType(editor: vscode.TextEditor, targetType: ConvertType): 
 function getIndentLevel(indentStr: string): number {
     if (!indentStr) return 0;
 
-    const tabs = (indentStr.match(/\t/g) || []).length;
-    const spaces = (indentStr.match(/ /g) || []).length;
+    const tabs = (indentStr.match(/\t/g) ?? []).length;
+    const spaces = (indentStr.match(/ /g) ?? []).length;
 
     return tabs + Math.ceil(spaces / 2);
 }
@@ -1761,7 +2145,7 @@ function getIndentLevel(indentStr: string): number {
 function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = null): void {
     const document = editor.document;
     const selection = editor.selection;
-    const currentLine = lineNumber !== null ? lineNumber : selection.active.line;
+    const currentLine = lineNumber ?? selection.active.line;
 
     const lineText = document.lineAt(currentLine).text;
     const match = lineText.match(/^(\s*)(\d+)([\.)])\s*/);
@@ -1772,44 +2156,30 @@ function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = nu
 
     let startLine = currentLine;
     let endLine = currentLine;
-    let emptyLineCount = 0;
-    const MAX_EMPTY_LINES = 1;
 
-    emptyLineCount = 0;
     for (let i = currentLine - 1; i >= 0; i--) {
         const text = document.lineAt(i).text;
 
         if (text.trim() === '') {
-            emptyLineCount++;
-            if (emptyLineCount > MAX_EMPTY_LINES) {
-                break;
-            }
-            continue;
+            break;
         }
 
         if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
             startLine = i;
-            emptyLineCount = 0;
         } else {
             break;
         }
     }
 
-    emptyLineCount = 0;
     for (let i = currentLine + 1; i < document.lineCount; i++) {
         const text = document.lineAt(i).text;
 
         if (text.trim() === '') {
-            emptyLineCount++;
-            if (emptyLineCount > MAX_EMPTY_LINES) {
-                break;
-            }
-            continue;
+            break;
         }
 
         if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
             endLine = i;
-            emptyLineCount = 0;
         } else {
             break;
         }
@@ -1846,7 +2216,7 @@ function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = nu
                 if (!indentCounters.has(level)) {
                     indentCounters.set(level, 1);
                 } else {
-                    indentCounters.set(level, indentCounters.get(level)! + 1);
+                    indentCounters.set(level, (indentCounters.get(level) ?? 0) + 1);
                 }
 
                 for (const [key] of indentCounters.entries()) {
@@ -1856,7 +2226,7 @@ function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = nu
                 }
 
                 previousLevel = level;
-                const newNumber = indentCounters.get(level)!;
+                const newNumber = indentCounters.get(level) ?? 1;
                 const newLine = content.length > 0
                     ? `${indent}${newNumber}${punct} ${content}`
                     : `${indent}${newNumber}${punct} `;
@@ -1969,7 +2339,7 @@ function applyMarkdownSettings(): void {
     const config = vscode.workspace.getConfiguration();
     config.update('markdown.extension.completion.enabled', false, vscode.ConfigurationTarget.Workspace);
     config.update('markdown.extension.tableFormatter.enabled', false, vscode.ConfigurationTarget.Workspace);
-    console.log('Disabled competing Markdown extension features (completion/tableFormatter)');
+    debugLog('Disabled competing Markdown extension features (completion/tableFormatter)');
 }
 
 export function deactivate(): void {

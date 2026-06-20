@@ -39,3 +39,4 @@ export declare function createSmartSelectAllHandler(handlers: NavigationHandlers
  */
 export declare function createMoveLineHandler(handlers: NavigationHandlers, direction: 'up' | 'down'): () => void;
 export {};
+//# sourceMappingURL=navigation.d.ts.map

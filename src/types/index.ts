@@ -3,7 +3,7 @@
  * プロジェクト全体で使用される型を定義
  */
 
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 
 // ========== テーブル関連 ==========
 

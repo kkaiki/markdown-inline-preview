@@ -19,6 +19,22 @@ export function setDebugLog(logFn: DebugLogFunction): void {
     debugLog = logFn;
 }
 
+function getAlignedTablePosition(
+    currentCellInfo: TableCellInfo,
+    currentCharacter: number,
+    targetCell: CellBoundary
+): number {
+    const isTargetEmpty = targetCell.contentStart >= targetCell.contentEnd;
+    if (isTargetEmpty) {
+        // Keep one padding space available when moving into an empty table cell.
+        return Math.min(targetCell.start + 1, targetCell.end);
+    }
+
+    const offsetInContent = Math.max(0, currentCharacter - currentCellInfo.cellContentStart);
+    const unclampedTarget = targetCell.contentStart + offsetInContent;
+    return Math.max(targetCell.contentStart, Math.min(unclampedTarget, targetCell.contentEnd));
+}
+
 /**
  * スマートカーソル移動（左）コマンドハンドラを作成
  */
@@ -148,11 +164,12 @@ export function createSmartMoveUpHandler(handlers: NavigationHandlers): () => vo
         const prevLineCells = handlers.getAllTableCells(prevLine);
 
         if (currentCellInfo && currentCellInfo.isTable && prevLineCells) {
-            // テーブル内: 同じセルインデックスを維持
+            // テーブル内: 同じセルインデックスとセル内オフセットを維持
             const targetCellIndex = Math.min(currentCellInfo.cellIndex, prevLineCells.length - 1);
             if (targetCellIndex >= 0) {
                 const targetCell = prevLineCells[targetCellIndex];
-                const newPosition = new vscode.Position(position.line - 1, targetCell.contentStart);
+                const targetCharacter = getAlignedTablePosition(currentCellInfo, position.character, targetCell);
+                const newPosition = new vscode.Position(position.line - 1, targetCharacter);
                 editor.selection = new vscode.Selection(newPosition, newPosition);
                 return;
             }
@@ -183,11 +200,12 @@ export function createSmartMoveDownHandler(handlers: NavigationHandlers): () => 
         const nextLineCells = handlers.getAllTableCells(nextLine);
 
         if (currentCellInfo && currentCellInfo.isTable && nextLineCells) {
-            // テーブル内: 同じセルインデックスを維持
+            // テーブル内: 同じセルインデックスとセル内オフセットを維持
             const targetCellIndex = Math.min(currentCellInfo.cellIndex, nextLineCells.length - 1);
             if (targetCellIndex >= 0) {
                 const targetCell = nextLineCells[targetCellIndex];
-                const newPosition = new vscode.Position(position.line + 1, targetCell.contentStart);
+                const targetCharacter = getAlignedTablePosition(currentCellInfo, position.character, targetCell);
+                const newPosition = new vscode.Position(position.line + 1, targetCharacter);
                 editor.selection = new vscode.Selection(newPosition, newPosition);
                 return;
             }
@@ -311,58 +329,40 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
         const currentLine = document.lineAt(position.line).text;
 
         // テーブル内のチェック
-        if (currentLine.includes('|')) {
-            const cells = currentLine.split('|');
-            let charCount = 0;
+        const cellInfo = handlers.getTableCellInfo(currentLine, position.character);
+        if (cellInfo && cellInfo.isTable) {
+            const curSel = editor.selection;
 
-            for (let i = 0; i < cells.length; i++) {
-                const cellStart = charCount;
-                const cellEnd = charCount + cells[i].length;
+            const cellContentSelection = new vscode.Selection(
+                new vscode.Position(position.line, cellInfo.cellContentStart),
+                new vscode.Position(position.line, cellInfo.cellContentEnd)
+            );
 
-                if (position.character >= cellStart && position.character <= cellEnd) {
-                    const cellContent = cells[i];
-                    const trimStart = cellContent.search(/\S/);
-                    const trimEnd = cellContent.search(/\s*$/);
+            const rowSelection = new vscode.Selection(
+                new vscode.Position(position.line, 0),
+                new vscode.Position(position.line, currentLine.length)
+            );
 
-                    const contentStartChar = cellStart + (trimStart >= 0 ? trimStart : 0);
-                    const contentEndChar = cellStart + (trimEnd >= 0 ? trimEnd : cellContent.length);
+            const isCellContentSelected =
+                curSel.start.line === cellContentSelection.start.line &&
+                curSel.start.character === cellContentSelection.start.character &&
+                curSel.end.line === cellContentSelection.end.line &&
+                curSel.end.character === cellContentSelection.end.character;
 
-                    const curSel = editor.selection;
+            const isRowSelected =
+                curSel.start.line === rowSelection.start.line &&
+                curSel.start.character === rowSelection.start.character &&
+                curSel.end.line === rowSelection.end.line &&
+                curSel.end.character === rowSelection.end.character;
 
-                    const cellContentSelection = new vscode.Selection(
-                        new vscode.Position(position.line, contentStartChar),
-                        new vscode.Position(position.line, contentEndChar)
-                    );
-
-                    const rowSelection = new vscode.Selection(
-                        new vscode.Position(position.line, 0),
-                        new vscode.Position(position.line, currentLine.length)
-                    );
-
-                    const isCellContentSelected =
-                        curSel.start.line === cellContentSelection.start.line &&
-                        curSel.start.character === cellContentSelection.start.character &&
-                        curSel.end.line === cellContentSelection.end.line &&
-                        curSel.end.character === cellContentSelection.end.character;
-
-                    const isRowSelected =
-                        curSel.start.line === rowSelection.start.line &&
-                        curSel.start.character === rowSelection.start.character &&
-                        curSel.end.line === rowSelection.end.line &&
-                        curSel.end.character === rowSelection.end.character;
-
-                    if (isRowSelected) {
-                        vscode.commands.executeCommand('editor.action.selectAll');
-                    } else if (isCellContentSelected) {
-                        editor.selection = rowSelection;
-                    } else {
-                        editor.selection = cellContentSelection;
-                    }
-                    return;
-                }
-
-                charCount += cells[i].length + 1;
+            if (isRowSelected) {
+                vscode.commands.executeCommand('editor.action.selectAll');
+            } else if (isCellContentSelected) {
+                editor.selection = rowSelection;
+            } else {
+                editor.selection = cellContentSelection;
             }
+            return;
         }
 
         // コードブロック内のチェック

@@ -42,6 +42,8 @@ exports.createSmartEnterHandler = createSmartEnterHandler;
 exports.createRenumberHandler = createRenumberHandler;
 exports.createConvertHandler = createConvertHandler;
 exports.createToggleCheckboxHandler = createToggleCheckboxHandler;
+exports.createClickCheckboxHandler = createClickCheckboxHandler;
+exports.createToggleCheckboxAtLineHandler = createToggleCheckboxAtLineHandler;
 exports.createIndentHandler = createIndentHandler;
 const vscode = __importStar(require("vscode"));
 let debugLog = () => { };
@@ -59,8 +61,8 @@ function createSmartEnterHandler(handlers) {
         }
         catch (e) {
             const error = e;
-            debugLog(`[ERROR] smartEnter failed: ${error.message || e}`);
-            console.error('[smartEnter] Error:', e);
+            debugLog(`[ERROR] smartEnter failed: ${error.message ?? String(e)}`);
+            debugLog('[smartEnter] Error:', e);
             // 失敗時は通常の改行にフォールバック
             await vscode.commands.executeCommand('type', { text: '\n' });
         }
@@ -97,6 +99,29 @@ function createToggleCheckboxHandler(handlers) {
         if (!editor)
             return;
         handlers.toggleCheckbox(editor, editor.selection.active.line);
+    };
+}
+/**
+ * クリック向けチェックボックス切替コマンドハンドラを作成
+ */
+function createClickCheckboxHandler(handlers) {
+    return () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor)
+            return;
+        handlers.toggleCheckbox(editor, editor.selection.active.line);
+    };
+}
+/**
+ * 指定行のチェックボックス切替コマンドハンドラを作成
+ */
+function createToggleCheckboxAtLineHandler(handlers) {
+    return (line) => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor)
+            return;
+        const targetLine = typeof line === 'number' ? line : editor.selection.active.line;
+        handlers.toggleCheckbox(editor, targetLine);
     };
 }
 /**

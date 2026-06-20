@@ -47,6 +47,21 @@ export {
     findTocSection
 } from './toc';
 
+// スラッシュコマンド関連
+export {
+    parseSlashCommandLine,
+    parseHeadingSlashCommand,
+    parseTableNormalizeSlashCommand,
+    buildHeadingLine,
+    createDefaultTableTemplate,
+    expandShorthandHeading,
+    buildCodeBlock,
+    buildCallout,
+    resolveCalloutType,
+    resolveCodeLanguage
+} from './slashCommands';
+export type { CalloutType } from './slashCommands';
+
 // リスト関連
 export {
     getIndentString,
@@ -59,3 +74,9 @@ export {
     calculateBlockRange,
     getListContinuationMarker
 } from './list';
+
+// 設定関連
+export {
+    getAdvancedBooleanSetting,
+    getAdvancedOrLegacyBooleanSetting
+} from './settings';

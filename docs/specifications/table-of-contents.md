@@ -98,9 +98,7 @@ const hasHeadingChange = event.contentChanges.some(change => {
 `markdownInline.updateTableOfContents`
 
 ### ショートカット
-
-- Mac: `Cmd+Shift+T`
-- Windows/Linux: `Ctrl+Shift+T`
+- 既定のショートカットは割り当てない
 
 ## 設定
 

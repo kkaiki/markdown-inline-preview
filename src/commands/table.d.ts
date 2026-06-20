@@ -19,3 +19,4 @@ export declare function createFormatTableHandler(handlers: TableHandlers): () =>
  */
 export declare function createTableNavigateHandler(handlers: TableHandlers, direction: 'right' | 'left'): () => void;
 export {};
+//# sourceMappingURL=table.d.ts.map

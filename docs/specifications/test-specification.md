@@ -33,6 +33,35 @@ VSCode APIとの統合をテストします。
 ### 3. E2Eテスト
 実際のMarkdownファイルを使用したエンドツーエンドのテストです。
 
+## 現在のテスト戦略
+
+### ユニットテスト
+- `src/utils/*` の純粋関数を中心に検証
+- 設定トグルの解決ロジックは `test/suite/utils.test.js` で検証
+- Advanced設定と既存設定の優先順位もここで確認
+
+### 統合テスト
+- VSCode上でコマンドやイベント起点の挙動を検証
+- `test/extension.test.js` で `advanced.autoFormatTables` のオン・オフを確認
+- 今後は TOC 自動更新やクリックトグルも同じ方針で追加可能
+
+### 実行上の注意
+- `npm run test:unit` はローカルのNode環境で実行可能
+- `npm test` は VS Code Electron テストランナー依存のため、環境によっては `SIGABRT` や起動失敗が起こる場合がある
+- ネットワーク制限やGUI実行制限がある環境では、まずユニットテストを優先する
+
+## トグル系テストの基本方針
+
+新しい Advanced 設定を追加する場合は、最低でも以下を用意する:
+
+1. 設定解決のユニットテスト
+2. `true` のとき期待動作になる統合テスト
+3. `false` のとき期待動作しない統合テスト
+
+例:
+- `advanced.autoFormatTables = true` で行移動時に表が整形される
+- `advanced.autoFormatTables = false` で同じ操作をしても表が整形されない
+
 ## テストケース一覧
 
 ---

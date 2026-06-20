@@ -81,8 +81,11 @@ code --install-extension markdown-inline-preview-*.vsix
 ```
 
 - `/目次` または `/toc` と記述
-- **Cmd+Shift+T**: 目次を更新
 - 見出しを変更すると自動更新
+
+### 5. コマンドガイド
+
+- 文書内スラッシュコマンドとコマンドパレットの一覧は [コマンドガイド](commands.md) にまとめてある
 
 ## 設定
 
@@ -94,8 +97,34 @@ VSCodeの設定（`Cmd+,`）で以下をカスタマイズ:
 | `markdownInline.toc.autoUpdate` | true | 目次の自動更新 |
 | `markdownInline.table.japaneseCharWidth` | 2.0 | 日本語文字の幅係数 |
 
+### Advanced設定の例
+
+自動整形や自動更新だけを止めたい場合:
+
+```json
+{
+  "markdownInline.advanced.autoFormatTables": false,
+  "markdownInline.advanced.autoUpdateTableOfContents": false
+}
+```
+
+見た目の装飾だけを減らしたい場合:
+
+```json
+{
+  "markdownInline.advanced.enableHeadingDecorations": false,
+  "markdownInline.advanced.enableCodeBlockDecorations": false,
+  "markdownInline.advanced.enableHorizontalRuleDecorations": false
+}
+```
+
+補足:
+- 自動機能をオフにしても、手動コマンドは引き続き使えます。
+- 既存の `markdownInline.enableHeadingDecorations` と `markdownInline.toc.autoUpdate` は後方互換のため引き続き有効です。
+
 ## 次のステップ
 
 - [機能一覧](features.md) - すべての機能を確認
+- [コマンドガイド](commands.md) - 文書内コマンドとコマンドパレットの一覧
 - [キーボードショートカット](keyboard-shortcuts.md) - 効率的な編集方法
 - [トラブルシューティング](troubleshooting.md) - 問題が発生した場合

@@ -45,3 +45,4 @@ export declare function calculateColumnWidths(rows: TableRow[], maxCols: number)
     colHasFullWidth: boolean[];
 };
 export { isSeparatorRow };
+//# sourceMappingURL=table.d.ts.map

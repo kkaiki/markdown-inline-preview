@@ -29,7 +29,16 @@ export declare function createConvertHandler(handlers: ListHandlers, targetType:
  */
 export declare function createToggleCheckboxHandler(handlers: ListHandlers): () => void;
 /**
+ * クリック向けチェックボックス切替コマンドハンドラを作成
+ */
+export declare function createClickCheckboxHandler(handlers: ListHandlers): () => void;
+/**
+ * 指定行のチェックボックス切替コマンドハンドラを作成
+ */
+export declare function createToggleCheckboxAtLineHandler(handlers: ListHandlers): (line?: number) => void;
+/**
  * インデント調整コマンドハンドラを作成
  */
 export declare function createIndentHandler(handlers: ListHandlers, increase: boolean): () => void;
 export {};
+//# sourceMappingURL=list.d.ts.map

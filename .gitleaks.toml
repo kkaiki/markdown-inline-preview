@@ -1,0 +1,14 @@
+title = "markdown-inline-preview gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow VS Code keybinding declarations in package.json"
+regexTarget = "line"
+paths = [
+  '''package\.json''',
+]
+regexes = [
+  '''"key"\s*:\s*"(?:(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown)(?:\+(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown|[a-z0-9]))*|[a-z0-9](?:\+(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown|[a-z0-9]))*)"''',
+]

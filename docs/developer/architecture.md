@@ -5,7 +5,8 @@
 ```
 markdown-inline-preview/
 ├── src/
-│   └── extension-markdown-inline.js  # メインの拡張機能コード
+│   ├── extension-markdown-inline.js  # メインの拡張機能コード
+│   └── utils/settings.ts             # Advanced設定解決ヘルパー
 ├── package.json                       # 拡張機能マニフェスト
 ├── test/
 │   ├── runTest.js                     # テストランナー
@@ -42,16 +43,29 @@ VSCode Decoration APIを使用してエディタの表示を拡張。
 │          │                                                  │
 │          └──→ コードブロック自動補完                         │
 │          └──→ 目次自動更新（見出し変更時）                   │
+│               ただし Advanced設定で個別に抑制可能            │
 │                                                             │
 │  onDidChangeTextEditorSelection ──→ テーブル自動整形         │
 │          │                                                  │
 │          └──→ チェックボックスクリック検出                   │
 │          └──→ 編集行の装飾制御                              │
+│               ただし Advanced設定で個別に抑制可能            │
 │                                                             │
 │  onDidChangeActiveTextEditor ──→ 装飾の再適用               │
+│  onDidChangeConfiguration ──→ 設定変更の再反映              │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 2.5 設定解決レイヤー
+
+`src/utils/settings.ts` が、次の役割を持ちます。
+
+- `advanced.*` の取得
+- 既存設定との後方互換
+- 明示的に設定された `advanced.*` を優先する判定
+
+これにより、拡張本体のイベント処理は「その機能が有効か」を毎回同じルールで判断できます。
 
 ### 3. コマンドシステム
 
@@ -83,6 +97,11 @@ const safeRegister = (commandId, handler) => {
     ▼
 onDidChangeTextDocument
     │
+    ├──→ 設定判定
+    │      │
+    │      ├──→ code block auto complete on/off
+    │      └──→ TOC auto update on/off
+    │
     ├──→ デバウンス (50ms)
     │         │
     │         ▼
@@ -107,6 +126,11 @@ onDidChangeTextDocument
     ▼
 onDidChangeTextEditorSelection
     │
+    ├──→ 設定判定
+    │      │
+    │      ├──→ autoFormatTables on/off
+    │      └──→ enableCheckboxMouseToggle on/off
+    │
     ├──→ 行変更検出
     │         │
     │         ├──→ 前の行がテーブル → formatTableAtLine()
@@ -128,6 +152,10 @@ let currentEditingLine = -1;      // 編集中の行番号
 let isDragging = false;           // ドラッグ選択中フラグ
 let languageDecorations = new Map(); // 言語別装飾キャッシュ
 ```
+
+補足:
+- 設定値自体は永続グローバル状態として保持せず、必要時に `vscode.workspace.getConfiguration('markdownInline')` から解決
+- 設定変更時は `onDidChangeConfiguration` で装飾を再適用
 
 ### ライフサイクル
 

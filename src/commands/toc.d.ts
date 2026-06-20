@@ -12,3 +12,4 @@ export declare function setDebugLog(logFn: DebugLogFunction): void;
  */
 export declare function createUpdateTocHandler(handlers: TocHandlers): () => Promise<void>;
 export {};
+//# sourceMappingURL=toc.d.ts.map

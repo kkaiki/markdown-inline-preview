@@ -114,7 +114,7 @@
 **注意**: 行頭から始め、他のテキストを含めない
 
 #### 手動更新を試す
-`Cmd+Shift+T` (Mac) / `Ctrl+Shift+T` (Win)
+コマンドパレットから `Update Table of Contents` を実行する
 
 #### 自動更新設定を確認
 ```json

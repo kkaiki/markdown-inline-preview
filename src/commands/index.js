@@ -93,6 +93,8 @@ function registerCommands(context, handlers) {
     safeRegister(context, 'markdownInline.convertToCheckbox', listCommands.createConvertHandler(handlers, 'checkbox'), conflicts);
     safeRegister(context, 'markdownInline.convertToNormal', listCommands.createConvertHandler(handlers, 'normal'), conflicts);
     safeRegister(context, 'markdownInline.toggleCheckbox', listCommands.createToggleCheckboxHandler(handlers), conflicts);
+    safeRegister(context, 'markdownInline.clickCheckbox', listCommands.createClickCheckboxHandler(handlers), conflicts);
+    safeRegister(context, 'markdownInline.toggleCheckboxAtLine', listCommands.createToggleCheckboxAtLineHandler(handlers), conflicts);
     safeRegister(context, 'markdownInline.increaseIndent', listCommands.createIndentHandler(handlers, true), conflicts);
     safeRegister(context, 'markdownInline.decreaseIndent', listCommands.createIndentHandler(handlers, false), conflicts);
     // テーブル操作コマンド

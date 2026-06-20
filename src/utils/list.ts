@@ -3,7 +3,7 @@
  * 番号付きリスト、箇条書き、チェックボックスの操作関連関数
  */
 
-import type { ListType, ConvertType, BlockRange, NumberedListInfo, CheckboxInfo } from '../types';
+import type { ListType, ConvertType, BlockRange } from '../types';
 import { patterns, extractNumberedList, extractCheckbox, isListItem, getMarkerInfo } from './patterns';
 
 /**
@@ -21,8 +21,8 @@ export function getIndentString(line: string): string {
 export function getIndentLevel(indentStr: string): number {
     if (!indentStr) return 0;
 
-    const tabs = (indentStr.match(/\t/g) || []).length;
-    const spaces = (indentStr.match(/ /g) || []).length;
+    const tabs = (indentStr.match(/\t/g) ?? []).length;
+    const spaces = (indentStr.match(/ /g) ?? []).length;
 
     return tabs + Math.ceil(spaces / 2);
 }

@@ -12,3 +12,4 @@ export declare function setDebugLog(logFn: DebugLogFunction): void;
  * 全コマンドを登録
  */
 export declare function registerCommands(context: vscode.ExtensionContext, handlers: CommandHandlers): void;
+//# sourceMappingURL=index.d.ts.map

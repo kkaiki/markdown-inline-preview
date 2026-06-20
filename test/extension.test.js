@@ -1,5 +1,6 @@
 const assert = require('assert');
 const vscode = require('vscode');
+const { getAllTableCells } = require('../src/utils/table');
 
 suite('Markdown Inline Preview Test Suite', () => {
     vscode.window.showInformationMessage('Start all tests.');
@@ -15,6 +16,22 @@ suite('Markdown Inline Preview Test Suite', () => {
 
     async function closeAllEditors() {
         await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    }
+
+    async function updateMarkdownInlineSetting(key, value) {
+        await vscode.workspace.getConfiguration('markdownInline').update(
+            key,
+            value,
+            vscode.ConfigurationTarget.Global
+        );
+        await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    function assertSelection(editor, startLine, startCharacter, endLine, endCharacter, message) {
+        assert.strictEqual(editor.selection.start.line, startLine, `${message}: start line`);
+        assert.strictEqual(editor.selection.start.character, startCharacter, `${message}: start character`);
+        assert.strictEqual(editor.selection.end.line, endLine, `${message}: end line`);
+        assert.strictEqual(editor.selection.end.character, endCharacter, `${message}: end character`);
     }
 
     // 各テスト後にエディタをクリーンアップ
@@ -79,6 +96,41 @@ suite('Markdown Inline Preview Test Suite', () => {
             assert.strictEqual(doc.lineAt(0).text, '1) 最初のアイテム');
             assert.strictEqual(doc.lineAt(1).text, '2) 2番目のアイテム');
             assert.strictEqual(doc.lineAt(2).text, '3) 3番目のアイテム');
+        });
+
+        test('1.4 空行の後は番号を1から再開する', async function() {
+            this.timeout(5000);
+
+            const content = [
+                '1. Plan（今日の目標）: 何をしようとしたか',
+                '2. Do（やったこと）: 実際の結果は？',
+                '3. Review（振り返り）: どこで詰まったか？',
+                '4. Next（明日変えること）: 次回への具体的な改善策',
+                '',
+                '5. しっかりと、書き進めながら行うことができた',
+                '6. まだまだみづらい部分はあって、そこの改善は必要だなと思った',
+                '7. 書きずらさ、忘れる部分がある',
+                '8. ちょっと修正を行う',
+                '  4. markdownを修正してみる'
+            ].join('\n');
+
+            const editor = await createTestDocument(content);
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(6, 0, 6, 0);
+
+            await vscode.commands.executeCommand('markdownInline.renumberLists');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineAt(0).text, '1. Plan（今日の目標）: 何をしようとしたか');
+            assert.strictEqual(doc.lineAt(1).text, '2. Do（やったこと）: 実際の結果は？');
+            assert.strictEqual(doc.lineAt(2).text, '3. Review（振り返り）: どこで詰まったか？');
+            assert.strictEqual(doc.lineAt(3).text, '4. Next（明日変えること）: 次回への具体的な改善策');
+            assert.strictEqual(doc.lineAt(5).text, '1. しっかりと、書き進めながら行うことができた');
+            assert.strictEqual(doc.lineAt(6).text, '2. まだまだみづらい部分はあって、そこの改善は必要だなと思った');
+            assert.strictEqual(doc.lineAt(7).text, '3. 書きずらさ、忘れる部分がある');
+            assert.strictEqual(doc.lineAt(8).text, '4. ちょっと修正を行う');
+            assert.strictEqual(doc.lineAt(9).text, '  1. markdownを修正してみる');
         });
     });
 
@@ -322,6 +374,121 @@ suite('Markdown Inline Preview Test Suite', () => {
         });
     });
 
+    suite('4. Smart Select All', () => {
+
+        test('4.1 テーブルセル内の最初の選択でセル内容のみを選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+
+            editor.selection = new vscode.Selection(1, 10, 1, 10);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, 8, 1, 15, 'セル内容の選択範囲が正しくありません');
+            assert.strictEqual(editor.document.getText(editor.selection), 'Bar baz');
+        });
+
+        test('4.2 テーブルセル選択後の2回目で行全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const rowText = editor.document.lineAt(1).text;
+
+            editor.selection = new vscode.Selection(1, 10, 1, 10);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, 0, 1, rowText.length, '行全体の選択範囲が正しくありません');
+            assert.strictEqual(editor.document.getText(editor.selection), rowText);
+        });
+    });
+
+    suite('4.3 Table Vertical Navigation', () => {
+
+        test('上下移動で同じセル内オフセットを維持する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo  | Bar baz |');
+
+            editor.selection = new vscode.Selection(0, 11, 0, 11);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveDown');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, 11, 1, 11, '下移動後のカーソル位置が正しくありません');
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveUp');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 0, 11, 0, 11, '上移動後のカーソル位置が正しくありません');
+        });
+
+        test('移動先セルが短い場合はセル末尾でクランプする', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Longer Value |\n| Foo  | Bar |');
+
+            editor.selection = new vscode.Selection(0, 18, 0, 18);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveDown');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, 12, 1, 12, '短いセルへの下移動でコンテンツ末尾に収まっていません');
+        });
+
+        test('上下移動でセル内容の相対位置を維持する', async function() {
+            this.timeout(5000);
+
+            const content = [
+                '| 18:00 ~ |          | 開発、ミーティング |',
+                '| 19:00 ~ | 夜ご飯　新歓 | ご飯 |'
+            ].join('\n');
+            const editor = await createTestDocument(content);
+            const firstRowCells = getAllTableCells(editor.document.lineAt(0).text);
+            const secondRowCells = getAllTableCells(editor.document.lineAt(1).text);
+
+            assert.ok(firstRowCells && secondRowCells, 'テーブルセルの取得に失敗しました');
+
+            const sourcePos = firstRowCells[2].contentStart + 2;
+            const expectedTarget = secondRowCells[2].contentEnd;
+            editor.selection = new vscode.Selection(0, sourcePos, 0, sourcePos);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveDown');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, expectedTarget, 1, expectedTarget, '下移動後のカーソル位置がセル内容基準で揃っていません');
+        });
+
+        test('空セルへ移動した時は入力用の空白を1つ残す', async function() {
+            this.timeout(5000);
+
+            const content = [
+                '| 18:00 ~ |          | 開発、ミーティング |',
+                '| 19:00 ~ | 夜ご飯　新歓 |          |'
+            ].join('\n');
+            const editor = await createTestDocument(content);
+            const targetRowCells = getAllTableCells(editor.document.lineAt(0).text);
+            const sourceRowCells = getAllTableCells(editor.document.lineAt(1).text);
+
+            assert.ok(targetRowCells && sourceRowCells, 'テーブルセルの取得に失敗しました');
+
+            const sourcePos = sourceRowCells[1].contentStart + 2;
+            const expectedTarget = targetRowCells[1].start + 1;
+            editor.selection = new vscode.Selection(1, sourcePos, 1, sourcePos);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveUp');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 0, expectedTarget, 0, expectedTarget, '空セルへの上移動後に入力余白が確保されていません');
+        });
+    });
+
     suite('4. インデント調整機能', () => {
 
         test('4.1 Tab押下でインデント追加と番号整形', async function() {
@@ -387,6 +554,36 @@ suite('Markdown Inline Preview Test Suite', () => {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             assert.strictEqual(doc.lineAt(0).text, '- [ ] タスク1', 'チェックボックスが未チェックになっていません');
+        });
+
+        test('5.3 clickCheckbox で現在行のチェックボックスを切り替える', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('- [ ] タスク1');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, 4, 0, 4);
+
+            await vscode.commands.executeCommand('markdownInline.clickCheckbox');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineAt(0).text, '- [x] タスク1', 'clickCheckbox が現在行を切り替えていません');
+        });
+
+        test('5.4 toggleCheckboxAtLine で指定行のチェックボックスを切り替える', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('Text\n- [ ] タスク1\n- [x] タスク2');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, 0, 0, 0);
+
+            await vscode.commands.executeCommand('markdownInline.toggleCheckboxAtLine', 1);
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineAt(0).text, 'Text');
+            assert.strictEqual(doc.lineAt(1).text, '- [x] タスク1', 'toggleCheckboxAtLine が指定行を切り替えていません');
+            assert.strictEqual(doc.lineAt(2).text, '- [x] タスク2');
         });
     });
 
@@ -546,6 +743,186 @@ suite('Markdown Inline Preview Test Suite', () => {
             assert.strictEqual(doc.lineAt(2).text, '', '空行が保持されていません');
             assert.strictEqual(doc.lineAt(3).text, '  2. 子2');
             assert.strictEqual(doc.lineAt(4).text, '2. 親2');
+        });
+    });
+
+    suite('7. Advanced Settings', () => {
+
+        test('7.1 autoFormatTables がオンなら行移動時に表を整形する', async function() {
+            this.timeout(8000);
+
+            const content = '| A | B |\n| --- | --- |\n| C | D |\nText';
+            await updateMarkdownInlineSetting('advanced.autoFormatTables', true);
+
+            try {
+                const editor = await createTestDocument(content);
+                const doc = editor.document;
+
+                editor.selection = new vscode.Selection(0, 0, 0, 0);
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                editor.selection = new vscode.Selection(3, 0, 3, 0);
+                await new Promise(resolve => setTimeout(resolve, 700));
+
+                assert.strictEqual(doc.lineAt(0).text, '| A   | B   |');
+                assert.strictEqual(doc.lineAt(1).text, '| -----| -----|');
+                assert.strictEqual(doc.lineAt(2).text, '| C   | D   |');
+            } finally {
+                await updateMarkdownInlineSetting('advanced.autoFormatTables', undefined);
+            }
+        });
+
+        test('7.2 autoFormatTables がオフなら行移動時に表を整形しない', async function() {
+            this.timeout(8000);
+
+            const content = '| A | B |\n| --- | --- |\n| C | D |\nText';
+            await updateMarkdownInlineSetting('advanced.autoFormatTables', false);
+
+            try {
+                const editor = await createTestDocument(content);
+                const doc = editor.document;
+
+                editor.selection = new vscode.Selection(0, 0, 0, 0);
+                await new Promise(resolve => setTimeout(resolve, 200));
+
+                editor.selection = new vscode.Selection(3, 0, 3, 0);
+                await new Promise(resolve => setTimeout(resolve, 700));
+
+                assert.strictEqual(doc.lineAt(0).text, '| A | B |');
+                assert.strictEqual(doc.lineAt(1).text, '| --- | --- |');
+                assert.strictEqual(doc.lineAt(2).text, '| C | D |');
+            } finally {
+                await updateMarkdownInlineSetting('advanced.autoFormatTables', undefined);
+            }
+        });
+    });
+
+    suite('8. Slash Commands', () => {
+
+        test('8.1 /heading 1 を H1 に変換する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('/heading 1');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, doc.lineAt(0).text.length, 0, doc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineCount, 1);
+            assert.strictEqual(doc.lineAt(0).text, '# ');
+            assertSelection(editor, 0, 2, 0, 2, 'heading 1 変換後のカーソル位置が正しくありません');
+        });
+
+        test('8.2 /heading 2 仕様 を H2 に変換する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('/heading 2 仕様');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, doc.lineAt(0).text.length, 0, doc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineCount, 1);
+            assert.strictEqual(doc.lineAt(0).text, '## 仕様');
+        });
+
+        test('8.3 /table で標準テーブルを挿入する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('/table');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, doc.lineAt(0).text.length, 0, doc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineCount, 3);
+            assert.strictEqual(doc.lineAt(0).text, '| Header 1 | Header 2 |');
+            assert.strictEqual(doc.lineAt(1).text, '| --- | --- |');
+            assert.strictEqual(doc.lineAt(2).text, '|  |  |');
+        });
+
+        test('8.4 /table normalize off で自動整形を抑止する', async function() {
+            this.timeout(8000);
+
+            const toggleEditor = await createTestDocument('/table normalize off');
+            const toggleDoc = toggleEditor.document;
+
+            toggleEditor.selection = new vscode.Selection(0, toggleDoc.lineAt(0).text.length, 0, toggleDoc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const editor = await createTestDocument('| A | B |\n| --- | --- |\n| C | D |\nText');
+            const doc = editor.document;
+            const original = doc.lineAt(0).text;
+
+            editor.selection = new vscode.Selection(0, 0, 0, 0);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            editor.selection = new vscode.Selection(3, 0, 3, 0);
+            await new Promise(resolve => setTimeout(resolve, 700));
+
+            assert.strictEqual(doc.lineAt(0).text, original);
+            assert.strictEqual(doc.lineAt(1).text, '| --- | --- |');
+        });
+
+        test('8.5 /table normalize on で自動整形を有効化する', async function() {
+            this.timeout(8000);
+
+            const toggleEditor = await createTestDocument('/table normalize on');
+            const toggleDoc = toggleEditor.document;
+
+            toggleEditor.selection = new vscode.Selection(0, toggleDoc.lineAt(0).text.length, 0, toggleDoc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const editor = await createTestDocument('| A | B |\n| --- | --- |\n| C | D |\nText');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, 0, 0, 0);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            editor.selection = new vscode.Selection(3, 0, 3, 0);
+            await new Promise(resolve => setTimeout(resolve, 700));
+
+            assert.notStrictEqual(doc.lineAt(0).text, '| A | B |');
+            assert.notStrictEqual(doc.lineAt(2).text, '| C | D |');
+        });
+
+        test('8.6 /toc で目次を生成する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('/toc\n# Title\n## Section');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, doc.lineAt(0).text.length, 0, doc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineAt(0).text, '/toc');
+            assert.strictEqual(doc.lineAt(1).text, '- [Title](#title)');
+            assert.strictEqual(doc.lineAt(2).text, '  - [Section](#section)');
+        });
+
+        test('8.7 無効な /heading は変換せずそのまま残る', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('/heading 0');
+            const doc = editor.document;
+
+            editor.selection = new vscode.Selection(0, doc.lineAt(0).text.length, 0, doc.lineAt(0).text.length);
+
+            await vscode.commands.executeCommand('markdownInline.smartEnter');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(doc.lineCount, 1);
+            assert.strictEqual(doc.lineAt(0).text, '/heading 0');
         });
     });
 });

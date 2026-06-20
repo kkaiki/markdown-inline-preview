@@ -42,3 +42,4 @@ export declare function calculateBlockRange(lines: string[], startLine: number):
  */
 export declare function getListContinuationMarker(line: string): string | null;
 export { isListItem, extractNumberedList, extractCheckbox };
+//# sourceMappingURL=list.d.ts.map

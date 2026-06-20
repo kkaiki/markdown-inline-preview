@@ -105,7 +105,7 @@ Implemented as commands but not exposed by default keybindings:
 - `Down`: `markdownInline.smartMoveDown`
 - `Cmd+A` / `Ctrl+A`: `markdownInline.smartSelectAll`
 - `Alt+Cmd+4/5/6/0` and `Alt+Ctrl+4/5/6/0`: list conversion commands
-- `Cmd+Shift+T` / `Ctrl+Shift+T`: TOC update
+- `markdownInline.updateTableOfContents`: TOC update
 
 ### Commands without default keybindings
 
@@ -120,14 +120,12 @@ These are callable from the command palette, but not documented consistently.
 
 ## Command surface issues
 
-### Declared in `package.json`, but not registered in current code
+### Declared in `package.json`, and now registered
 
 - `markdownInline.clickCheckbox`
 - `markdownInline.toggleCheckboxAtLine`
 
-`package.json` advertises these commands, but `src/commands/index.ts` does not register them through `registerCommands()`, and there is no direct `registerCommand()` call elsewhere in the current TypeScript source.
-
-This means the public command list is ahead of the actual registered runtime surface.
+These commands are now wired through `src/commands/index.ts` and share the checkbox toggle implementation used by the editor mouse interaction path.
 
 ## Documentation mismatches
 
@@ -202,7 +200,6 @@ Also note:
 
 ### Phase 1: fix public truth
 
-- Remove or implement `clickCheckbox` and `toggleCheckboxAtLine`
 - Update all shortcut docs to match actual keybindings
 - Mark table navigation as implemented everywhere
 - Remove or reclassify labeled list support from the spec
@@ -219,4 +216,3 @@ Also note:
 - Decide whether `renumberLists` and `formatTable` need default keybindings
 - Decide whether `moveLineUp` / `moveLineDown` should be exposed or removed
 - Decide whether checkbox CodeLens is real, planned, or dead config
-

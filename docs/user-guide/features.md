@@ -9,6 +9,7 @@
 ### トグル操作
 - **マウスクリック**: `[ ]` または `[x]` をクリック
 - **キーボード**: `Cmd+Enter` (Mac) / `Ctrl+Enter` (Win)
+- **Advanced設定**: `markdownInline.advanced.enableCheckboxMouseToggle`
 
 ### 装飾
 - 完了タスク（`[x]`）は取り消し線と透明度を適用
@@ -44,6 +45,8 @@
 ### 自動整形
 - テーブル行を編集後、別の行に移動すると自動整形
 - 列幅を揃え、アライメントを維持
+- 自動整形を止めたい場合は `markdownInline.advanced.autoFormatTables` を `false` に設定
+- 自動整形をオフにしても、コマンドパレットの `Format Markdown Table` は利用可能
 
 ### 日本語対応
 - 全角文字の幅を正確に計算
@@ -64,8 +67,9 @@
 
 ### 使い方
 1. Markdownファイルで `/目次` または `/toc` と記述
-2. コマンド実行またはショートカット（`Cmd+Shift+T`）で目次生成
+2. コマンド実行で目次生成
 3. 見出しを変更すると自動更新
+4. その他の文書内コマンドは [コマンドガイド](commands.md) を参照
 
 ### 生成される目次
 ```markdown
@@ -80,6 +84,7 @@
 | 設定 | デフォルト | 説明 |
 |------|-----------|------|
 | `markdownInline.toc.autoUpdate` | true | 自動更新の有効化 |
+| `markdownInline.advanced.autoUpdateTableOfContents` | true | 自動更新のAdvancedトグル |
 | `markdownInline.toc.minLevel` | 1 | 最小見出しレベル |
 | `markdownInline.toc.maxLevel` | 6 | 最大見出しレベル |
 
@@ -90,6 +95,7 @@
 ### レベル別カラーリング
 - H1〜H6まで異なる色と太さで表示
 - フォーカス時は生のMarkdown構文を表示
+- `markdownInline.advanced.enableHeadingDecorations` でオン・オフ可能
 
 ### カラースキーム
 設定 `markdownInline.headingColorScheme`:
@@ -104,10 +110,12 @@
 ### 自動補完
 - ` ``` ` を入力すると自動的に閉じタグを追加
 - カーソルを中央に配置
+- `markdownInline.advanced.enableCodeBlockAutoComplete` でオン・オフ可能
 
 ### 装飾
 - 背景色でコードブロックを視覚化
 - 言語指定を認識
+- `markdownInline.advanced.enableCodeBlockDecorations` でオン・オフ可能
 
 ---
 
@@ -131,7 +139,38 @@
 
 ### 横線表示
 - `---`、`***`、`___` を装飾された横線として表示
+- `markdownInline.advanced.enableHorizontalRuleDecorations` でオン・オフ可能
 
 ### IME対応
 - 日本語入力中の誤動作を防止
 - 変換確定後に処理を実行
+
+---
+
+## 9. Advanced設定
+
+Advanced設定では、以下のような自動動作や装飾を個別に制御できます。
+
+| 設定 | デフォルト | 主な用途 |
+|------|-----------|----------|
+| `markdownInline.advanced.autoFormatTables` | true | 表の自動整形を止めたい |
+| `markdownInline.advanced.enableCheckboxMouseToggle` | true | クリックトグルを止めたい |
+| `markdownInline.advanced.enableCodeBlockAutoComplete` | true | ``` の自動補完を止めたい |
+| `markdownInline.advanced.enableHeadingDecorations` | true | 見出し装飾を止めたい |
+| `markdownInline.advanced.enableCodeBlockDecorations` | true | コードブロック装飾を止めたい |
+| `markdownInline.advanced.enableHorizontalRuleDecorations` | true | 横線装飾を止めたい |
+| `markdownInline.advanced.autoUpdateTableOfContents` | true | TOCの自動更新を止めたい |
+| `markdownInline.advanced.disableCompetingMarkdownFeatures` | true | 競合しやすいMarkdown補完設定の自動変更を止めたい |
+
+例:
+
+```json
+{
+  "markdownInline.advanced.autoFormatTables": false,
+  "markdownInline.advanced.autoUpdateTableOfContents": false
+}
+```
+
+## 10. コマンド一覧
+
+コマンドの入口を整理した一覧は [コマンドガイド](commands.md) を参照。

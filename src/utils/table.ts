@@ -56,11 +56,20 @@ export function getAllTableCells(lineText: string): CellBoundary[] | null {
         const leadingSpaces = leadingMatch ? leadingMatch[1].length : 0;
         const trailingMatch = cellText.match(/(\s*)$/);
         const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+        let contentStart = cell.start + leadingSpaces;
+        let contentEnd = cell.end - trailingSpaces;
+
+        // 空セルや空白のみのセルは、セル先頭にカーソルを置く
+        if (contentStart >= contentEnd) {
+            contentStart = cell.start;
+            contentEnd = cell.start;
+        }
+
         return {
             start: cell.start,
             end: cell.end,
-            contentStart: cell.start + leadingSpaces,
-            contentEnd: cell.end - trailingSpaces,
+            contentStart,
+            contentEnd,
             index: index
         };
     });
