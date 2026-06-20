@@ -29,12 +29,29 @@ function findDepth($pos: ResolvedPos, names: string[]): number {
     return -1;
 }
 
-/** テーブルセル内 Cmd+A: セル内容 → テーブル全体（その先は既定の全選択に委ねる）。 */
-function handleCellSelectAll(view: EditorView): boolean {
+/**
+ * Cmd+A 段階選択:
+ * - テーブルセル内: セル内容 → テーブル全体 →（既定の全選択）。
+ * - コードブロック内: ブロック内容 →（既定の全選択）。
+ * - それ以外: false（既定の全選択に委ねる）。
+ */
+function handleSelectAll(view: EditorView): boolean {
     const { state } = view;
     const sel = state.selection;
     const $from = sel.$from;
 
+    // コードブロック
+    const codeDepth = findDepth($from, ['code_block']);
+    if (codeDepth > 0) {
+        const codeContent = TextSelection.create(state.doc, $from.start(codeDepth), $from.end(codeDepth));
+        const isCodeSelected =
+            sel instanceof TextSelection && sel.from === codeContent.from && sel.to === codeContent.to;
+        if (isCodeSelected) return false; // 2 回目 → 既定の全選択
+        view.dispatch(state.tr.setSelection(codeContent).scrollIntoView());
+        return true;
+    }
+
+    // テーブルセル
     const cellDepth = findDepth($from, ['table_cell', 'table_header']);
     if (cellDepth < 0) return false; // セル外 → 既定の全選択
 
@@ -107,9 +124,9 @@ export function createPreviewKeymapPlugin() {
                         return false;
                     }
 
-                    // Cmd/Ctrl+A（修飾は Mod のみ）: テーブルセル段階選択
+                    // Cmd/Ctrl+A（修飾は Mod のみ）: テーブルセル/コードブロックの段階選択
                     if (!event.altKey && !event.shiftKey && (event.code === 'KeyA' || event.key === 'a')) {
-                        return handleCellSelectAll(view);
+                        return handleSelectAll(view);
                     }
 
                     return false;

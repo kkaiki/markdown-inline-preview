@@ -1,5 +1,6 @@
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
+import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 
 import {
@@ -12,6 +13,23 @@ let enabled = true;
 
 export function setFocusSyntaxEnabled(value: boolean): void {
     enabled = value;
+}
+
+/**
+ * フォーカス中のリスト項目の DOM に class を付与する（リスト項目はカスタム Vue
+ * nodeView のため node decoration が効かない）。CSS でアイコンを隠し、代わりに
+ * `- ` / `- [ ] ` の記法マーカーを見せる。
+ */
+function focusedListItemDOM(view: EditorView): Element | null {
+    if (!enabled) return null;
+    const $from = view.state.selection.$from;
+    for (let depth = $from.depth; depth > 0; depth--) {
+        if ($from.node(depth).type.name === 'list_item') {
+            const dom = view.nodeDOM($from.before(depth));
+            return dom instanceof Element ? dom : null;
+        }
+    }
+    return null;
 }
 
 function mkMarker(text: string, extraClass?: string): () => HTMLElement {
@@ -57,6 +75,21 @@ export const focusSyntaxPlugin = $prose(() => {
 
                 return DecorationSet.create(state.doc, decorations);
             }
+        },
+        view(editorView) {
+            let marked: Element | null = null;
+            const sync = (view: EditorView): void => {
+                const next = focusedListItemDOM(view);
+                if (next === marked) return;
+                marked?.classList.remove('md-focus-list-item');
+                next?.classList.add('md-focus-list-item');
+                marked = next;
+            };
+            sync(editorView);
+            return {
+                update: (view) => sync(view),
+                destroy: () => marked?.classList.remove('md-focus-list-item')
+            };
         }
     });
 });

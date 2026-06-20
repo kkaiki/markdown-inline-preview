@@ -60,7 +60,8 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | Raw → Preview 反映 | 約 100ms デバウンス |
 | チェックボックス | クリックでトグル → `- [x]` として保存 |
 | Undo / Redo | VS Code 標準のテキスト履歴 |
-| フォーカス時記法表示 | カーソルブロックで Markdown 記法を表示（`preview.showFocusSyntax`） |
+| フォーカス時記法表示 | カーソルブロックで Markdown 記法を表示（`preview.showFocusSyntax`）。リスト項目はフォーカス中アイコンを隠し `- ` / `- [ ] ` を表示 |
+| URL 貼り付けでリンク化 | テキストを選択して URL を貼ると、選択範囲をリンクにする（テキストは保持） |
 | 見出し Backspace 降格 | 見出し先頭で Backspace → 通常行へ（`#` は残して続けて削除可能） |
 
 ---
@@ -109,7 +110,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | 最大幅 | 本文の最大表示幅 | `preview.maxWidth` |
 | スクロール同期 | Raw 切替時に見出しアンカーで位置復元 | `preview.syncScroll` |
 | 切替アニメーション | Preview 表示時のフェードイン | `preview.enableTransitions` |
-| モード記憶 | 最後のモードを全 Markdown ファイル横断で記憶（Preview にすると新規ファイルも Preview で開く） | `preview.rememberMode` |
+| モード記憶 | 最後のモードを全 Markdown ファイル横断で記憶（**双方向**: Preview/Raw どちらに切り替えても、開く/アクティブにした Markdown ファイルへ同じモードを適用） | `preview.rememberMode` |
 | 既定モード | 初回オープン時 Raw or Preview | `preview.defaultMode` |
 
 ---
@@ -171,7 +172,8 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 | 機能 | Mac | Windows/Linux |
 |------|-----|---------------|
 | Raw ↔ Preview 切替 | `Cmd+Shift+M` | `Ctrl+Shift+M` |
-| テーブルセル全選択 | `Cmd+A` | `Ctrl+A` |
+| 段階選択（セル/コードブロック） | `Cmd+A` | `Ctrl+A` |
+| Preview 内検索 | `Cmd+F` | `Ctrl+F` |
 
 ### Notion 風ブロック変換（`Cmd+Opt+<数字>`）
 
@@ -191,9 +193,15 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 
 Windows/Linux は `Alt+Ctrl+<数字>`。
 
-### テーブルセル内の `Cmd+A`（段階選択）
+### `Cmd+A`（段階選択）
 
-テーブルセルにカーソルがある状態で `Cmd+A`：**セル内容 → テーブル全体 → ドキュメント全体** と段階的に選択範囲を広げる（Raw モードと同様の体験）。
+- **テーブルセル内**: セル内容 → テーブル全体 → ドキュメント全体。
+- **コードブロック内**: ブロック内容 → ドキュメント全体。
+- それ以外: 通常の全選択。
+
+### `Cmd+F`（Preview 内検索）
+
+WebView 内に検索バーを表示し、レンダリング結果のテキストを検索する。一致箇所を CSS Custom Highlight API でハイライト（DOM 非破壊）。`Enter`/`Shift+Enter` で次/前へ、`Esc` で閉じる。
 
 書式操作は `/` スラッシュメニューも使用可。詳細: [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)
 
@@ -232,7 +240,7 @@ Windows/Linux は `Alt+Ctrl+<数字>`。
 | 項目 | 内容 | 優先 |
 |------|------|------|
 | ブロックのドラッグ並べ替え | 行頭グリップ（⠿）で段落・リスト・見出しを掴んで移動 | 高 |
-| ペーストの賢い変換 | HTML ペースト → Markdown、URL ペースト → リンク化、コード片の保持 | 高 |
+| ペーストの賢い変換 | URL ペースト → 選択をリンク化（実装済み ✅）。HTML → Markdown、コード片保持は今後 | 中 |
 | 画像のドラッグ&ドロップ / 貼り付け（実装済み） | クリップボード画像/ファイルを `assets/` に保存し `![](assets/…)` 挿入 | ✅ |
 | 画像リサイズ | ハンドルで幅指定（`![]( ){width=...}` 等の拡張） | 低 |
 | Markdown 直接ペースト | クリップボードの Markdown をパースして挿入 | 中 |
@@ -270,7 +278,7 @@ Windows/Linux は `Alt+Ctrl+<数字>`。
 
 | 項目 | 内容 | 優先 |
 |------|------|------|
-| Find & Replace（Preview 内） | WYSIWYG 上での検索・置換 | 高 |
+| Find（実装済み ✅）/ Replace | `Cmd+F` 検索は実装済み。置換は今後 | 中 |
 | 保存状態インジケータ | 保存中/保存済みの可視化 | 中 |
 | コードブロック強化 | 言語ピッカー、コピーボタン、行番号、Mermaid ライブ編集 | 中 |
 | 遅延ロード | Mermaid / KaTeX を必要時のみ読み込みバンドル削減 | 中 |

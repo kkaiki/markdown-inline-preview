@@ -516,6 +516,24 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
     syncEditorContext();
 
+    // グローバルモードが raw のとき、アクティブな Preview タブを Raw に切り替える。
+    // （Raw→Preview 方向は onDidChangeActiveTextEditor が担当。これで両方向対称になる）
+    let enforcingRawMode = false;
+    const enforceRawModeOnActiveTab = async (): Promise<void> => {
+        if (enforcingRawMode) return;
+        const mode = getRememberedMode(context) ?? getConfig<string>('preview.defaultMode', 'raw');
+        if (mode !== 'raw') return;
+        const previewUri = isPreviewTab(vscode.window.tabGroups.activeTabGroup.activeTab);
+        if (!previewUri) return;
+        enforcingRawMode = true;
+        try {
+            await switchToRaw(context, previewUri, vscode.ViewColumn.Active);
+            syncEditorContext();
+        } finally {
+            enforcingRawMode = false;
+        }
+    };
+
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
             webviewOptions: { retainContextWhenHidden: true },
@@ -524,6 +542,7 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
         vscode.window.tabGroups.onDidChangeTabs(() => {
             syncEditorContext();
+            void enforceRawModeOnActiveTab();
         }),
 
         vscode.window.onDidChangeActiveTextEditor(() => {
