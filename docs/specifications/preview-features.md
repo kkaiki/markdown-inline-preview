@@ -194,8 +194,6 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 3. バンドル最適化 — Mermaid / KaTeX の遅延ロード
 4. 共同編集プレビュー — 同期基盤完成後のライブ更新（未実装）
 
-Notion / Obsidian との差分: [notion-obsidian-gap.md](../notion-obsidian-gap.md)
-
 ---
 
 ## 関連ドキュメント
@@ -203,5 +201,5 @@ Notion / Obsidian との差分: [notion-obsidian-gap.md](../notion-obsidian-gap.
 | ファイル | 内容 |
 |----------|------|
 | [inline-preview-features.md](./inline-preview-features.md) | Raw モード仕様 |
-| [implementation-status.md](../implementation-status.md) | 実装マトリクス（開発者向け） |
-| [user-guide/getting-started.md](../user-guide/getting-started.md) | クイックスタート |
+| [developer/architecture.md](../developer/architecture.md) | アーキテクチャ概要（開発者向け） |
+| [README.md](../README.md) | ドキュメント目次 |

@@ -31,7 +31,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 
 - Decoration API ではフォントサイズ変更不可（見出しは色・背景で区別）
 - 1 万行超のファイルでは装飾更新に遅延の可能性
-- 他 Markdown 拡張とのキーバインド競合に注意（[troubleshooting.md](../user-guide/troubleshooting.md)）
+- 他 Markdown 拡張とのキーバインド競合に注意（[keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)）
 
 ---
 
@@ -283,8 +283,6 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | smartEnter / 行移動の表整形 | 設定無視で整形あり | `autoFormatTables` と整合させる検討 |
 | E2E テスト | ユニット中心 | Raw 装飾の統合テスト |
 
-Notion / Obsidian との差分: [notion-obsidian-gap.md](../notion-obsidian-gap.md)
-
 ---
 
 ## 関連ドキュメント
@@ -292,5 +290,5 @@ Notion / Obsidian との差分: [notion-obsidian-gap.md](../notion-obsidian-gap.
 | ファイル | 内容 |
 |----------|------|
 | [preview-features.md](./preview-features.md) | Preview モード仕様 |
-| [implementation-status.md](../implementation-status.md) | 実装マトリクス（開発者向け） |
-| [user-guide/getting-started.md](../user-guide/getting-started.md) | クイックスタート |
+| [developer/architecture.md](../developer/architecture.md) | アーキテクチャ概要（開発者向け） |
+| [README.md](../README.md) | ドキュメント目次 |

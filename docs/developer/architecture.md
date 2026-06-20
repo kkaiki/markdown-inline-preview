@@ -2,8 +2,7 @@
 
 最終更新: 2026-06-21
 
-**ディレクトリ構成・移行計画の正**は [directory-architecture-plan.md](./directory-architecture-plan.md)。  
-**実装マトリクス**は [implementation-status.md](../implementation-status.md)。
+機能仕様は [preview-features.md](../specifications/preview-features.md) / [inline-preview-features.md](../specifications/inline-preview-features.md) を参照。
 
 ---
 
@@ -105,5 +104,3 @@ WebView プラグイン例:
 | スラッシュ項目 | `shared/slash/slashMenuItems.ts` |
 | Preview 挙動 | `preview/webview/*.ts` + `build:webview` |
 | 共有ロジック | `shared/`（vscode 非依存を維持） |
-
-詳細なコードマップは [directory-architecture-plan.md](./directory-architecture-plan.md) 末尾の付録を参照。
