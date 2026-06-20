@@ -13,6 +13,8 @@ import hljs from 'highlight.js/lib/common';
 import renderMathInElement from 'katex/contrib/auto-render';
 import mermaid from 'mermaid';
 
+import type { EditorView } from '@milkdown/prose/view';
+
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
 import { stripPlaceholderLineBreaks } from '../../shared/markdown/lineBreaks';
@@ -26,6 +28,7 @@ import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled 
 import { createTableMenuPlugin } from './tableMenuPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin } from './previewKeymapPlugin';
+import { PreviewFindBar } from './previewFindBar';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -35,6 +38,15 @@ const slashMenuEl = document.getElementById('slash-menu');
 if (!root) {
     throw new Error('milkdown-root element not found');
 }
+
+const findBar = new PreviewFindBar(root);
+document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && (event.code === 'KeyF' || event.key === 'f')) {
+        event.preventDefault();
+        event.stopPropagation();
+        findBar.open();
+    }
+}, true);
 
 const CHECK_ICON_SVG = '<svg viewBox="0 0 16 16"><path d="M3 8.3L6.2 11.5L13 4.5" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -236,6 +248,23 @@ function insertImageSrc(src: string): void {
     });
 }
 
+/** 選択テキストがある状態で URL を貼ると、その選択をリンクにする（テキストは保持）。 */
+function handleUrlPaste(view: EditorView, data: DataTransfer | null): boolean {
+    if (!data) return false;
+    const text = data.getData('text/plain').trim();
+    if (!/^https?:\/\/\S+$/i.test(text) || /\s/.test(text)) return false;
+
+    const { state } = view;
+    const { from, to, empty } = state.selection;
+    if (empty) return false;
+
+    const linkType = state.schema.marks.link;
+    if (!linkType) return false;
+
+    view.dispatch(state.tr.addMark(from, to, linkType.create({ href: text })));
+    return true;
+}
+
 function setEditable(editable: boolean): void {
     if (!editor) return;
     editor.action((ctx) => {
@@ -274,8 +303,12 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 editable: () => settings.editable,
                 handleDOMEvents: {
                     click: (_view, event) => handlePreviewLinkClick(event),
-                    paste: (_view, event) => {
+                    paste: (view, event) => {
                         if (handleImageDataTransfer(event.clipboardData)) {
+                            event.preventDefault();
+                            return true;
+                        }
+                        if (handleUrlPaste(view, event.clipboardData)) {
                             event.preventDefault();
                             return true;
                         }

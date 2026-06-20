@@ -146,6 +146,10 @@ html, body {
     border: 1px solid var(--preview-border);
     padding: 6px 10px;
     text-align: left;
+    /* 1em で本文サイズに揃える（table の UA 既定 medium=16px が継承されず
+       セルだけ大きく見えるのを防ぐ）。 */
+    font-size: 1em;
+    line-height: 1.5;
 }
 .milkdown th { font-weight: 700; }
 
@@ -314,6 +318,12 @@ html, body {
     gap: 0.3em;
 }
 
+/* フォーカス中のリスト項目はアイコンを隠し、`- ` / `- [ ] ` の記法マーカーを見せる
+   （focusSyntaxPlugin が付与する class）。直下の項目のみ対象（ネストは除外）。 */
+.milkdown .milkdown-list-item-block.md-focus-list-item > .list-item > .label-wrapper {
+    display: none;
+}
+
 .milkdown li.list-item .label-wrapper {
     flex: none;
     display: flex;
@@ -430,6 +440,64 @@ body.preview-fade-in {
     font-size: inherit;
     color: inherit;
     opacity: 0.4;
+}
+
+/* In-preview find bar (Cmd/Ctrl+F) */
+.preview-find-bar {
+    position: fixed;
+    top: 8px;
+    right: 16px;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--vscode-editorWidget-background, var(--preview-bg));
+    color: var(--vscode-editorWidget-foreground, var(--preview-fg));
+    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+.preview-find-bar[hidden] {
+    display: none;
+}
+.preview-find-input {
+    width: 180px;
+    padding: 3px 6px;
+    color: var(--vscode-input-foreground, var(--preview-fg));
+    background: var(--vscode-input-background, var(--preview-bg));
+    border: 1px solid var(--vscode-input-border, var(--preview-border));
+    border-radius: 3px;
+    font: inherit;
+    outline: none;
+}
+.preview-find-count {
+    min-width: 40px;
+    text-align: center;
+    font-size: 0.82em;
+    opacity: 0.75;
+}
+.preview-find-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.preview-find-button:hover {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+::highlight(preview-find) {
+    background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 200, 90, 0.45));
+}
+::highlight(preview-find-current) {
+    background-color: var(--vscode-editor-findMatchBackground, rgba(234, 160, 60, 0.7));
 }
 
 /* Preview slash command menu */
