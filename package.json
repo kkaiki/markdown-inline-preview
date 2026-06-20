@@ -154,6 +154,24 @@
         "category": "Markdown Inline Preview"
       },
       {
+        "command": "markdownInline.convertToHeading1",
+        "title": "Convert to Heading 1",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.convertToHeading2",
+        "title": "Convert to Heading 2",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.convertToHeading3",
+        "title": "Convert to Heading 3",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
         "command": "markdownInline.openPreview",
         "title": "$(open-preview) Preview",
         "shortTitle": "Preview",
@@ -300,6 +318,30 @@
         "mac": "alt+cmd+0",
         "win": "alt+ctrl+0",
         "linux": "alt+ctrl+0",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "markdownInline.convertToHeading1",
+        "key": "alt+cmd+1",
+        "mac": "alt+cmd+1",
+        "win": "alt+ctrl+1",
+        "linux": "alt+ctrl+1",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "markdownInline.convertToHeading2",
+        "key": "alt+cmd+2",
+        "mac": "alt+cmd+2",
+        "win": "alt+ctrl+2",
+        "linux": "alt+ctrl+2",
+        "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "markdownInline.convertToHeading3",
+        "key": "alt+cmd+3",
+        "mac": "alt+cmd+3",
+        "win": "alt+ctrl+3",
+        "linux": "alt+ctrl+3",
         "when": "editorTextFocus && editorLangId == markdown"
       },
       {

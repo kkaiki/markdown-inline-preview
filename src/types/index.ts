@@ -58,7 +58,14 @@ export type ListType = 'checkbox' | 'numbered' | 'bullet' | null;
 /**
  * 変換対象のタイプ
  */
-export type ConvertType = 'bullet' | 'numbered' | 'checkbox' | 'normal';
+export type ConvertType =
+    | 'bullet'
+    | 'numbered'
+    | 'checkbox'
+    | 'normal'
+    | 'heading1'
+    | 'heading2'
+    | 'heading3';
 
 /**
  * 番号付きリストの情報

@@ -92,6 +92,22 @@ describe('List Coverage Tests', function() {
             assert.strictEqual(result, '- [ ] Plain text');
         });
 
+        it('should convert plain text to headings', function() {
+            assert.strictEqual(convertLineToType('Title', 'heading1'), '# Title');
+            assert.strictEqual(convertLineToType('Title', 'heading2'), '## Title');
+            assert.strictEqual(convertLineToType('Title', 'heading3'), '### Title');
+        });
+
+        it('should re-level an existing heading', function() {
+            assert.strictEqual(convertLineToType('# Title', 'heading3'), '### Title');
+            assert.strictEqual(convertLineToType('### Title', 'heading1'), '# Title');
+        });
+
+        it('should convert a heading to a list or plain text', function() {
+            assert.strictEqual(convertLineToType('## Title', 'bullet'), '- Title');
+            assert.strictEqual(convertLineToType('## Title', 'normal'), 'Title');
+        });
+
         it('should handle checkbox with X to numbered', function() {
             const result = convertLineToType('- [x] Done task', 'numbered');
             assert.strictEqual(result, '1. Done task');

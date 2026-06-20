@@ -25,6 +25,7 @@ import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableMenuPlugin } from './tableMenuPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
+import { createPreviewKeymapPlugin } from './previewKeymapPlugin';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -244,10 +245,11 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
             ctx.set(tableBlockConfig.key, { renderButton: renderTableButton });
         })
-        .use(commonmarkWithoutEmptyLineBreaks)
-        // Enter-in-cell override must come before gfm so it intercepts Enter
-        // ahead of gfm's exitTable keymap binding.
+        // Keymap overrides must come before the presets so their handleKeyDown
+        // runs ahead of the base/gfm keymaps (Cmd+A, Cmd+Opt+N, Enter-in-cell).
+        .use(createPreviewKeymapPlugin())
         .use(createTableCellEnterPlugin())
+        .use(commonmarkWithoutEmptyLineBreaks)
         .use(gfm)
         .use(history)
         .use(listener)
