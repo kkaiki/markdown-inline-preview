@@ -28,7 +28,7 @@ export function setDebugLog(logFn: DebugLogFunction): void {
 }
 
 const VIEW_TYPE = 'ipreview.preview';
-const PREVIEW_MODE_KEY_PREFIX = 'markdownInline.previewMode:';
+const GLOBAL_MODE_KEY = 'markdownInline.previewMode';
 const PREVIEW_ACTIVE_CONTEXT = 'ipreview.previewActive';
 const MARKDOWN_EDITOR_CONTEXT = 'ipreview.markdownEditor';
 
@@ -105,14 +105,17 @@ function buildHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 </html>`;
 }
 
-function rememberMode(context: vscode.ExtensionContext, uri: vscode.Uri, mode: 'raw' | 'preview'): void {
+// Raw / Preview のモードは「最後に使ったモード」を全 Markdown ファイル横断で
+// 共有する（globalState）。あるファイルを Preview に切り替えると、以降に開く
+// すべての Markdown ファイルが Preview で開くようになる。
+function rememberMode(context: vscode.ExtensionContext, mode: 'raw' | 'preview'): void {
     if (!getConfig<boolean>('preview.rememberMode', true)) return;
-    void context.workspaceState.update(PREVIEW_MODE_KEY_PREFIX + uri.toString(), mode);
+    void context.globalState.update(GLOBAL_MODE_KEY, mode);
 }
 
-function getRememberedMode(context: vscode.ExtensionContext, uri: vscode.Uri): 'raw' | 'preview' | undefined {
+function getRememberedMode(context: vscode.ExtensionContext): 'raw' | 'preview' | undefined {
     if (!getConfig<boolean>('preview.rememberMode', true)) return undefined;
-    return context.workspaceState.get<'raw' | 'preview'>(PREVIEW_MODE_KEY_PREFIX + uri.toString());
+    return context.globalState.get<'raw' | 'preview'>(GLOBAL_MODE_KEY);
 }
 
 function computeScrollRatio(editor: vscode.TextEditor | undefined): number | undefined {
@@ -289,7 +292,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             syncEditorContext();
         });
 
-        rememberMode(this.context, document.uri, 'preview');
+        rememberMode(this.context, 'preview');
         debugLog(`[preview] Resolved Milkdown preview editor for ${key}`);
         syncEditorContext();
     }
@@ -413,7 +416,7 @@ async function switchToPreview(
             pendingOpenScrollRatio.set(key, computeScrollRatio(editor) ?? 0);
         }
     }
-    rememberMode(context, document.uri, 'preview');
+    rememberMode(context, 'preview');
     const staleTextTabs = findTabs(isTextTabForUri(document.uri));
     await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
     await closeStaleTabs(staleTextTabs);
@@ -427,7 +430,7 @@ async function switchToRaw(
     const key = uri.toString();
     const anchor = lastKnownScrollAnchor.get(key);
     const ratio = lastKnownScrollRatio.get(key);
-    rememberMode(context, uri, 'raw');
+    rememberMode(context, 'raw');
     const stalePreviewTabs = findTabs(isPreviewTabForUri(uri));
     await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
     await closeStaleTabs(stalePreviewTabs);
@@ -502,7 +505,7 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (!editor || editor.document.languageId !== 'markdown') return;
-            const remembered = getRememberedMode(context, editor.document.uri);
+            const remembered = getRememberedMode(context);
             const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');
             if (mode === 'preview') {
                 void switchToPreview(context, editor.document, editor.viewColumn, editor);
@@ -512,7 +515,7 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
     const initialEditor = vscode.window.activeTextEditor;
     if (initialEditor && initialEditor.document.languageId === 'markdown') {
-        const remembered = getRememberedMode(context, initialEditor.document.uri);
+        const remembered = getRememberedMode(context);
         const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');
         if (mode === 'preview') {
             void switchToPreview(context, initialEditor.document, initialEditor.viewColumn, initialEditor);

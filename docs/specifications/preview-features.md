@@ -104,7 +104,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | 最大幅 | 本文の最大表示幅 | `preview.maxWidth` |
 | スクロール同期 | Raw 切替時に見出しアンカーで位置復元 | `preview.syncScroll` |
 | 切替アニメーション | Preview 表示時のフェードイン | `preview.enableTransitions` |
-| モード記憶 | ファイルごとに最後のモードを記憶 | `preview.rememberMode` |
+| モード記憶 | 最後のモードを全 Markdown ファイル横断で記憶（Preview にすると新規ファイルも Preview で開く） | `preview.rememberMode` |
 | 既定モード | 初回オープン時 Raw or Preview | `preview.defaultMode` |
 
 ---

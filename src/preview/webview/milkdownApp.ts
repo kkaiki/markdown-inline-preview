@@ -2,7 +2,7 @@
  * WebView 側エントリポイント。esbuild で media/milkdown.bundle.js にバンドルされる。
  */
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx } from '@milkdown/kit/core';
-import { commonmark } from '@milkdown/kit/preset/commonmark';
+import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
@@ -15,6 +15,7 @@ import mermaid from 'mermaid';
 
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
+import { stripPlaceholderLineBreaks } from '../../shared/markdown/lineBreaks';
 import {
     createScrollAnchor,
     headingMatchesScrollAnchor
@@ -210,15 +211,24 @@ function postChange(markdown: string): void {
     void enhanceRenderedContent();
 }
 
+// 空段落・空セルを `<br />` として保存する remark-preserve-empty-line を除外し、
+// 通常の空行で保存されるようにする（commonmark は [plugin, options] を含む配列）。
+const commonmarkWithoutEmptyLineBreaks = commonmark.filter(
+    (plugin) =>
+        plugin !== remarkPreserveEmptyLinePlugin.plugin &&
+        plugin !== remarkPreserveEmptyLinePlugin.options
+);
+
 async function createEditor(markdown: string, settings: PreviewSettings): Promise<void> {
-    lastSyncedMarkdown = markdown;
+    const initialMarkdown = stripPlaceholderLineBreaks(markdown);
+    lastSyncedMarkdown = initialMarkdown;
     setFocusSyntaxEnabled(settings.showFocusSyntax);
     setSlashMenuEnabled(settings.enableSlashMenu);
 
     const builder = Editor.make()
         .config((ctx) => {
             ctx.set(rootCtx, root);
-            ctx.set(defaultValueCtx, markdown);
+            ctx.set(defaultValueCtx, initialMarkdown);
             ctx.update(editorViewOptionsCtx, (prev) => ({
                 ...prev,
                 editable: () => settings.editable,
@@ -232,7 +242,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
             ctx.set(tableBlockConfig.key, { renderButton: renderTableButton });
         })
-        .use(commonmark)
+        .use(commonmarkWithoutEmptyLineBreaks)
         .use(gfm)
         .use(history)
         .use(listener)
@@ -252,9 +262,10 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
 }
 
 function applyExternalMarkdown(markdown: string): void {
-    if (!editor || markdown === lastSyncedMarkdown) return;
-    lastSyncedMarkdown = markdown;
-    editor.action(replaceAll(markdown));
+    const next = stripPlaceholderLineBreaks(markdown);
+    if (!editor || next === lastSyncedMarkdown) return;
+    lastSyncedMarkdown = next;
+    editor.action(replaceAll(next));
     void enhanceRenderedContent();
 }
 
