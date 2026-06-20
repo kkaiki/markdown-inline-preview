@@ -46,6 +46,18 @@ function getNonce(): string {
     return crypto.randomBytes(16).toString('base64');
 }
 
+function mimeToExt(mime: string): string | undefined {
+    return {
+        'image/png': '.png',
+        'image/jpeg': '.jpg',
+        'image/gif': '.gif',
+        'image/webp': '.webp',
+        'image/svg+xml': '.svg',
+        'image/bmp': '.bmp',
+        'image/avif': '.avif'
+    }[mime];
+}
+
 function resolveThemeKind(): 'light' | 'dark' {
     const setting = getConfig<string>('preview.theme', 'auto');
     if (setting === 'light' || setting === 'dark') return setting;
@@ -173,6 +185,53 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         return mergeFrontmatter(frontmatter, restoredBody);
     }
 
+    /**
+     * Preview に貼り付け/ドロップされた画像をドキュメント隣の `assets/` に保存し、
+     * WebView URI を返す。保存時に WebView URI → 相対パスの対応を登録しておくことで、
+     * 挿入結果は `![](assets/...)` として `.md` に保存される。
+     */
+    private async savePastedImage(
+        dataUrl: string,
+        name: string,
+        document: vscode.TextDocument,
+        documentDir: string,
+        webview: vscode.Webview
+    ): Promise<void> {
+        const match = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl);
+        if (!match) return;
+        const mime = match[1];
+        const bytes = Buffer.from(match[2], 'base64');
+        if (bytes.length === 0) return;
+
+        const extFromName = path.extname(name);
+        const ext = mimeToExt(mime) ?? (extFromName !== '' ? extFromName : '.png');
+        const base = path.basename(name, path.extname(name)).replace(/[^\w.-]+/g, '-').slice(0, 40) || 'image';
+        const fileName = `${base}-${Date.now()}${ext}`;
+        const assetsDir = path.join(documentDir, 'assets');
+        const filePath = path.join(assetsDir, fileName);
+
+        try {
+            await vscode.workspace.fs.createDirectory(vscode.Uri.file(assetsDir));
+            await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), bytes);
+        } catch (error) {
+            debugLog(`[preview] Failed to save pasted image: ${String(error)}`);
+            void vscode.window.showWarningMessage('画像の保存に失敗しました。');
+            return;
+        }
+
+        const relPath = `assets/${fileName}`;
+        const webviewUri = webview.asWebviewUri(vscode.Uri.file(filePath)).toString();
+        const key = document.uri.toString();
+        let uriMap = this.imageUriMaps.get(key);
+        if (!uriMap) {
+            uriMap = new Map<string, string>();
+            this.imageUriMaps.set(key, uriMap);
+        }
+        uriMap.set(webviewUri, relPath);
+
+        void webview.postMessage({ type: 'imageInserted', src: webviewUri });
+    }
+
     public resolveCustomTextEditor(
         document: vscode.TextDocument,
         webviewPanel: vscode.WebviewPanel,
@@ -278,6 +337,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (message.type === 'openLink' && typeof message.href === 'string') {
                 void openLinkFromPreview(message.href, document.uri);
+                return;
+            }
+            if (message.type === 'insertImage' && typeof message.dataUrl === 'string') {
+                void this.savePastedImage(message.dataUrl, message.name, document, documentDir, webviewPanel.webview);
             }
         });
 
