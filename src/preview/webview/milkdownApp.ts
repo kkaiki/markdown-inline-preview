@@ -24,6 +24,7 @@ import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableMenuPlugin } from './tableMenuPlugin';
+import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -244,6 +245,9 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             ctx.set(tableBlockConfig.key, { renderButton: renderTableButton });
         })
         .use(commonmarkWithoutEmptyLineBreaks)
+        // Enter-in-cell override must come before gfm so it intercepts Enter
+        // ahead of gfm's exitTable keymap binding.
+        .use(createTableCellEnterPlugin())
         .use(gfm)
         .use(history)
         .use(listener)
