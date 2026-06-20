@@ -3,7 +3,7 @@
     "target": "ES2020",
     "module": "commonjs",
     "lib": ["ES2020"],
-    "outDir": "./src",
+    "outDir": "./out",
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
@@ -14,9 +14,13 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "moduleResolution": "node",
-    "allowJs": true,
-    "checkJs": false
+    "allowJs": false
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "out", "test"]
+  "exclude": [
+    "node_modules",
+    "out",
+    "test",
+    "src/preview/webview/**"
+  ]
 }

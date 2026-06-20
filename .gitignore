@@ -7,6 +7,7 @@ node_modules/
 .env
 
 # Build outputs
+/out/
 /commands/
 /utils/
 /extension-markdown-inline.js
@@ -14,8 +15,15 @@ node_modules/
 *.d.ts
 *.d.ts.map
 
-# Compiled JS in src (keep .ts source files)
+# Legacy: compiled JS used to live beside .ts in src/
 src/**/*.js
+
+# Generated WebView bundle (rebuilt by `npm run build:webview`)
+media/milkdown.bundle.js
+media/milkdown.bundle.js.map
+
+# Compiled test output
+out-test/
 
 # Test coverage
 coverage/
