@@ -12,6 +12,7 @@ node_modules/
 /extension-markdown-inline.js
 *.js.map
 *.d.ts
+*.d.ts.map
 
 # Compiled JS in src (keep .ts source files)
 src/**/*.js

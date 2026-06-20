@@ -1,3 +1,9 @@
+## 1.5.0 - 2026-06-20
+
+- Feature: Added `iPreview: Toggle Preview` command (and matching editor title icon) that renders the current Markdown file in a read-only WebView, theme-aware via VS Code CSS variables.
+- Feature: Added `markdownInline.preview.defaultMode` setting (`raw` | `preview`) to automatically open newly opened Markdown files in the WebView preview.
+- Change: `markdownInline.advanced.autoFormatTables` now defaults to `false`. Tables are no longer auto-formatted when moving off a table line unless explicitly enabled; the `Format Markdown Table` command and `/table` slash command are unaffected.
+
 ## 1.4.9 - 2026-03-09
 
 - Fix: In Markdown tables, the first `Cmd+A`/`Ctrl+A` now selects the current cell contents before expanding to the row and then the whole document.
