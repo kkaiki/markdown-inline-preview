@@ -99,10 +99,10 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 ### UI・ナビゲーション
 
 - **テーマ** — VS Code 追従または light/dark 固定（`preview.theme`）
-- **タイポグラフィ** — `preview.fontSize`（既定 **13**）、`fontFamily`、`maxWidth`
+- **タイポグラフィ** — `preview.fontSize`（既定 **12**）、`fontFamily`、`maxWidth`
 - **リンク** — ワークスペース内ファイルを開く / 外部 URL はブラウザ
 - **スクロール同期** — Raw に戻るとき見出しアンカーで位置復元（`preview.syncScroll`）
-- **モード記憶** — ファイルごとに最後のモードを記憶（`preview.rememberMode`）
+- **モード記憶** — 最後のモードを全 Markdown ファイル横断で記憶。Preview にすると新規ファイルも Preview で開く（`preview.rememberMode`）
 
 > v1.8.3 でフローティングツールバー（B / I / H1 等）は削除しました。書式は **`/`** スラッシュメニューを使います。
 
@@ -143,7 +143,7 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 | `markdownInline.preview.defaultMode` | `raw` | 初回オープン時 `raw` / `preview` |
 | `markdownInline.preview.showFocusSyntax` | `true` | フォーカスブロックで記法表示 |
 | `markdownInline.preview.enableSlashMenu` | `true` | `/` メニュー |
-| `markdownInline.preview.fontSize` | `13` | 本文フォントサイズ（px） |
+| `markdownInline.preview.fontSize` | `12` | 本文フォントサイズ（px） |
 | `markdownInline.preview.enableMath` | `true` | KaTeX |
 | `markdownInline.preview.enableMermaid` | `true` | Mermaid |
 

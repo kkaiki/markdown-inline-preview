@@ -99,10 +99,10 @@ Preview opens the file in a Milkdown-based custom editor. Edits debounce to the 
 ### UI & navigation
 
 - **Theme** follows VS Code or fixed light/dark (`preview.theme`)
-- **Typography** — `preview.fontSize` (default **13**), `fontFamily`, `maxWidth`
+- **Typography** — `preview.fontSize` (default **12**), `fontFamily`, `maxWidth`
 - **Link clicks** — open workspace files or external URLs in the browser
 - **Scroll sync** — heading anchor when switching back to Raw (`preview.syncScroll`)
-- **Mode memory** per file (`preview.rememberMode`)
+- **Mode memory** shared across all Markdown files — switching one to Preview opens new files in Preview too (`preview.rememberMode`)
 
 > The floating formatting toolbar was removed in v1.8.3. Use the **`/`** slash menu instead.
 
@@ -143,7 +143,7 @@ More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcu
 | `markdownInline.preview.defaultMode` | `raw` | `raw` or `preview` on first open |
 | `markdownInline.preview.showFocusSyntax` | `true` | Show markers on focused block |
 | `markdownInline.preview.enableSlashMenu` | `true` | `/` command menu |
-| `markdownInline.preview.fontSize` | `13` | Body font size (px) |
+| `markdownInline.preview.fontSize` | `12` | Body font size (px) |
 | `markdownInline.preview.enableMath` | `true` | KaTeX |
 | `markdownInline.preview.enableMermaid` | `true` | Mermaid diagrams |
 
