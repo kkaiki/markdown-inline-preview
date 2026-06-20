@@ -2,7 +2,7 @@
  * 型定義ファイル
  * プロジェクト全体で使用される型を定義
  */
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 /**
  * セルの境界情報
  */
@@ -126,3 +126,4 @@ export interface CommandHandlers {
  * デバッグログ関数の型
  */
 export type DebugLogFunction = (message: string, ...args: unknown[]) => void;
+//# sourceMappingURL=index.d.ts.map

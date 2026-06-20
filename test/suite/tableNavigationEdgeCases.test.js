@@ -32,11 +32,19 @@ function getTableCellInfo(lineText, cursorChar) {
         const leadingSpaces = cellText.match(/^(\s*)/)[1].length;
         const trailingMatch = cellText.match(/(\s*)$/);
         const trailingSpaces = trailingMatch ? trailingMatch[1].length : 0;
+        let contentStart = cell.start + leadingSpaces;
+        let contentEnd = cell.end - trailingSpaces;
+
+        if (contentStart >= contentEnd) {
+            contentStart = cell.start;
+            contentEnd = cell.start;
+        }
+
         return {
             start: cell.start,
             end: cell.end,
-            contentStart: cell.start + leadingSpaces,
-            contentEnd: cell.end - trailingSpaces,
+            contentStart,
+            contentEnd,
             index: index
         };
     });
@@ -155,6 +163,17 @@ function simulateShiftTabNavigation(lineText, cursorPos) {
     }
     // 最初のセルの場合、現在位置を維持
     return cursorPos;
+}
+
+function getAlignedTablePosition(sourceCellInfo, cursorPos, targetCell) {
+    const isTargetEmpty = targetCell.contentStart >= targetCell.contentEnd;
+    if (isTargetEmpty) {
+        return Math.min(targetCell.start + 1, targetCell.end);
+    }
+
+    const offsetInContent = Math.max(0, cursorPos - sourceCellInfo.cellContentStart);
+    const unclampedTarget = targetCell.contentStart + offsetInContent;
+    return Math.max(targetCell.contentStart, Math.min(unclampedTarget, targetCell.contentEnd));
 }
 
 describe('Table Navigation Edge Cases', function() {
@@ -344,10 +363,22 @@ describe('Table Navigation Edge Cases', function() {
             const cellC = getTableCellInfo(line, pos);
             assert.strictEqual(cellC.cellIndex, 2);
         });
+
+        it('Tab should move to first non-space character in next cell', function() {
+            const line = '| A |   Cell B |';
+            const newPos = simulateTabNavigation(line, 2);
+            assert.strictEqual(newPos, 8);
+        });
+
+        it('Tab should move to cell start for whitespace-only next cell', function() {
+            const line = '| A |     |';
+            const newPos = simulateTabNavigation(line, 2);
+            assert.strictEqual(newPos, 5);
+        });
     });
 
     describe('Up/Down arrow same cell position', function() {
-        // 上下移動で同じセルインデックスを維持するロジック
+        // 上下移動で同じセルインデックスとセル内オフセットを維持するロジック
         function getTargetCellInRow(lineText, targetCellIndex) {
             const cellInfo = getTableCellInfo(lineText, 0);
             if (!cellInfo || !cellInfo.allCells || targetCellIndex >= cellInfo.allCells.length) {
@@ -383,12 +414,56 @@ describe('Table Navigation Edge Cases', function() {
             assert.strictEqual(targetCell, null);
         });
 
-        it('should navigate to content start of target cell', function() {
-            const row = '| Cell A | Cell B |';
-            const targetCell = getTargetCellInRow(row, 1);
+        it('should preserve the same offset in the target cell', function() {
+            const row1 = '| Name | Value |';
+            const row2 = '| Foo  | Bar baz |';
+            const sourceCellInfo = getTableCellInfo(row1, 11);
+            const targetCell = getTargetCellInRow(row2, 1);
+
+            assert.notStrictEqual(sourceCellInfo, null);
             assert.notStrictEqual(targetCell, null);
-            // コンテンツ開始位置を取得
-            assert.strictEqual(targetCell.contentStart > targetCell.start, true);
+
+            const newPos = getAlignedTablePosition(sourceCellInfo, 11, targetCell);
+            assert.strictEqual(newPos, 11);
+        });
+
+        it('should clamp to target cell end when the destination cell is shorter', function() {
+            const row1 = '| Name | Longer Value |';
+            const row2 = '| Foo  | Bar |';
+            const sourceCellInfo = getTableCellInfo(row1, 18);
+            const targetCell = getTargetCellInRow(row2, 1);
+
+            assert.notStrictEqual(sourceCellInfo, null);
+            assert.notStrictEqual(targetCell, null);
+
+            const newPos = getAlignedTablePosition(sourceCellInfo, 18, targetCell);
+            assert.strictEqual(newPos, targetCell.contentEnd);
+        });
+
+        it('should preserve relative content position across rows', function() {
+            const row1 = '| 18:00 ~ |          | 開発、ミーティング |';
+            const row2 = '| 19:00 ~ | 夜ご飯　新歓 | ご飯 |';
+            const sourceCellInfo = getTableCellInfo(row1, 25);
+            const targetCell = getTargetCellInRow(row2, 2);
+
+            assert.notStrictEqual(sourceCellInfo, null);
+            assert.notStrictEqual(targetCell, null);
+
+            const newPos = getAlignedTablePosition(sourceCellInfo, 25, targetCell);
+            assert.strictEqual(newPos, targetCell.contentEnd);
+        });
+
+        it('should leave one space when moving into an empty cell', function() {
+            const row1 = '| 19:00 ~ | 夜ご飯　新歓 |          |';
+            const row2 = '| 18:00 ~ |          | 開発、ミーティング |';
+            const sourceCellInfo = getTableCellInfo(row1, 13);
+            const targetCell = getTargetCellInRow(row2, 1);
+
+            assert.notStrictEqual(sourceCellInfo, null);
+            assert.notStrictEqual(targetCell, null);
+
+            const newPos = getAlignedTablePosition(sourceCellInfo, 13, targetCell);
+            assert.strictEqual(newPos, targetCell.start + 1);
         });
     });
 

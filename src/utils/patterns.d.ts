@@ -69,3 +69,4 @@ export declare function isListItem(line: string): boolean;
  * テーブルのセパレータ行かどうかを判定
  */
 export declare function isSeparatorRow(cells: string[] | null | undefined): boolean;
+//# sourceMappingURL=patterns.d.ts.map

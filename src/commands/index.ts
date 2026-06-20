@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { CommandHandlers, ConvertType, DebugLogFunction } from '../types';
+import type { CommandHandlers, DebugLogFunction } from '../types';
 
 // コマンドハンドラのインポート
 import * as listCommands from './list';
@@ -80,6 +80,12 @@ export function registerCommands(context: vscode.ExtensionContext, handlers: Com
 
     safeRegister(context, 'markdownInline.toggleCheckbox',
         listCommands.createToggleCheckboxHandler(handlers), conflicts);
+
+    safeRegister(context, 'markdownInline.clickCheckbox',
+        listCommands.createClickCheckboxHandler(handlers), conflicts);
+
+    safeRegister(context, 'markdownInline.toggleCheckboxAtLine',
+        listCommands.createToggleCheckboxAtLineHandler(handlers), conflicts);
 
     safeRegister(context, 'markdownInline.increaseIndent',
         listCommands.createIndentHandler(handlers, true), conflicts);

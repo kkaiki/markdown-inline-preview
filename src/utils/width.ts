@@ -92,7 +92,7 @@ export function getDisplayWidthWithHeuristics(text: string): number {
 export function padCell(
     content: string,
     targetWidth: number,
-    columnHasFullWidth: boolean = false
+    _columnHasFullWidth: boolean = false
 ): string {
     const trimmed = content.trim();
     const contentWidth = getDisplayWidthWithHeuristics(trimmed);

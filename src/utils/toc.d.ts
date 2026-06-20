@@ -34,3 +34,4 @@ export declare function findTocMarker(text: string): TocMarkerInfo;
  */
 export declare function findTocSection(document: DocumentLike): TocSection | null;
 export {};
+//# sourceMappingURL=toc.d.ts.map

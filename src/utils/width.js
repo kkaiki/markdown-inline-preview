@@ -97,7 +97,7 @@ function getDisplayWidthWithHeuristics(text) {
 /**
  * セル内容をパディング
  */
-function padCell(content, targetWidth, columnHasFullWidth = false) {
+function padCell(content, targetWidth, _columnHasFullWidth = false) {
     const trimmed = content.trim();
     const contentWidth = getDisplayWidthWithHeuristics(trimmed);
     const totalPadding = targetWidth - contentWidth;

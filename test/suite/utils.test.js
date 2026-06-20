@@ -18,6 +18,13 @@ const {
     generateTableOfContents,
     findTocMarker,
 
+    // Slash command module
+    parseSlashCommandLine,
+    parseHeadingSlashCommand,
+    parseTableNormalizeSlashCommand,
+    buildHeadingLine,
+    createDefaultTableTemplate,
+
     // List module
     getIndentString,
     getIndentLevel,
@@ -26,7 +33,11 @@ const {
     convertLineToType,
     toggleCheckboxState,
     calculateBlockRange,
-    getListContinuationMarker
+    getListContinuationMarker,
+
+    // Settings module
+    getAdvancedBooleanSetting,
+    getAdvancedOrLegacyBooleanSetting
 } = require('../../src/utils');
 
 describe('Utils Module Integration', function() {
@@ -67,6 +78,18 @@ describe('Utils Module Integration', function() {
             assert.strictEqual(result.isTable, true);
             assert.strictEqual(result.cellIndex, 0);
         });
+
+        it('should move to first non-space character for non-empty cells', function() {
+            const result = getTableCellInfo('|   ABC   |', 4);
+            assert.strictEqual(result.cellContentStart, 4);
+            assert.strictEqual(result.cellStart, 1);
+        });
+
+        it('should use cell start for whitespace-only cells', function() {
+            const result = getTableCellInfo('|     |', 2);
+            assert.strictEqual(result.cellContentStart, result.cellStart);
+            assert.strictEqual(result.cellContentEnd, result.cellStart);
+        });
     });
 
     describe('TOC Utils', function() {
@@ -96,6 +119,50 @@ describe('Utils Module Integration', function() {
             const result = findTocMarker(text);
             assert.strictEqual(result.hasMarker, true);
             assert.strictEqual(result.markerType, 'japanese');
+        });
+    });
+
+    describe('Slash Command Utils', function() {
+        it('should parse slash command line', function() {
+            const result = parseSlashCommandLine('/heading 2 仕様');
+            assert.ok(result);
+            assert.strictEqual(result.command, 'heading');
+            assert.strictEqual(result.argsText, '2 仕様');
+            assert.deepStrictEqual(result.args, ['2', '仕様']);
+        });
+
+        it('should parse heading slash command', function() {
+            const result = parseHeadingSlashCommand('3 使い方');
+            assert.ok(result);
+            assert.strictEqual(result.level, 3);
+            assert.strictEqual(result.title, '使い方');
+        });
+
+        it('should default heading slash command to level 1', function() {
+            const result = parseHeadingSlashCommand('');
+            assert.ok(result);
+            assert.strictEqual(result.level, 1);
+            assert.strictEqual(result.title, '');
+        });
+
+        it('should parse table normalize slash command', function() {
+            assert.strictEqual(parseTableNormalizeSlashCommand('normalize on'), true);
+            assert.strictEqual(parseTableNormalizeSlashCommand('normilize off'), false);
+            assert.strictEqual(parseTableNormalizeSlashCommand('normalize maybe'), null);
+        });
+
+        it('should build heading line', function() {
+            assert.strictEqual(buildHeadingLine(2, '仕様'), '## 仕様');
+            assert.strictEqual(buildHeadingLine(1, ''), '# ');
+        });
+
+        it('should create default table template', function() {
+            const template = createDefaultTableTemplate();
+            assert.deepStrictEqual(template, [
+                '| Header 1 | Header 2 |',
+                '| --- | --- |',
+                '|  |  |'
+            ]);
         });
     });
 
@@ -147,6 +214,59 @@ describe('Utils Module Integration', function() {
             assert.strictEqual(getListContinuationMarker('- Item'), '- ');
             assert.strictEqual(getListContinuationMarker('1. Item'), '2. ');
             assert.strictEqual(getListContinuationMarker('- [ ] Task'), '- [ ] ');
+        });
+    });
+
+    describe('Settings Utils', function() {
+        function createConfig(values = {}, inspected = {}) {
+            return {
+                get(key, defaultValue) {
+                    return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : defaultValue;
+                },
+                inspect(key) {
+                    return inspected[key];
+                }
+            };
+        }
+
+        it('should read advanced boolean settings directly', function() {
+            const config = createConfig({ 'advanced.autoFormatTables': false });
+            assert.strictEqual(getAdvancedBooleanSetting(config, 'autoFormatTables', true), false);
+        });
+
+        it('should prefer legacy value when advanced setting is not explicitly set', function() {
+            const config = createConfig({ 'enableHeadingDecorations': false });
+            assert.strictEqual(
+                getAdvancedOrLegacyBooleanSetting(
+                    config,
+                    'enableHeadingDecorations',
+                    'enableHeadingDecorations',
+                    true
+                ),
+                false
+            );
+        });
+
+        it('should prefer explicit advanced value over legacy value', function() {
+            const config = createConfig(
+                {
+                    'advanced.enableHeadingDecorations': true,
+                    'enableHeadingDecorations': false
+                },
+                {
+                    'advanced.enableHeadingDecorations': { workspaceValue: true }
+                }
+            );
+
+            assert.strictEqual(
+                getAdvancedOrLegacyBooleanSetting(
+                    config,
+                    'enableHeadingDecorations',
+                    'enableHeadingDecorations',
+                    false
+                ),
+                true
+            );
         });
     });
 });

@@ -32,8 +32,8 @@ function getIndentString(line) {
 function getIndentLevel(indentStr) {
     if (!indentStr)
         return 0;
-    const tabs = (indentStr.match(/\t/g) || []).length;
-    const spaces = (indentStr.match(/ /g) || []).length;
+    const tabs = (indentStr.match(/\t/g) ?? []).length;
+    const spaces = (indentStr.match(/ /g) ?? []).length;
     return tabs + Math.ceil(spaces / 2);
 }
 /**

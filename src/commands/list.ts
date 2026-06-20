@@ -30,8 +30,8 @@ export function createSmartEnterHandler(handlers: ListHandlers): () => Promise<v
             await handlers.smartEnterCommand();
         } catch (e) {
             const error = e as Error;
-            debugLog(`[ERROR] smartEnter failed: ${error.message || e}`);
-            console.error('[smartEnter] Error:', e);
+            debugLog(`[ERROR] smartEnter failed: ${error.message ?? String(e)}`);
+            debugLog('[smartEnter] Error:', e);
             // 失敗時は通常の改行にフォールバック
             await vscode.commands.executeCommand('type', { text: '\n' });
         }
@@ -68,6 +68,29 @@ export function createToggleCheckboxHandler(handlers: ListHandlers): () => void 
         const editor = vscode.window.activeTextEditor;
         if (!editor) return;
         handlers.toggleCheckbox(editor, editor.selection.active.line);
+    };
+}
+
+/**
+ * クリック向けチェックボックス切替コマンドハンドラを作成
+ */
+export function createClickCheckboxHandler(handlers: ListHandlers): () => void {
+    return () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        handlers.toggleCheckbox(editor, editor.selection.active.line);
+    };
+}
+
+/**
+ * 指定行のチェックボックス切替コマンドハンドラを作成
+ */
+export function createToggleCheckboxAtLineHandler(handlers: ListHandlers): (line?: number) => void {
+    return (line?: number) => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return;
+        const targetLine = typeof line === 'number' ? line : editor.selection.active.line;
+        handlers.toggleCheckbox(editor, targetLine);
     };
 }
 

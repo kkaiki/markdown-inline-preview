@@ -30,4 +30,5 @@ export declare function getDisplayWidthWithHeuristics(text: string): number;
 /**
  * セル内容をパディング
  */
-export declare function padCell(content: string, targetWidth: number, columnHasFullWidth?: boolean): string;
+export declare function padCell(content: string, targetWidth: number, _columnHasFullWidth?: boolean): string;
+//# sourceMappingURL=width.d.ts.map

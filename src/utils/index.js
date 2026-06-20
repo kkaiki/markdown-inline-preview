@@ -4,7 +4,7 @@
  * 全てのユーティリティモジュールをエクスポート
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getListContinuationMarker = exports.calculateBlockRange = exports.toggleCheckboxState = exports.getNextListNumber = exports.convertLineToType = exports.getListType = exports.createIndent = exports.getIndentLevel = exports.getIndentString = exports.findTocSection = exports.findTocMarker = exports.generateTableOfContents = exports.collectHeadingsFromText = exports.collectHeadings = exports.generateSlug = exports.calculateColumnWidths = exports.formatTableRow = exports.parseTableRows = exports.findTableBlock = exports.getTableCellInfo = exports.getAllTableCells = exports.splitTableLine = exports.padCell = exports.getDisplayWidthWithHeuristics = exports.getStringWidth = exports.isWideChar = exports.isNarrowChar = exports.isFullWidthCodePoint = exports.isZeroWidthCombining = exports.isSeparatorRow = exports.isListItem = exports.extractHeading = exports.extractCheckbox = exports.extractNumberedList = exports.getMarkerInfo = exports.getLineType = exports.patterns = void 0;
+exports.getAdvancedOrLegacyBooleanSetting = exports.getAdvancedBooleanSetting = exports.getListContinuationMarker = exports.calculateBlockRange = exports.toggleCheckboxState = exports.getNextListNumber = exports.convertLineToType = exports.getListType = exports.createIndent = exports.getIndentLevel = exports.getIndentString = exports.resolveCodeLanguage = exports.resolveCalloutType = exports.buildCallout = exports.buildCodeBlock = exports.expandShorthandHeading = exports.createDefaultTableTemplate = exports.buildHeadingLine = exports.parseTableNormalizeSlashCommand = exports.parseHeadingSlashCommand = exports.parseSlashCommandLine = exports.findTocSection = exports.findTocMarker = exports.generateTableOfContents = exports.collectHeadingsFromText = exports.collectHeadings = exports.generateSlug = exports.calculateColumnWidths = exports.formatTableRow = exports.parseTableRows = exports.findTableBlock = exports.getTableCellInfo = exports.getAllTableCells = exports.splitTableLine = exports.padCell = exports.getDisplayWidthWithHeuristics = exports.getStringWidth = exports.isWideChar = exports.isNarrowChar = exports.isFullWidthCodePoint = exports.isZeroWidthCombining = exports.isSeparatorRow = exports.isListItem = exports.extractHeading = exports.extractCheckbox = exports.extractNumberedList = exports.getMarkerInfo = exports.getLineType = exports.patterns = void 0;
 // パターン関連
 var patterns_1 = require("./patterns");
 Object.defineProperty(exports, "patterns", { enumerable: true, get: function () { return patterns_1.patterns; } });
@@ -41,6 +41,18 @@ Object.defineProperty(exports, "collectHeadingsFromText", { enumerable: true, ge
 Object.defineProperty(exports, "generateTableOfContents", { enumerable: true, get: function () { return toc_1.generateTableOfContents; } });
 Object.defineProperty(exports, "findTocMarker", { enumerable: true, get: function () { return toc_1.findTocMarker; } });
 Object.defineProperty(exports, "findTocSection", { enumerable: true, get: function () { return toc_1.findTocSection; } });
+// スラッシュコマンド関連
+var slashCommands_1 = require("./slashCommands");
+Object.defineProperty(exports, "parseSlashCommandLine", { enumerable: true, get: function () { return slashCommands_1.parseSlashCommandLine; } });
+Object.defineProperty(exports, "parseHeadingSlashCommand", { enumerable: true, get: function () { return slashCommands_1.parseHeadingSlashCommand; } });
+Object.defineProperty(exports, "parseTableNormalizeSlashCommand", { enumerable: true, get: function () { return slashCommands_1.parseTableNormalizeSlashCommand; } });
+Object.defineProperty(exports, "buildHeadingLine", { enumerable: true, get: function () { return slashCommands_1.buildHeadingLine; } });
+Object.defineProperty(exports, "createDefaultTableTemplate", { enumerable: true, get: function () { return slashCommands_1.createDefaultTableTemplate; } });
+Object.defineProperty(exports, "expandShorthandHeading", { enumerable: true, get: function () { return slashCommands_1.expandShorthandHeading; } });
+Object.defineProperty(exports, "buildCodeBlock", { enumerable: true, get: function () { return slashCommands_1.buildCodeBlock; } });
+Object.defineProperty(exports, "buildCallout", { enumerable: true, get: function () { return slashCommands_1.buildCallout; } });
+Object.defineProperty(exports, "resolveCalloutType", { enumerable: true, get: function () { return slashCommands_1.resolveCalloutType; } });
+Object.defineProperty(exports, "resolveCodeLanguage", { enumerable: true, get: function () { return slashCommands_1.resolveCodeLanguage; } });
 // リスト関連
 var list_1 = require("./list");
 Object.defineProperty(exports, "getIndentString", { enumerable: true, get: function () { return list_1.getIndentString; } });
@@ -52,4 +64,8 @@ Object.defineProperty(exports, "getNextListNumber", { enumerable: true, get: fun
 Object.defineProperty(exports, "toggleCheckboxState", { enumerable: true, get: function () { return list_1.toggleCheckboxState; } });
 Object.defineProperty(exports, "calculateBlockRange", { enumerable: true, get: function () { return list_1.calculateBlockRange; } });
 Object.defineProperty(exports, "getListContinuationMarker", { enumerable: true, get: function () { return list_1.getListContinuationMarker; } });
+// 設定関連
+var settings_1 = require("./settings");
+Object.defineProperty(exports, "getAdvancedBooleanSetting", { enumerable: true, get: function () { return settings_1.getAdvancedBooleanSetting; } });
+Object.defineProperty(exports, "getAdvancedOrLegacyBooleanSetting", { enumerable: true, get: function () { return settings_1.getAdvancedOrLegacyBooleanSetting; } });
 //# sourceMappingURL=index.js.map
