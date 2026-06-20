@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+"$REPO_ROOT/scripts/check-secrets.sh"
+"$REPO_ROOT/scripts/pre-commit-check.sh"

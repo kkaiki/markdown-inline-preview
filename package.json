@@ -626,6 +626,7 @@
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "setup:hooks": "sh scripts/install-githooks.sh",
+    "check:secrets": "bash scripts/check-secrets.sh",
     "package": "vsce package",
     "publish:vsce": "vsce publish -p $VSCE_PAT",
     "publish:ovsx": "ovsx publish *.vsix -p $OVSX_PAT",

@@ -19,6 +19,7 @@ import {
     headingMatchesScrollAnchor
 } from '../../shared/structure/scrollAnchor';
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
+import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 
 const vscodeApi = acquireVsCodeApi();
@@ -205,7 +206,8 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(history)
         .use(listener)
         .use(listItemBlockComponent)
-        .use(focusSyntaxPlugin);
+        .use(focusSyntaxPlugin)
+        .use(headingBackspacePlugin);
 
     if (slashMenuPlugin) {
         builder.use(slashMenuPlugin);
