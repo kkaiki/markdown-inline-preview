@@ -55,6 +55,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | 空行・空セル | 通常の空行／空セルとして保存（`<br />` プレースホルダは出力しない。既存ファイルの `<br />` は読み込み時に正規化） |
 | テーブル内改行 | セル内で `Enter` → セル内に改行（GFM では `<br>`）。テーブル下に行は作らない |
 | ソフトブレイク表示 | 単一改行（ソフトブレイク）を見た目の改行として表示。保存は `\n` のまま（非破壊） |
+| リスト詰め（tight） | 連続するリスト項目の間の空行を除去し、tight なリストにして表示・保存（loose リストを残さない） |
 | WYSIWYG 編集 | レンダリング結果を直接編集 |
 | ファイル同期 | Markdown ソースとして保存 |
 | Raw → Preview 反映 | 約 100ms デバウンス |
@@ -106,7 +107,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | リンククリック | 相対パス → VS Code でファイルを開く | 常時 |
 | 外部リンク | `https://` → 既定ブラウザ | 常時 |
 | テーマ | VS Code 追従 or light/dark 固定 | `preview.theme` |
-| フォント | ファミリー・サイズ | `preview.fontFamily`, `fontSize` |
+| フォント | ファミリー・サイズ（既定は CJK 対応の比例フォント。等幅だと ASCII と日本語で太さが不揃いに見えるため） | `preview.fontFamily`, `fontSize` |
 | 最大幅 | 本文の最大表示幅 | `preview.maxWidth` |
 | スクロール同期 | Raw 切替時に見出しアンカーで位置復元 | `preview.syncScroll` |
 | 切替アニメーション | Preview 表示時のフェードイン | `preview.enableTransitions` |
