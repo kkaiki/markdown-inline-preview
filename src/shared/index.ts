@@ -21,10 +21,7 @@ export type { InlineEmphasisMatch, InlineEmphasisType, OffsetRange } from './mar
 
 export {
     collectHeadings,
-    collectHeadingsFromText,
-    generateTableOfContents,
-    findTocMarker,
-    findTocSection
+    collectHeadingsFromText
 } from './structure/toc';
 
 export {

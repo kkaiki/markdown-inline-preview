@@ -25,8 +25,8 @@ export const SLASH_MENU_ITEMS: SlashMenuItemDef[] = [
         detail: 'テーブルを挿入 (2列)',
         filterText: 'table',
         sortOrder: '07',
-        rawSnippet: '| ${1:Header 1} | ${2:Header 2} |\n| --- | --- |\n| $3 | $0 |',
-        previewMarkdown: '| Header 1 | Header 2 |\n| --- | --- |\n|  |  |'
+        rawSnippet: '| $1 | $2 |\n| --- | --- |\n| $3 | $4 |',
+        previewMarkdown: '|  |  |\n| --- | --- |\n|  |  |'
     },
     {
         id: 'code',
@@ -46,8 +46,7 @@ export const SLASH_MENU_ITEMS: SlashMenuItemDef[] = [
     { id: 'bullet', label: 'bullet', detail: '箇条書きリスト', filterText: 'bullet', sortOrder: '15', rawSnippet: '- $0', previewMarkdown: '- ' },
     { id: 'numbered', label: 'numbered', detail: '番号付きリスト', filterText: 'numbered', sortOrder: '16', rawSnippet: '1. $0', previewMarkdown: '1. ' },
     { id: 'todo', label: 'todo', detail: 'チェックボックス', filterText: 'todo', sortOrder: '17', rawSnippet: '- [ ] $0', previewMarkdown: '- [ ] ' },
-    { id: 'toc', label: 'toc', detail: '目次を生成', filterText: 'toc', sortOrder: '18', rawSnippet: '/toc', previewMarkdown: '/toc' },
-    { id: 'heading', label: 'heading', detail: '見出し (レベル指定)', filterText: 'heading', sortOrder: '19', rawSnippet: '/heading ${1:2} $0', previewMarkdown: '## ' }
+    { id: 'heading', label: 'heading', detail: '見出し (レベル指定)', filterText: 'heading', sortOrder: '18', rawSnippet: '/heading ${1:2} $0', previewMarkdown: '## ' }
 ];
 
 export function filterSlashMenuItems(query: string): SlashMenuItemDef[] {

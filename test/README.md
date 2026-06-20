@@ -43,6 +43,12 @@ npm run test:unit -- --grep "slashMenuItems"
 
 統合テストは `test/extension.test.ts` に `test()` ブロックを追加。
 
-## 詳細仕様
+## テスト方針
 
-[docs/specifications/test-specification.md](../docs/specifications/test-specification.md)
+| 種別 | 場所 | 実行 |
+|------|------|------|
+| ユニット | `test/suite/*.test.ts` | `npm run test:unit`（CI 推奨） |
+| 統合 | `test/extension.test.ts` | `npm test`（VS Code Electron 必要） |
+| 手動 | `docs/examples/test-*.md` | エディタで確認 |
+
+`advanced.*` 設定を追加する場合は `core/markdownInlineSettings.ts` のユニットテストと、該当する統合テストを追加する。

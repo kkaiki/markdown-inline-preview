@@ -59,7 +59,7 @@ function buildSettingsPayload(): PreviewSettings {
     return {
         theme: resolveThemeKind(),
         fontFamily: getConfig<string>('preview.fontFamily', ''),
-        fontSize: getConfig<number>('preview.fontSize', 13),
+        fontSize: getConfig<number>('preview.fontSize', 12),
         maxWidth: getConfig<number>('preview.maxWidth', 800),
         editable: getConfig<boolean>('preview.editable', true),
         syncScroll: getConfig<boolean>('preview.syncScroll', true),

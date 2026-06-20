@@ -56,30 +56,6 @@ export function registerOnDidChangeTextDocument(
             rawRuntime.updateTimer = setTimeout(() => {
                 deps.updateAllDecorations(editor);
             }, 50);
-
-            const hasHeadingChange = event.contentChanges.some(change => {
-                const startLine = change.range.start.line;
-                const endLine = change.range.end.line;
-                for (let i = startLine; i <= endLine; i++) {
-                    if (i < editor.document.lineCount) {
-                        const lineText = editor.document.lineAt(i).text;
-                        if (lineText.match(/^#{1,6}\s/) || change.text.match(/^#{1,6}\s/)) {
-                            return true;
-                        }
-                    }
-                }
-                return false;
-            });
-
-            if (hasHeadingChange && deps.isAutoUpdateTocEnabled()) {
-                if (rawRuntime.tocUpdateTimer) clearTimeout(rawRuntime.tocUpdateTimer);
-                rawRuntime.tocUpdateTimer = setTimeout(() => {
-                    const text = editor.document.getText();
-                    if (text.includes('/目次') || text.includes('/toc')) {
-                        void deps.updateTableOfContents(editor, true);
-                    }
-                }, 500);
-            }
         })
     );
 }

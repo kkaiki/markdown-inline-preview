@@ -183,7 +183,8 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 | ファイル | 内容 |
 |----------|------|
 | [docs/README.md](./docs/README.md) | ドキュメント索引 |
-| [docs/feature-overview.md](./docs/feature-overview.md) | Raw / Preview 概要 |
+| [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) | Raw モード仕様 |
+| [docs/specifications/preview-features.md](./docs/specifications/preview-features.md) | Preview モード仕様 |
 | [docs/user-guide/getting-started.md](./docs/user-guide/getting-started.md) | クイックスタート |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 

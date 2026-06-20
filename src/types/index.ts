@@ -120,25 +120,6 @@ export interface HeadingInfo {
     line?: number;
 }
 
-// ========== 目次関連 ==========
-
-/**
- * TOCマーカー情報
- */
-export interface TocMarkerInfo {
-    hasMarker: boolean;
-    markerType: 'japanese' | 'english' | null;
-    line: number;
-}
-
-/**
- * TOCセクション範囲
- */
-export interface TocSection {
-    start: number;
-    end: number;
-}
-
 // ========== コマンドハンドラ関連 ==========
 
 /**
@@ -159,9 +140,6 @@ export interface CommandHandlers {
 
     // ナビゲーション
     moveLineWithHierarchy: (editor: vscode.TextEditor | undefined, direction: 'up' | 'down') => void;
-
-    // 目次
-    updateTableOfContents: (editor: vscode.TextEditor, autoMode: boolean) => Promise<void>;
 }
 
 // ========== 装飾関連 ==========

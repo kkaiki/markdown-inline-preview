@@ -3,10 +3,9 @@ import { SLASH_MENU_ITEMS } from '../../src/shared/slash/slashMenuItems';
 
 describe('slash menu items', function() {
     it('defines a stable set of slash commands for Raw and Preview', function() {
-        assert.ok(SLASH_MENU_ITEMS.length >= 19);
+        assert.ok(SLASH_MENU_ITEMS.length >= 18);
         const ids = SLASH_MENU_ITEMS.map(item => item.id);
         assert.ok(ids.includes('table'));
-        assert.ok(ids.includes('toc'));
         assert.ok(ids.includes('heading'));
     });
 

@@ -183,7 +183,8 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 | Doc | Content |
 |-----|---------|
 | [docs/README.md](./docs/README.md) | Documentation index |
-| [docs/feature-overview.md](./docs/feature-overview.md) | Raw vs Preview overview |
+| [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) | Raw mode specification |
+| [docs/specifications/preview-features.md](./docs/specifications/preview-features.md) | Preview mode specification |
 | [docs/user-guide/getting-started.md](./docs/user-guide/getting-started.md) | Quick start |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 

@@ -55,6 +55,11 @@ export function getBlockPrefix($pos: ResolvedPos, depth: number): string | null 
     if (node.type.name === 'list_item') {
         return getListItemPrefix($pos, depth);
     }
+    // findFocusedBlockDepth() resolves to the innermost paragraph, which for a list
+    // item is one level below the list_item node itself - check there too.
+    if (depth > 0 && $pos.node(depth - 1).type.name === 'list_item') {
+        return getListItemPrefix($pos, depth - 1);
+    }
     return getBlockquotePrefix($pos, depth);
 }
 

@@ -37,14 +37,11 @@ export {
     calculateColumnWidths
 } from './table';
 
-// 目次関連
+// 見出し収集
 export {
     generateSlug,
     collectHeadings,
-    collectHeadingsFromText,
-    generateTableOfContents,
-    findTocMarker,
-    findTocSection
+    collectHeadingsFromText
 } from './toc';
 
 // スラッシュコマンド関連

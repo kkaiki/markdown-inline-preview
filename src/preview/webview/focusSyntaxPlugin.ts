@@ -14,10 +14,10 @@ export function setFocusSyntaxEnabled(value: boolean): void {
     enabled = value;
 }
 
-function mkMarker(text: string): () => HTMLElement {
+function mkMarker(text: string, extraClass?: string): () => HTMLElement {
     return () => {
         const el = document.createElement('span');
-        el.className = 'md-syntax-marker';
+        el.className = extraClass ? `md-syntax-marker ${extraClass}` : 'md-syntax-marker';
         el.textContent = text;
         el.setAttribute('aria-hidden', 'true');
         return el;
@@ -41,8 +41,10 @@ export const focusSyntaxPlugin = $prose(() => {
 
                 const prefix = getBlockPrefix($pos, depth);
                 if (prefix) {
+                    // Rendered as an absolutely-positioned overlay (see CSS) so it doesn't
+                    // push the block's real text - and the cursor - to the right when focused.
                     decorations.push(
-                        Decoration.widget(blockStart, mkMarker(prefix), { side: -1, key: `prefix-${blockStart}` })
+                        Decoration.widget(blockStart, mkMarker(prefix, 'md-syntax-marker--block-prefix'), { side: -1, key: `prefix-${blockStart}` })
                     );
                 }
 
