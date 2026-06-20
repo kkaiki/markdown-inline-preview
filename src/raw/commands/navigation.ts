@@ -6,6 +6,14 @@
 import * as vscode from 'vscode';
 import type { TableCellInfo, CellBoundary, DebugLogFunction } from '../../types';
 import { getMarkerInfo } from '../../shared/markdown/patterns';
+import { findTableBlock } from '../../shared/table/table';
+
+function selectionsEqual(a: vscode.Selection, b: vscode.Selection): boolean {
+    return a.start.line === b.start.line &&
+        a.start.character === b.start.character &&
+        a.end.line === b.end.line &&
+        a.end.character === b.end.character;
+}
 
 interface NavigationHandlers {
     getTableCellInfo: (lineText: string, cursorChar: number) => TableCellInfo | null;
@@ -343,20 +351,20 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
                 new vscode.Position(position.line, currentLine.length)
             );
 
-            const isCellContentSelected =
-                curSel.start.line === cellContentSelection.start.line &&
-                curSel.start.character === cellContentSelection.start.character &&
-                curSel.end.line === cellContentSelection.end.line &&
-                curSel.end.character === cellContentSelection.end.character;
+            const tableBlock = findTableBlock(document, position.line);
+            const tableSelection = new vscode.Selection(
+                new vscode.Position(tableBlock.start, 0),
+                new vscode.Position(tableBlock.end, document.lineAt(tableBlock.end).text.length)
+            );
 
-            const isRowSelected =
-                curSel.start.line === rowSelection.start.line &&
-                curSel.start.character === rowSelection.start.character &&
-                curSel.end.line === rowSelection.end.line &&
-                curSel.end.character === rowSelection.end.character;
+            const isCellContentSelected = selectionsEqual(curSel, cellContentSelection);
+            const isRowSelected = selectionsEqual(curSel, rowSelection);
+            const isTableSelected = selectionsEqual(curSel, tableSelection);
 
-            if (isRowSelected) {
+            if (isTableSelected) {
                 vscode.commands.executeCommand('editor.action.selectAll');
+            } else if (isRowSelected) {
+                editor.selection = tableSelection;
             } else if (isCellContentSelected) {
                 editor.selection = rowSelection;
             } else {
@@ -383,11 +391,7 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
                         const endPos = new vscode.Position(fenceEnd, 0);
                         const desired = new vscode.Selection(startPos, endPos);
 
-                        const curSel = editor.selection;
-                        const sameAsDesired = curSel.start.line === desired.start.line &&
-                            curSel.start.character === desired.start.character &&
-                            curSel.end.line === desired.end.line &&
-                            curSel.end.character === desired.end.character;
+                        const sameAsDesired = selectionsEqual(editor.selection, desired);
 
                         if (sameAsDesired) {
                             vscode.commands.executeCommand('editor.action.selectAll');

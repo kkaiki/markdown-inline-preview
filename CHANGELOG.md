@@ -1,3 +1,45 @@
+## 1.8.5 - 2026-06-21
+
+- Fix: Preview slash menu block inserts (`/table`, `/code`, etc.) replace the whole slash line via `applyPreviewSlash.ts` instead of partial inline replace.
+
+## 1.8.4 - 2026-06-21
+
+- Add: Preview heading Backspace downgrade — `# Title` → normal line `#Title`, then `#` deletable character-by-character (`headingBackspacePlugin`).
+
+## 1.8.3 - 2026-06-21
+
+- Remove: Preview floating toolbar (B / I / code / H1 / H2). Use `/` slash menu instead.
+- Change: Preview default `fontSize` 15 → 13; reduced heading scale and padding for doc-like typography.
+- Remove: `markdownInline.preview.showToolbar` setting.
+
+## 1.8.2 - 2026-06-21
+
+- Add: Preview focus-syntax display — Markdown markers (`##`, `**`, links, etc.) visible only on the focused block (`preview.showFocusSyntax`, default true).
+- Add: Preview slash menu (`/`) with same commands as Raw (`preview.enableSlashMenu`, default true).
+
+## 1.8.1 - 2026-06-20
+
+- Change: `markdownInline.table.inlineWrap.enabled` default `false` → `true`.
+
+## 1.8.0 - 2026-06-20
+
+- Add: Preview code highlighting (highlight.js common), scroll sync via heading anchor, checkbox edits synced to Raw `[x]`.
+- Add: Raw image thumbnails (`imagePreview.showThumbnail`) and table inline-wrap preview (`table.inlineWrap.enabled`).
+- Add: Preview KaTeX (`preview.enableMath`), Mermaid (`preview.enableMermaid`), frontmatter panel (`preview.showFrontmatter`), transition fade (`preview.enableTransitions`).
+- Add: Preview floating toolbar (removed in 1.8.3).
+
+## 1.7.1 - 2026-06-20
+
+- Change: Title bar shows only the **toggle target** button (Preview when in Raw, Raw when in Preview) instead of both buttons.
+
+## 1.7.0 - 2026-06-20
+
+- Fix: Preview `theme: auto` follows VS Code light/dark.
+- Add: Preview image rendering with workspace-relative paths; link clicks open files or external URLs.
+- Add: Preview code syntax highlighting (initial set of languages).
+- Add: Raw `headingColorScheme` (default / monochrome / vibrant), `hideStrikethroughOnEdit`, checkbox CodeLens.
+- Add: Raw image hover preview (`imagePreview.enabled`) and table inline-wrap hover (`table.inlineWrap.enabled`).
+
 ## 1.6.5 - 2026-06-20
 
 - Change: Preview / Raw title-bar actions show icon and label together (`$(open-preview) Preview` / `$(open-preview) Raw`) instead of icon-only buttons.

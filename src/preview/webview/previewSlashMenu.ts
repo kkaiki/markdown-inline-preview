@@ -4,10 +4,11 @@ import type { EditorView } from '@milkdown/prose/view';
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import { posToDOMRect } from '@milkdown/prose';
 import { $prose } from '@milkdown/utils';
-import { replaceRange } from '@milkdown/kit/utils';
+import { replaceRange, markdownToSlice } from '@milkdown/kit/utils';
 
 import { filterSlashMenuItems, type SlashMenuItemDef } from '../../shared/slash/slashMenuItems';
 import { detectSlashMatch, type SlashMatch } from '../../shared/slash/slashMatch';
+import { getSlashLineBlockRange } from '../../shared/slash/applyPreviewSlash';
 
 let menuEnabled = true;
 
@@ -119,13 +120,27 @@ export class PreviewSlashMenuController {
 
     private applyItem(item: SlashMenuItemDef): void {
         if (!this.editor || !this.currentMatch) return;
-        const range = { from: this.currentMatch.from, to: this.currentMatch.to };
-        this.editor.action(replaceRange(item.previewMarkdown, range));
-        this.hide();
+        const markdown = item.previewMarkdown;
+        const match = this.currentMatch;
+
         this.editor.action((ctx) => {
             const view = ctx.get(editorViewCtx);
+            const { state } = view;
+            const $from = state.selection.$from;
+            const lineText = $from.parent.textBetween(0, $from.parent.content.size, undefined, '\ufffc');
+            const isSlashOnlyLine = lineText.trimStart().startsWith('/');
+
+            if (isSlashOnlyLine) {
+                const { from, to } = getSlashLineBlockRange($from);
+                const slice = markdownToSlice(markdown)(ctx);
+                view.dispatch(state.tr.replace(from, to, slice).scrollIntoView());
+            } else {
+                replaceRange(markdown, { from: match.from, to: match.to })(ctx);
+            }
+
             view.focus();
         });
+        this.hide();
     }
 
     private show(): void {

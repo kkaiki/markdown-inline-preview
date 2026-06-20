@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "iPreview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "1.8.3",
+  "version": "1.8.5",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
