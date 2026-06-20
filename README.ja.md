@@ -149,7 +149,7 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 
 `markdownInline.advanced.*` を明示設定するとレガシー設定より優先されます。自動機能をオフにしても、テーブル整形・目次更新などの手動コマンドは使えます。
 
-一覧: [docs/inline-preview-features.md](./docs/inline-preview-features.md) · [docs/preview-features.md](./docs/preview-features.md)
+一覧: [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) · [docs/specifications/preview-features.md](./docs/specifications/preview-features.md)
 
 ---
 
@@ -185,7 +185,7 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 | [docs/README.md](./docs/README.md) | ドキュメント索引 |
 | [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) | Raw モード仕様 |
 | [docs/specifications/preview-features.md](./docs/specifications/preview-features.md) | Preview モード仕様 |
-| [docs/user-guide/getting-started.md](./docs/user-guide/getting-started.md) | クイックスタート |
+| [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | ショートカット早見表 |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 
 ---

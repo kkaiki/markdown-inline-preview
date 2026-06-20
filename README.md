@@ -149,7 +149,7 @@ More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcu
 
 `markdownInline.advanced.*` overrides legacy toggles when explicitly set. Manual commands (format table, update TOC) still work when auto behavior is off.
 
-Full lists: [docs/inline-preview-features.md](./docs/inline-preview-features.md) · [docs/preview-features.md](./docs/preview-features.md)
+Full lists: [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) · [docs/specifications/preview-features.md](./docs/specifications/preview-features.md)
 
 ---
 
@@ -185,7 +185,7 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 | [docs/README.md](./docs/README.md) | Documentation index |
 | [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) | Raw mode specification |
 | [docs/specifications/preview-features.md](./docs/specifications/preview-features.md) | Preview mode specification |
-| [docs/user-guide/getting-started.md](./docs/user-guide/getting-started.md) | Quick start |
+| [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | Keyboard shortcuts |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 
 ---
