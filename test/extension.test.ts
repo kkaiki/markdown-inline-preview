@@ -407,6 +407,46 @@ suite('Markdown Inline Preview Test Suite', () => {
             assertSelection(editor, 1, 0, 1, rowText.length, '行全体の選択範囲が正しくありません');
             assert.strictEqual(editor.document.getText(editor.selection), rowText);
         });
+
+        test('4.3 テーブル行選択後の3回目でテーブル全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument(
+                '前置きの段落\n| Name | Value |\n| --- | --- |\n| Foo | Bar baz |\n後書きの段落'
+            );
+            const tableText = [1, 2, 3].map(line => editor.document.lineAt(line).text).join('\n');
+
+            editor.selection = new vscode.Selection(3, 10, 3, 10);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, 0, 3, editor.document.lineAt(3).text.length, 'テーブル全体の選択範囲が正しくありません');
+            assert.strictEqual(editor.document.getText(editor.selection), tableText);
+        });
+
+        test('4.4 テーブル全体選択後の4回目で文書全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument(
+                '前置きの段落\n| Name | Value |\n| --- | --- |\n| Foo | Bar baz |\n後書きの段落'
+            );
+
+            editor.selection = new vscode.Selection(3, 10, 3, 10);
+
+            for (let i = 0; i < 4; i++) {
+                await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            assert.strictEqual(editor.document.getText(editor.selection), editor.document.getText(), '文書全体が選択されていません');
+        });
     });
 
     suite('4.3 Table Vertical Navigation', () => {

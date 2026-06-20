@@ -267,17 +267,10 @@ Milkdown を採用する理由:
 | 画像 | △ | alt テキスト編集のみ、パス変更は Raw で対応 |
 | Frontmatter | × | Raw モードで編集（Preview では整形表示のみ） |
 
-#### FR-08-5 ツールバー（オプション）
+#### FR-08-5 ツールバー（廃止）
 
-Preview 編集中に最小限のフローティングツールバーを表示する。
-
-```
-選択テキストがある場合:
-  [ B ] [ I ] [ ` ] [ 🔗 ] [ H1/H2/H3 ▾ ]
-```
-
-- ツールバーは `markdownInline.preview.showToolbar` 設定で ON/OFF 可能
-- デフォルト OFF（Markdown 記法を直接入力するユーザー向けに邪魔にならないよう）
+~~Preview 編集中にフローティングツールバーを表示する~~ → **v1.8.3 で削除**。  
+書式・ブロック挿入は **`/` スラッシュメニュー**（`preview.enableSlashMenu`、既定: on）を使用する。
 
 ---
 
@@ -541,7 +534,6 @@ Feature: Preview / Raw トグル
 
 ## 関連ドキュメント
 
-- [全体仕様概要](overview.md)
+- [機能索引](../feature-overview.md)
 - [画像インラインプレビュー仕様](image-preview.md)
 - [テスト仕様](test-specification.md)
-- [将来のロードマップ](future-roadmap.md)

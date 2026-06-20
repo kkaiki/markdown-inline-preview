@@ -2,8 +2,15 @@
 
 ## 概要
 
-Markdown ファイル内で `/` を入力すると **フローティング補完メニュー** が表示され、
+Markdown ファイル内で `/` を入力すると **補完メニュー** が表示され、
 見出し・テーブル・コードブロックなどのブロックを Notion と同じ操作感で挿入できる。
+
+| モード | 実装 | 備考 |
+|--------|------|------|
+| **Raw** | VS Code `CompletionItemProvider` | 行頭 `/` で候補表示 |
+| **Preview** | Milkdown WebView スラッシュメニュー | 空行または `/` のみの行で候補表示。`preview.enableSlashMenu` |
+
+Raw / Preview 共通のコマンド定義は `src/shared/slash/slashMenuItems.ts`。
 
 既存の `/toc` / `/目次` を起点に、Notion スタイルのブロック挿入コマンドを追加する。
 
@@ -493,7 +500,7 @@ const commandHandlers: Record<string, CommandHandler> = {
 
 ## 受け入れ条件
 
-- `/` を入力した瞬間にフローティング補完メニューが表示される
+- `/` を入力した瞬間に補完メニューが表示される（**Raw**: CompletionItemProvider / **Preview**: WebView メニュー）
 - タイプで候補がリアルタイムフィルタリングされる
 - `Enter` / `Tab` で確定し、行がブロックに置き換わる
 - `Escape` でキャンセルし、`/text` がそのまま残る
@@ -505,6 +512,47 @@ const commandHandlers: Record<string, CommandHandler> = {
 - `/bullet`, `/numbered`, `/todo` がリスト行を開始する
 - `/toc` / `/目次` の既存仕様が維持される
 - コードブロック内では補完メニューが表示されず、コマンドが無視される
+
+---
+
+## ユーザーガイド（クイックリファレンス）
+
+> コマンドパレット・キーバインドの一覧は [command-surface.md](./command-surface.md) を参照。
+
+### まず覚える 5 つ
+
+1. `/` → `table` / `h1` / `code` 等（メニューから選択）
+2. `/toc` または `/目次`
+3. `Tab` / `Shift+Tab`（リストインデント）
+4. `Cmd+Enter` / `Ctrl+Enter`（チェックボックス）
+5. `Cmd+Shift+M`（Raw ↔ Preview）
+
+### `/heading` の例
+
+```markdown
+/heading 1
+/heading 2 仕様
+```
+
+- レベル `1`〜`6`。タイトル省略可。
+- `/h1`〜`/h6` は Raw で `/heading N` に展開される。
+
+### `/table normalize`
+
+```markdown
+/table normalize on
+/table normalize off
+```
+
+`markdownInline.advanced.autoFormatTables` をワークスペース設定に保存する。`normilize` は typo エイリアス。
+
+### 使い分け
+
+| やりたいこと | 使うもの |
+|-------------|----------|
+| ブロックを素早く挿入 | `/` スラッシュメニュー |
+| 既存行をまとめて変換 | コマンドパレット（Convert to …） |
+| ショートカットで操作 | [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md) |
 
 ## 未決事項
 

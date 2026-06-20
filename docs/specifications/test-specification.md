@@ -1,66 +1,62 @@
 # Markdown Inline Preview - テスト仕様書
 
+最終更新: 2026-06-21
+
 ## 概要
 
-この文書は、Markdown Inline Preview拡張機能のテスト方法と仕様を定義します。
+iPreview 拡張機能のテスト方針と実行方法を定義します。
 
-## テスト環境のセットアップ
+## テスト環境
 
-### 必要なパッケージのインストール
+### 依存関係
+
+`package.json` の devDependencies（`mocha`, `@vscode/test-electron`, `c8` 等）を `npm install` で導入。
+
+### 実行コマンド
+
+| コマンド | 内容 |
+|----------|------|
+| `npm run compile` | `src/` → `out/`、`test/` → `out-test/` |
+| `npm run test:unit` | `out-test/test/suite/*.test.js` を Mocha で実行（**推奨**） |
+| `npm test` | VS Code Electron 上で `extension.test.ts` を実行 |
+| `npm run test:all` | ユニット + 統合 |
+| `npm run test:coverage` | `out/shared/**` のカバレッジ（c8） |
 
 ```bash
-npm install --save-dev @vscode/test-electron mocha
-```
-
-### テストの実行方法
-
-```bash
-# テストの実行
-npm test
-
-# 特定のテストファイルのみ実行
-npm test -- --grep "renumberLists"
+# 特定スイートのみ
+npm run test:unit -- --grep "tableFormatting"
 ```
 
 ## テストの種類
 
-### 1. ユニットテスト
-個別の関数をテストします。
+### 1. ユニットテスト（`test/suite/*.test.ts`）
 
-### 2. 統合テスト
-VSCode APIとの統合をテストします。
+`shared/`・`core/`・`raw/` の純粋関数を中心に検証。VS Code API 不要。
 
-### 3. E2Eテスト
-実際のMarkdownファイルを使用したエンドツーエンドのテストです。
+例: `slashMenuItems.test.ts`, `previewFocusSyntax.test.ts`, `markdownInlineSettings.test.ts`, `tableFormatting.test.ts`
 
-## 現在のテスト戦略
+### 2. 統合テスト（`test/extension.test.ts`）
 
-### ユニットテスト
-- `src/utils/*` の純粋関数を中心に検証
-- 設定トグルの解決ロジックは `test/suite/utils.test.js` で検証
-- Advanced設定と既存設定の優先順位もここで確認
+Extension Host 上でコマンド・設定トグルを検証。`advanced.autoFormatTables` の ON/OFF 等。
 
-### 統合テスト
-- VSCode上でコマンドやイベント起点の挙動を検証
-- `test/extension.test.js` で `advanced.autoFormatTables` のオン・オフを確認
-- 今後は TOC 自動更新やクリックトグルも同じ方針で追加可能
+### 3. E2E / 手動
 
-### 実行上の注意
-- `npm run test:unit` はローカルのNode環境で実行可能
-- `npm test` は VS Code Electron テストランナー依存のため、環境によっては `SIGABRT` や起動失敗が起こる場合がある
-- ネットワーク制限やGUI実行制限がある環境では、まずユニットテストを優先する
+`docs/examples/test-*.md` で手動確認。Preview WebView の自動 E2E は未整備。
 
-## トグル系テストの基本方針
+## 実行上の注意
 
-新しい Advanced 設定を追加する場合は、最低でも以下を用意する:
+- **CI / サンドボックス**: まず `npm run test:unit` を使う
+- `npm test` は GUI + Electron 依存のため、環境によって起動失敗することがある
+- WebView コード（`src/preview/webview/`）は `tsconfig.webview.json` で別ビルド（esbuild バンドル）
 
-1. 設定解決のユニットテスト
-2. `true` のとき期待動作になる統合テスト
-3. `false` のとき期待動作しない統合テスト
+## トグル系テストの方針
 
-例:
-- `advanced.autoFormatTables = true` で行移動時に表が整形される
-- `advanced.autoFormatTables = false` で同じ操作をしても表が整形されない
+新しい `markdownInline.advanced.*` 設定を追加する場合:
+
+1. `core/markdownInlineSettings.ts` の解決ロジックをユニットテスト
+2. `true` / `false` それぞれで期待動作する統合テスト（該当する場合）
+
+例: `advanced.autoFormatTables = false` では行移動時に表が整形されない。
 
 ## テストケース一覧
 

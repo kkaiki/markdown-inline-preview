@@ -1,7 +1,7 @@
 # Notion / Obsidian との機能差分
 
 最終更新: 2026-06-20  
-バージョン: **1.8.1**
+バージョン: **1.8.4**
 
 iPreview が目指すのは「VS Code / Cursor 上で Notion・Obsidian に近い Markdown 体験」です。  
 このドキュメントは **まだ入っていない機能** と **すでに入っているもの** を整理します。
@@ -19,7 +19,7 @@ iPreview が目指すのは「VS Code / Cursor 上で Notion・Obsidian に近�
 | **テーブル** | 🟡 | GFM テーブルの表示・セル内編集は Milkdown 基本機能 | 行列追加 UI はなし |
 | **コードハイライト** | ✅ | highlight.js | |
 | **Frontmatter** | 🟡 | YAML を上部パネルに表示 | 編集は Raw の `---` ブロック |
-| **リンク** | ✅ | 相対パス → VS Code でファイルを開く | |
+| **スラッシュメニュー** | ✅ | Raw / Preview 両方。`/table` `code` `quote` 等 | `preview.enableSlashMenu`（Preview） |
 
 ### 画像・Mermaid の使い方（Preview）
 
@@ -62,7 +62,7 @@ Raw では Markdown ソースの横に小さなプレビューが付きます。
 | コメント・メンション | `@` ユーザー | なし |
 | ページ階層 | サイドバーのツリー | VS Code エクスプローラーに依存 |
 | テンプレートギャラリー | UI から選んで挿入 | スラッシュの一部テンプレのみ（Raw） |
-| リアルタイム共同編集 | 複数人同時編集 | なし（[future-roadmap.md](./specifications/future-roadmap.md)） |
+| リアルタイム共同編集 | 複数人同時編集 | なし（未実装） |
 | 同期・クラウド | Notion ホスト | ローカルファイルのみ |
 | アイコン・カバー画像 | ページ装飾 | なし |
 | 数式 | ブロック数式 | ✅ Preview で KaTeX |

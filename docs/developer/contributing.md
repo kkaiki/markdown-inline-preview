@@ -200,7 +200,7 @@ describe('New Feature', function() {
 
 ### 5. ドキュメントを更新
 
-- `docs/user-guide/features.md`
+- `docs/feature-overview.md` / `docs/inline-preview-features.md` / `docs/preview-features.md`
 - `docs/user-guide/keyboard-shortcuts.md`
 - `docs/specifications/` に詳細仕様
 

@@ -6,6 +6,11 @@ import {
 } from '../../src/shared/markdown/focusSyntaxHelpers';
 import { filterSlashMenuItems } from '../../src/shared/slash/slashMenuItems';
 import { detectSlashMatch } from '../../src/shared/slash/slashMatch';
+import {
+    buildHeadingDowngradeText,
+    isAtHeadingContentStart
+} from '../../src/shared/markdown/headingBackspace';
+import { getSlashLineBlockRange } from '../../src/shared/slash/applyPreviewSlash';
 
 describe('focusSyntaxHelpers', () => {
     it('getHeadingPrefix returns correct hashes', () => {
@@ -62,5 +67,30 @@ describe('detectSlashMatch', () => {
         assert.strictEqual(match?.query, 'h');
         assert.strictEqual(match?.from, 2);
         assert.strictEqual(match?.to, 4);
+    });
+});
+
+describe('headingBackspace', () => {
+    it('buildHeadingDowngradeText removes heading space by joining hash and content', () => {
+        assert.strictEqual(buildHeadingDowngradeText(1, ''), '#');
+        assert.strictEqual(buildHeadingDowngradeText(1, '2026-06-21_note'), '#2026-06-21_note');
+        assert.strictEqual(buildHeadingDowngradeText(2, 'Title'), '##Title');
+    });
+
+    it('isAtHeadingContentStart detects cursor at heading inline start', () => {
+        assert.strictEqual(isAtHeadingContentStart('heading', 10, 10), true);
+        assert.strictEqual(isAtHeadingContentStart('heading', 11, 10), false);
+        assert.strictEqual(isAtHeadingContentStart('paragraph', 10, 10), false);
+    });
+});
+
+describe('applyPreviewSlash', () => {
+    it('getSlashLineBlockRange wraps the current textblock', () => {
+        const range = getSlashLineBlockRange({
+            depth: 1,
+            before: (d: number) => (d === 1 ? 0 : -1),
+            after: (d: number) => (d === 1 ? 8 : -1)
+        } as never);
+        assert.deepStrictEqual(range, { from: 0, to: 8 });
     });
 });
