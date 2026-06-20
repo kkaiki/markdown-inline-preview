@@ -44,6 +44,11 @@ let checkedDecoration = null;
 let headingDecorations = [];
 let codeBlockDecoration = null;
 let horizontalRuleDecoration = null;
+let markerConcealDecoration = null;
+let inlineBoldDecoration = null;
+let inlineItalicDecoration = null;
+let inlineStrikethroughDecoration = null;
+let inlineCodeContentDecoration = null;
 let updateTimer = null;
 let tocUpdateTimer = null;
 let currentEditingLine = -1;
@@ -182,6 +187,34 @@ function activate(context) {
         },
         dark: {
             borderColor: 'rgba(255, 255, 255, 0.28)'
+        },
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+    });
+    // ライブプレビュー: 記法マーカーの隠蔽（**, *, ~~, `, #, > 等）
+    // textDecoration には生のCSSが渡されるため、display:none で視覚的に隠す
+    // （バッファ上の文字は残るのでカーソル移動・編集には影響しない）
+    markerConcealDecoration = vscode.window.createTextEditorDecorationType({
+        textDecoration: 'none; display: none;'
+    });
+    inlineBoldDecoration = vscode.window.createTextEditorDecorationType({
+        fontWeight: '700',
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+    });
+    inlineItalicDecoration = vscode.window.createTextEditorDecorationType({
+        fontStyle: 'italic',
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+    });
+    inlineStrikethroughDecoration = vscode.window.createTextEditorDecorationType({
+        textDecoration: 'line-through',
+        rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+    });
+    inlineCodeContentDecoration = vscode.window.createTextEditorDecorationType({
+        borderRadius: '3px',
+        light: {
+            backgroundColor: 'rgba(0, 0, 0, 0.06)'
+        },
+        dark: {
+            backgroundColor: 'rgba(255, 255, 255, 0.08)'
         },
         rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
     });
@@ -1273,6 +1306,64 @@ function updateAllDecorations(editor) {
     updateHeadingDecorations(editor);
     updateCodeBlockDecorations(editor);
     updateHorizontalRuleDecorations(editor);
+    updateInlineEmphasisDecorations(editor);
+}
+/**
+ * ライブプレビュー: 太字/斜体/取り消し線/インラインコードと
+ * 見出し(#)・引用(>)の行頭マーカーを、編集中の行以外で隠蔽する。
+ */
+function updateInlineEmphasisDecorations(editor) {
+    if (!markerConcealDecoration || !inlineBoldDecoration || !inlineItalicDecoration
+        || !inlineStrikethroughDecoration || !inlineCodeContentDecoration) {
+        return;
+    }
+    const document = editor.document;
+    const conceal = [];
+    const bold = [];
+    const italic = [];
+    const strikethrough = [];
+    const inlineCode = [];
+    let inFence = false;
+    for (let i = 0; i < document.lineCount; i++) {
+        const lineText = document.lineAt(i).text;
+        if (lineText.startsWith('```')) {
+            inFence = !inFence;
+            continue;
+        }
+        if (inFence || i === currentEditingLine) {
+            continue;
+        }
+        const headingMatch = lineText.match(/^#{1,6}\s+/);
+        if (headingMatch) {
+            conceal.push(new vscode.Range(i, 0, i, headingMatch[0].length));
+        }
+        const quoteMatch = lineText.match(utils_1.patterns.QUOTE_MARKER);
+        if (quoteMatch) {
+            conceal.push(new vscode.Range(i, 0, i, quoteMatch[0].length));
+        }
+        for (const m of (0, utils_1.findInlineEmphasis)(lineText)) {
+            conceal.push(new vscode.Range(i, m.markerStart.start, i, m.markerStart.end));
+            conceal.push(new vscode.Range(i, m.markerEnd.start, i, m.markerEnd.end));
+            const contentRange = new vscode.Range(i, m.contentStart, i, m.contentEnd);
+            if (m.type === 'bold') {
+                bold.push(contentRange);
+            }
+            else if (m.type === 'italic') {
+                italic.push(contentRange);
+            }
+            else if (m.type === 'strikethrough') {
+                strikethrough.push(contentRange);
+            }
+            else {
+                inlineCode.push(contentRange);
+            }
+        }
+    }
+    editor.setDecorations(markerConcealDecoration, conceal);
+    editor.setDecorations(inlineBoldDecoration, bold);
+    editor.setDecorations(inlineItalicDecoration, italic);
+    editor.setDecorations(inlineStrikethroughDecoration, strikethrough);
+    editor.setDecorations(inlineCodeContentDecoration, inlineCode);
 }
 function clearLanguageDecorations(editor) {
     for (const decorations of languageDecorations.values()) {
@@ -1293,6 +1384,16 @@ function clearAllDecorations(editor) {
     if (horizontalRuleDecoration) {
         editor.setDecorations(horizontalRuleDecoration, []);
     }
+    if (markerConcealDecoration)
+        editor.setDecorations(markerConcealDecoration, []);
+    if (inlineBoldDecoration)
+        editor.setDecorations(inlineBoldDecoration, []);
+    if (inlineItalicDecoration)
+        editor.setDecorations(inlineItalicDecoration, []);
+    if (inlineStrikethroughDecoration)
+        editor.setDecorations(inlineStrikethroughDecoration, []);
+    if (inlineCodeContentDecoration)
+        editor.setDecorations(inlineCodeContentDecoration, []);
     clearLanguageDecorations(editor);
 }
 function updateHeadingDecorations(editor) {

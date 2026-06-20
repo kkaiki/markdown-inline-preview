@@ -80,3 +80,7 @@ export {
     getAdvancedBooleanSetting,
     getAdvancedOrLegacyBooleanSetting
 } from './settings';
+
+// インライン強調記法（太字・斜体・取り消し線・コード）関連
+export { findInlineEmphasis } from './inlineEmphasis';
+export type { InlineEmphasisMatch, InlineEmphasisType, OffsetRange } from './inlineEmphasis';
