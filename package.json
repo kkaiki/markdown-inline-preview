@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "iPreview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "1.5.0",
+  "version": "1.8.3",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -16,9 +16,10 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onCustomEditor:ipreview.preview"
   ],
-  "main": "./src/extension-markdown-inline.js",
+  "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
@@ -158,6 +159,39 @@
         "icon": "$(list-tree)",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.openPreview",
+        "title": "$(open-preview) Preview",
+        "shortTitle": "Preview",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.openRaw",
+        "title": "$(open-preview) Raw",
+        "shortTitle": "Raw",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.togglePreview",
+        "title": "Toggle Preview / Raw",
+        "enablement": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview' || resourceLangId == markdown",
+        "category": "Markdown Inline Preview"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "ipreview.preview",
+        "displayName": "iPreview",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
       }
     ],
     "menus": {
@@ -165,12 +199,22 @@
         {
           "command": "markdownInline.formatTable",
           "when": "editorLangId == markdown",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "markdownInline.updateTableOfContents",
           "when": "editorLangId == markdown",
-          "group": "navigation"
+          "group": "navigation@2"
+        },
+        {
+          "command": "markdownInline.openPreview",
+          "when": "ipreview.markdownEditor && !ipreview.previewActive",
+          "group": "navigation@3"
+        },
+        {
+          "command": "markdownInline.openRaw",
+          "when": "ipreview.markdownEditor && ipreview.previewActive",
+          "group": "navigation@3"
         }
       ]
     },
@@ -269,6 +313,12 @@
         "win": "alt+ctrl+0",
         "linux": "alt+ctrl+0",
         "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "markdownInline.togglePreview",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m",
+        "when": "resourceLangId == markdown"
       }
     ],
     "configuration": {
@@ -277,7 +327,7 @@
         "markdownInline.enablePreview": {
           "type": "boolean",
           "default": true,
-          "description": "Enable preview decorations for non-focused lines"
+          "description": "Enable inline decorations in the Raw editor (checkbox strikethrough, heading styles, etc.). Markdown syntax markers (##, **) are always shown in Raw; use Preview mode for Obsidian-like WYSIWYG editing."
         },
         "markdownInline.checkboxStyle": {
           "type": "string",
@@ -430,6 +480,110 @@
           "type": "boolean",
           "default": true,
           "description": "Advanced: Disable built-in Markdown completion and table formatter settings that conflict with this extension"
+        },
+        "markdownInline.preview.defaultMode": {
+          "type": "string",
+          "default": "raw",
+          "enum": [
+            "raw",
+            "preview"
+          ],
+          "description": "Default mode when opening a Markdown file (raw = normal editing, preview = WYSIWYG editor)"
+        },
+        "markdownInline.preview.rememberMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Remember the last used mode (Preview/Raw) per file"
+        },
+        "markdownInline.preview.syncScroll": {
+          "type": "boolean",
+          "default": true,
+          "description": "Approximate scroll position when switching between Preview and Raw"
+        },
+        "markdownInline.preview.theme": {
+          "type": "string",
+          "default": "light",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "description": "Color theme used by the Preview WYSIWYG editor"
+        },
+        "markdownInline.preview.fontFamily": {
+          "type": "string",
+          "default": "",
+          "description": "Font family used in the Preview editor (empty = follow editor font)"
+        },
+        "markdownInline.preview.fontSize": {
+          "type": "number",
+          "default": 13,
+          "minimum": 10,
+          "maximum": 32,
+          "description": "Body font size (px) used in the Preview editor"
+        },
+        "markdownInline.preview.maxWidth": {
+          "type": "number",
+          "default": 800,
+          "minimum": 0,
+          "description": "Maximum content width (px) in the Preview editor, 0 = unlimited"
+        },
+        "markdownInline.preview.editable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow direct editing inside the Preview editor"
+        },
+        "markdownInline.preview.enableMath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Render KaTeX math ($...$ and $$...$$) in Preview mode"
+        },
+        "markdownInline.preview.enableMermaid": {
+          "type": "boolean",
+          "default": true,
+          "description": "Render ```mermaid code blocks as diagrams in Preview mode"
+        },
+        "markdownInline.preview.showFrontmatter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Display YAML frontmatter as a formatted panel in Preview mode"
+        },
+        "markdownInline.preview.enableTransitions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fade-in animation when opening Preview mode"
+        },
+        "markdownInline.preview.showFocusSyntax": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Markdown syntax markers (##, **, links) on the focused block in Preview mode"
+        },
+        "markdownInline.preview.enableSlashMenu": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show slash command menu (/) in Preview WYSIWYG mode"
+        },
+        "markdownInline.imagePreview.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable image preview features in Raw mode"
+        },
+        "markdownInline.imagePreview.showThumbnail": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline thumbnail after ![alt](path) lines (non-editing lines)"
+        },
+        "markdownInline.table.inlineWrap.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show wrapped table preview inline and on hover (display-only; source unchanged)"
+        },
+        "markdownInline.table.inlineWrap.maxWidth": {
+          "type": "number",
+          "default": 24,
+          "minimum": 8,
+          "maximum": 80,
+          "description": "Column width (characters) for wrapped table hover preview"
         }
       }
     },
@@ -459,38 +613,44 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run lint:error && node ./build.js",
-    "compile": "npx tsc && node ./build.js",
+    "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:webview",
+    "build:webview": "esbuild src/preview/webview/milkdownApp.ts --bundle --minify --outfile=media/milkdown.bundle.js --format=iife --platform=browser --target=es2020",
     "watch": "npx tsc --watch",
-    "lint": "eslint src --ext .ts",
-    "lint:error": "eslint src --ext .ts --max-warnings 0",
-    "lint:fix": "eslint src --ext .ts --fix",
+    "lint": "eslint src test --ext .ts",
+    "lint:error": "eslint src test --ext .ts --max-warnings 0",
+    "lint:fix": "eslint src test --ext .ts --fix",
     "pretest": "npm run compile",
-    "test": "node ./test/runTest.js",
-    "test:unit": "mocha test/suite/*.test.js --ignore test/suite/index.js --timeout 5000",
-    "test:coverage": "c8 --include='src/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
+    "test": "node ./out-test/runTest.js",
+    "test:unit": "mocha out-test/test/suite/*.test.js --ignore out-test/test/suite/index.js --timeout 5000",
+    "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
+    "setup:hooks": "sh scripts/install-githooks.sh",
     "package": "vsce package",
     "publish:vsce": "vsce publish -p $VSCE_PAT",
     "publish:ovsx": "ovsx publish *.vsix -p $OVSX_PAT",
     "publish:all": "npm run package && npm run publish:vsce && npm run publish:ovsx"
   },
   "devDependencies": {
+    "@milkdown/kit": "^7.21.2",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^16.18.126",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
     "@vscode/test-electron": "^2.3.0",
     "c8": "^10.1.3",
+    "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
     "glob": "^8.0.0",
+    "highlight.js": "^11.11.1",
     "mocha": "^10.2.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1"
   },
   "dependencies": {
-    "dompurify": "^3.0.0",
-    "jsdom": "^22.0.0",
-    "marked": "^9.0.0"
+    "katex": "^0.17.0",
+    "mermaid": "^11.15.0"
   }
 }

@@ -1,0 +1,304 @@
+/*
+ * Preview WYSIWYG エディタ用スタイル（docs/specifications/preview-raw-toggle.md FR-03-3）
+ * 既定では VSCode のテーマ変数にそのまま追従する（auto）。
+ * markdownInline.preview.theme を light/dark に固定した場合のみ独自パレットで上書きする。
+ */
+
+:root {
+    --preview-bg: var(--vscode-editor-background);
+    --preview-fg: var(--vscode-editor-foreground);
+    --preview-border: var(--vscode-editorGroup-border);
+    --preview-link: var(--vscode-textLink-foreground);
+    --preview-code-bg: var(--vscode-textCodeBlock-background);
+    --preview-code-fg: var(--vscode-textPreformat-foreground, var(--preview-fg));
+    --preview-checked-bg: var(--vscode-checkbox-background, var(--preview-fg));
+    --preview-checked-border: var(--vscode-checkbox-border, var(--preview-border));
+}
+
+body.theme-light {
+    --preview-bg: #ffffff;
+    --preview-fg: #1e1e1e;
+    --preview-border: #d8d8d8;
+    --preview-link: #006ab1;
+    --preview-code-bg: #f3f3f3;
+    --preview-code-fg: #1e1e1e;
+    --preview-checked-bg: #1e1e1e;
+    --preview-checked-border: #909090;
+}
+
+body.theme-dark {
+    --preview-bg: #1e1e1e;
+    --preview-fg: #d4d4d4;
+    --preview-border: #454545;
+    --preview-link: #3794ff;
+    --preview-code-bg: #2b2b2b;
+    --preview-code-fg: #d4d4d4;
+    --preview-checked-bg: #d4d4d4;
+    --preview-checked-border: #6e6e6e;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--preview-bg);
+    color: var(--preview-fg);
+}
+
+#milkdown-root {
+    height: 100vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.milkdown {
+    max-width: var(--preview-max-width, 800px);
+    margin: 0 auto;
+    padding: 16px 24px 48px;
+    font-family: var(--preview-font-family, var(--vscode-editor-font-family));
+    font-size: var(--preview-font-size, var(--vscode-editor-font-size, 13px));
+    line-height: 1.6;
+}
+
+.milkdown .editor {
+    outline: none;
+}
+
+.milkdown h1, .milkdown h2, .milkdown h3,
+.milkdown h4, .milkdown h5, .milkdown h6 {
+    font-weight: 600;
+    margin: 1.1em 0 0.45em;
+    border-bottom: 1px solid var(--preview-border);
+    padding-bottom: 0.2em;
+}
+
+.milkdown h1 { font-size: 1.35em; }
+.milkdown h2 { font-size: 1.2em; }
+.milkdown h3 { font-size: 1.1em; }
+.milkdown h4 { font-size: 1.05em; }
+.milkdown h5 { font-size: 1em; }
+.milkdown h6 { font-size: 0.95em; opacity: 0.85; }
+
+.milkdown p { margin: 0.5em 0; }
+
+.milkdown strong { font-weight: 700; }
+.milkdown em { font-style: italic; }
+.milkdown del { opacity: 0.6; }
+
+.milkdown a {
+    color: var(--preview-link);
+    text-decoration: none;
+}
+.milkdown a:hover { text-decoration: underline; }
+
+.milkdown code {
+    background: var(--preview-code-bg);
+    color: var(--preview-code-fg);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.92em;
+}
+
+.milkdown pre {
+    background: var(--preview-code-bg);
+    color: var(--preview-code-fg);
+    padding: 12px 14px;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+.milkdown pre code {
+    background: transparent;
+    padding: 0;
+}
+
+.milkdown blockquote {
+    border-left: 4px solid var(--preview-border);
+    margin: 0.8em 0;
+    padding-left: 14px;
+    opacity: 0.85;
+}
+
+.milkdown hr {
+    border: none;
+    border-top: 1px solid var(--preview-border);
+    margin: 1.6em 0;
+}
+
+.milkdown img { max-width: 100%; border-radius: 4px; }
+
+.milkdown table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.8em 0;
+}
+.milkdown th, .milkdown td {
+    border: 1px solid var(--preview-border);
+    padding: 6px 10px;
+    text-align: left;
+}
+.milkdown th { font-weight: 700; }
+
+.milkdown ul, .milkdown ol {
+    padding-left: 1.6em;
+    margin: 0.4em 0;
+}
+
+.milkdown li.list-item {
+    list-style: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4em;
+}
+
+.milkdown li.list-item .label-wrapper {
+    flex: none;
+    margin-top: 0.2em;
+}
+
+.milkdown li.list-item .label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.milkdown li.list-item .label.checked,
+.milkdown li.list-item .label.unchecked {
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--preview-checked-border);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.milkdown li.list-item .label.checked {
+    background: var(--preview-checked-bg);
+}
+
+.milkdown li.list-item .label.bullet,
+.milkdown li.list-item .label.ordered {
+    min-width: 1.2em;
+    color: var(--preview-fg);
+    opacity: 0.75;
+}
+
+.milkdown li.list-item .label svg {
+    width: 10px;
+    height: 10px;
+}
+
+.milkdown li.list-item .children {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* Frontmatter */
+.frontmatter-panel {
+    max-width: var(--preview-max-width, 800px);
+    margin: 16px auto 0;
+    padding: 12px 32px;
+}
+
+.frontmatter-panel .fm-list {
+    margin: 0;
+    padding: 12px 16px;
+    border: 1px solid var(--preview-border);
+    border-radius: 6px;
+    background: rgba(127, 127, 127, 0.06);
+}
+
+.frontmatter-panel .fm-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 8px;
+    margin: 4px 0;
+}
+
+.frontmatter-panel dt {
+    font-weight: 600;
+    opacity: 0.85;
+}
+
+.frontmatter-panel dd {
+    margin: 0;
+    opacity: 0.9;
+}
+
+/* Mermaid */
+.mermaid-diagram {
+    margin: 1em 0;
+    overflow-x: auto;
+}
+
+.mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Mode transition */
+@keyframes previewFadeIn {
+    from { opacity: 0.35; }
+    to { opacity: 1; }
+}
+
+body.preview-fade-in {
+    animation: previewFadeIn 0.2s ease;
+}
+
+/* Focused-block Markdown syntax markers (Obsidian-like) */
+.md-syntax-marker {
+    color: var(--vscode-textPreformat-foreground, #888);
+    opacity: 0.7;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.92em;
+    pointer-events: none;
+    user-select: none;
+    white-space: pre;
+}
+
+/* Preview slash command menu */
+.slash-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 240px;
+    max-width: 360px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--vscode-editorWidget-background, var(--preview-bg));
+    color: var(--vscode-editorWidget-foreground, var(--preview-fg));
+    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    padding: 4px;
+}
+
+.slash-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+}
+
+.slash-menu-item:hover,
+.slash-menu-item.is-selected {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.15));
+}
+
+.slash-menu-label {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.95em;
+}
+
+.slash-menu-detail {
+    font-size: 0.82em;
+    opacity: 0.75;
+    margin-top: 2px;
+}

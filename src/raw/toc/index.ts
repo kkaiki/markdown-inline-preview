@@ -1,0 +1,1 @@
+export { updateTableOfContents } from './updateTableOfContents';

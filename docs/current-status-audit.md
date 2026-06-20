@@ -1,6 +1,6 @@
 # Current Status Audit
 
-Last reviewed: 2026-03-11
+Last reviewed: 2026-06-20
 
 ## Source of truth
 
@@ -9,7 +9,7 @@ The current implementation should be read from these files first:
 - `package.json`: public commands, keybindings, settings, activation
 - `src/commands/*.ts`: registered command surface
 - `src/extension-markdown-inline.ts`: decorations, TOC updates, code block handling, checkbox click behavior
-- `test/extension.test.js` and `test/suite/*.test.js`: behavior that is actually exercised
+- `test/extension.test.ts` and `test/suite/*.test.ts`: behavior that is actually exercised
 
 Older docs contain a mix of current behavior, planned behavior, and stale examples.
 

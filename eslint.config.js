@@ -2,24 +2,21 @@
 const tseslint = require('typescript-eslint');
 
 module.exports = tseslint.config(
-    // ── 対象ファイル ──────────────────────────────────────────
     {
         ignores: [
-            '**/*.js',       // コンパイル済み JS は対象外
-            '**/*.d.ts',     // 自動生成の型宣言ファイルは対象外
+            '**/*.js',
+            '**/*.d.ts',
             'node_modules/',
             'out/',
-            'test/',
-            'build.js',
+            'out-test/',
+            'build.ts',
             'eslint.config.js',
         ],
     },
 
-    // ── TypeScript 推奨ルール ──────────────────────────────────
     ...tseslint.configs.recommended,
     ...tseslint.configs.recommendedTypeChecked,
 
-    // ── プロジェクト設定 ───────────────────────────────────────
     {
         languageOptions: {
             parserOptions: {
@@ -29,10 +26,28 @@ module.exports = tseslint.config(
         },
     },
 
-    // ── カスタムルール ────────────────────────────────────────
+    {
+        files: ['src/preview/webview/**/*.ts'],
+        languageOptions: {
+            parserOptions: {
+                project: './tsconfig.webview.json',
+                tsconfigRootDir: __dirname,
+            },
+        },
+    },
+
+    {
+        files: ['test/**/*.ts'],
+        languageOptions: {
+            parserOptions: {
+                project: './tsconfig.test.json',
+                tsconfigRootDir: __dirname,
+            },
+        },
+    },
+
     {
         rules: {
-            // 必須レベル
             '@typescript-eslint/no-unused-vars': ['error', {
                 argsIgnorePattern: '^_',
                 varsIgnorePattern: '^_',
@@ -43,7 +58,6 @@ module.exports = tseslint.config(
             'no-console': 'warn',
             'prefer-const': 'error',
 
-            // 推奨レベル
             '@typescript-eslint/no-explicit-any': 'warn',
             '@typescript-eslint/prefer-nullish-coalescing': 'warn',
             '@typescript-eslint/no-non-null-assertion': 'warn',
@@ -52,15 +66,23 @@ module.exports = tseslint.config(
                 fixStyle: 'inline-type-imports',
             }],
 
-            // VSCode API は any を多用するため段階的に適用
             '@typescript-eslint/no-unsafe-assignment': 'off',
             '@typescript-eslint/no-unsafe-call': 'off',
             '@typescript-eslint/no-unsafe-member-access': 'off',
             '@typescript-eslint/no-unsafe-return': 'off',
             '@typescript-eslint/no-unsafe-argument': 'off',
-
-            // CommonJS require を許可（tsconfig が commonjs のため）
             '@typescript-eslint/no-require-imports': 'off',
+        },
+    },
+
+    {
+        files: ['test/**/*.ts'],
+        rules: {
+            '@typescript-eslint/no-unused-vars': 'off',
+            '@typescript-eslint/prefer-nullish-coalescing': 'off',
+            '@typescript-eslint/no-floating-promises': 'off',
+            'prefer-const': 'off',
+            'no-console': 'off',
         },
     },
 );

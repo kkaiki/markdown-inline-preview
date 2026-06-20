@@ -1,5 +1,7 @@
 # アーキテクチャ概要
 
+> **ディレクトリ構成の目標・段階的移行計画**は [directory-architecture-plan.md](./directory-architecture-plan.md) を参照（本ファイルのツリー図は 2026-06 時点で古い）。
+
 ## システム構成
 
 ```

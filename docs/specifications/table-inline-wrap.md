@@ -211,7 +211,7 @@ Markdown テーブルを、Preview ペインを開かずに、エディタ上で
 
 - `markdownInline.table.inlineWrap.enabled`
   - 型: boolean
-  - 既定値案: false
+  - 既定値: true
   - 説明: テーブルをインラインで折り返し表示する
 
 ### 2. 幅モード

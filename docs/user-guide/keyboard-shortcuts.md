@@ -1,5 +1,11 @@
 # キーボードショートカット一覧
 
+## Preview / Raw
+
+| 機能 | Mac | Windows/Linux | 説明 |
+|------|-----|---------------|------|
+| Preview / Raw 切替 | `Cmd+Shift+M` | `Ctrl+Shift+M` | WYSIWYG とソース編集を切り替え |
+
 ## 基本操作
 
 | 機能 | Mac | Windows/Linux | 説明 |
