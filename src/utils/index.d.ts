@@ -10,4 +10,6 @@ export { parseSlashCommandLine, parseHeadingSlashCommand, parseTableNormalizeSla
 export type { CalloutType } from './slashCommands';
 export { getIndentString, getIndentLevel, createIndent, getListType, convertLineToType, getNextListNumber, toggleCheckboxState, calculateBlockRange, getListContinuationMarker } from './list';
 export { getAdvancedBooleanSetting, getAdvancedOrLegacyBooleanSetting } from './settings';
+export { findInlineEmphasis } from './inlineEmphasis';
+export type { InlineEmphasisMatch, InlineEmphasisType, OffsetRange } from './inlineEmphasis';
 //# sourceMappingURL=index.d.ts.map
