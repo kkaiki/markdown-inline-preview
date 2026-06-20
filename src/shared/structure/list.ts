@@ -74,6 +74,10 @@ export function convertLineToType(line: string, targetType: ConvertType): string
     } else if ((match = restOfLine.match(/^(\s*)\d+[\.)]\s+(.*)$/))) {
         indent = match[1];
         content = match[2];
+    } else if ((match = restOfLine.match(/^(\s*)#{1,6}\s+(.*)$/))) {
+        // 既存の見出し → 中身だけ取り出す（他タイプへ変換できるように）
+        indent = match[1];
+        content = match[2];
     } else if ((match = restOfLine.match(/^(\s*)(.*)$/))) {
         indent = match[1];
         content = match[2];
@@ -90,6 +94,12 @@ export function convertLineToType(line: string, targetType: ConvertType): string
             return `${quotePrefix}${indent}- [ ] ${content}`;
         case 'normal':
             return `${quotePrefix}${indent}${content}`;
+        case 'heading1':
+            return `${quotePrefix}${indent}# ${content}`;
+        case 'heading2':
+            return `${quotePrefix}${indent}## ${content}`;
+        case 'heading3':
+            return `${quotePrefix}${indent}### ${content}`;
         default:
             return line;
     }

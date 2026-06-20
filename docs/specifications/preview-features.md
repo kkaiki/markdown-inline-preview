@@ -170,8 +170,31 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 | 機能 | Mac | Windows/Linux |
 |------|-----|---------------|
 | Raw ↔ Preview 切替 | `Cmd+Shift+M` | `Ctrl+Shift+M` |
+| テーブルセル全選択 | `Cmd+A` | `Ctrl+A` |
 
-書式操作は `/` スラッシュメニューを使用。詳細: [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)
+### Notion 風ブロック変換（`Cmd+Opt+<数字>`）
+
+カーソル位置のブロックを変換する。Raw モードと共通の体系（Raw 側は VS Code キーバインド、Preview 側は WebView 内キーマップで実装）。
+
+| キー | ブロック |
+|------|----------|
+| `Cmd+Opt+0` | 本文（段落） |
+| `Cmd+Opt+1` | 見出し H1 |
+| `Cmd+Opt+2` | 見出し H2 |
+| `Cmd+Opt+3` | 見出し H3 |
+| `Cmd+Opt+4` | チェックボックス（ToDo） |
+| `Cmd+Opt+5` | 箇条書きリスト |
+| `Cmd+Opt+6` | 番号付きリスト |
+| `Cmd+Opt+8` | コードブロック（Preview のみ） |
+| `Cmd+Opt+9` | 引用（Preview のみ） |
+
+Windows/Linux は `Alt+Ctrl+<数字>`。
+
+### テーブルセル内の `Cmd+A`（段階選択）
+
+テーブルセルにカーソルがある状態で `Cmd+A`：**セル内容 → テーブル全体 → ドキュメント全体** と段階的に選択範囲を広げる（Raw モードと同様の体験）。
+
+書式操作は `/` スラッシュメニューも使用可。詳細: [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)
 
 ---
 

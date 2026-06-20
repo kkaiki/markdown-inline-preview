@@ -76,6 +76,15 @@ export function registerCommands(context: vscode.ExtensionContext, handlers: Com
     safeRegister(context, 'markdownInline.convertToNormal',
         listCommands.createConvertHandler(handlers, 'normal'), conflicts);
 
+    safeRegister(context, 'markdownInline.convertToHeading1',
+        listCommands.createConvertHandler(handlers, 'heading1'), conflicts);
+
+    safeRegister(context, 'markdownInline.convertToHeading2',
+        listCommands.createConvertHandler(handlers, 'heading2'), conflicts);
+
+    safeRegister(context, 'markdownInline.convertToHeading3',
+        listCommands.createConvertHandler(handlers, 'heading3'), conflicts);
+
     safeRegister(context, 'markdownInline.toggleCheckbox',
         listCommands.createToggleCheckboxHandler(handlers), conflicts);
 
