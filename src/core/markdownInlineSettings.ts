@@ -43,15 +43,6 @@ export function resolveHorizontalRuleDecorationsEnabled(config: ConfigLike): boo
     return getAdvancedBooleanSetting(config, 'enableHorizontalRuleDecorations', true);
 }
 
-export function resolveAutoUpdateTocEnabled(config: ConfigLike): boolean {
-    return getAdvancedOrLegacyBooleanSetting(
-        config,
-        'autoUpdateTableOfContents',
-        'toc.autoUpdate',
-        true
-    );
-}
-
 export function resolveDisableCompetingMarkdownFeatures(config: ConfigLike): boolean {
     return getAdvancedBooleanSetting(config, 'disableCompetingMarkdownFeatures', true);
 }

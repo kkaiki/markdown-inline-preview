@@ -5,7 +5,6 @@ export {
 export type { ConfigInspection, ConfigLike } from './config';
 export {
     resolveAutoTableFormattingEnabled,
-    resolveAutoUpdateTocEnabled,
     resolveCheckboxMouseToggleEnabled,
     resolveCodeBlockAutoCompleteEnabled,
     resolveCodeBlockDecorationsEnabled,

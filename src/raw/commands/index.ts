@@ -10,7 +10,6 @@ import type { CommandHandlers, DebugLogFunction } from '../../types';
 import * as listCommands from './list';
 import * as tableCommands from './table';
 import * as navigationCommands from './navigation';
-import * as tocCommands from './toc';
 
 /**
  * デバッグログ出力（外部から注入）
@@ -25,7 +24,6 @@ export function setDebugLog(logFn: DebugLogFunction): void {
     listCommands.setDebugLog(logFn);
     tableCommands.setDebugLog(logFn);
     navigationCommands.setDebugLog(logFn);
-    tocCommands.setDebugLog(logFn);
 }
 
 /**
@@ -127,10 +125,6 @@ export function registerCommands(context: vscode.ExtensionContext, handlers: Com
 
     safeRegister(context, 'markdownInline.moveLineDown',
         navigationCommands.createMoveLineHandler(handlers, 'down'), conflicts);
-
-    // 目次コマンド
-    safeRegister(context, 'markdownInline.updateTableOfContents',
-        tocCommands.createUpdateTocHandler(handlers), conflicts);
 
     // 競合警告
     if (conflicts.length > 0) {

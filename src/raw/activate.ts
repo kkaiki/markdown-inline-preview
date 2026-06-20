@@ -26,7 +26,6 @@ import {
     applyMarkdownSettings,
     getMarkdownInlineConfig,
     isAutoTableFormattingEnabled,
-    isAutoUpdateTocEnabled,
     isCheckboxMouseToggleEnabled,
     isCodeBlockAutoCompleteEnabled,
     isCodeBlockDecorationsEnabled,
@@ -47,7 +46,6 @@ import {
     getAllTableCells,
     getTableCellInfo
 } from './table';
-import { updateTableOfContents } from './toc';
 
 export function activate(context: vscode.ExtensionContext): void {
     rawRuntime.debugChannel = vscode.window.createOutputChannel('Markdown Table Debug');
@@ -80,8 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
         formatTableAtLine,
         getTableCellInfo,
         getAllTableCells,
-        moveLineWithHierarchy,
-        updateTableOfContents
+        moveLineWithHierarchy
     });
 
     previewModule.setDebugLog(debugLog);
@@ -101,8 +98,6 @@ export function activate(context: vscode.ExtensionContext): void {
         debugLog,
         isCodeBlockAutoCompleteEnabled,
         updateAllDecorations,
-        isAutoUpdateTocEnabled,
-        updateTableOfContents,
         isAutoTableFormattingEnabled,
         formatTableAtLine,
         isCheckboxMouseToggleEnabled,

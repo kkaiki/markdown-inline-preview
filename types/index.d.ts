@@ -93,21 +93,6 @@ export interface HeadingInfo {
     line?: number;
 }
 /**
- * TOCマーカー情報
- */
-export interface TocMarkerInfo {
-    hasMarker: boolean;
-    markerType: 'japanese' | 'english' | null;
-    line: number;
-}
-/**
- * TOCセクション範囲
- */
-export interface TocSection {
-    start: number;
-    end: number;
-}
-/**
  * コマンドハンドラに渡されるハンドラ関数群
  */
 export interface CommandHandlers {
@@ -120,7 +105,6 @@ export interface CommandHandlers {
     getTableCellInfo: (lineText: string, cursorChar: number) => TableCellInfo | null;
     getAllTableCells: (lineText: string) => CellBoundary[] | null;
     moveLineWithHierarchy: (editor: vscode.TextEditor | undefined, direction: 'up' | 'down') => void;
-    updateTableOfContents: (editor: vscode.TextEditor, autoMode: boolean) => Promise<void>;
 }
 /**
  * デバッグログ関数の型

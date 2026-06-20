@@ -24,7 +24,7 @@ src/
 ├── raw/                      # TextEditor + Decoration + コマンド
 │   ├── activate.ts
 │   ├── decorations/
-│   ├── list/ · table/ · toc/
+│   ├── list/ · table/
 │   ├── completion/           # スラッシュ補完・適用
 │   └── handlers/             # ドキュメント/選択/設定イベント
 └── preview/

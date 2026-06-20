@@ -2,8 +2,5 @@
 export { generateSlug } from '../shared/markdown/slug';
 export {
     collectHeadings,
-    collectHeadingsFromText,
-    generateTableOfContents,
-    findTocMarker,
-    findTocSection
+    collectHeadingsFromText
 } from '../shared/structure/toc';

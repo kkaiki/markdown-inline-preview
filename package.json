@@ -154,13 +154,6 @@
         "category": "Markdown Inline Preview"
       },
       {
-        "command": "markdownInline.updateTableOfContents",
-        "title": "Update Table of Contents (目次更新)",
-        "icon": "$(list-tree)",
-        "enablement": "editorLangId == markdown",
-        "category": "Markdown Inline Preview"
-      },
-      {
         "command": "markdownInline.openPreview",
         "title": "$(open-preview) Preview",
         "shortTitle": "Preview",
@@ -200,11 +193,6 @@
           "command": "markdownInline.formatTable",
           "when": "editorLangId == markdown",
           "group": "navigation@1"
-        },
-        {
-          "command": "markdownInline.updateTableOfContents",
-          "when": "editorLangId == markdown",
-          "group": "navigation@2"
         },
         {
           "command": "markdownInline.openPreview",
@@ -422,25 +410,6 @@
           ],
           "description": "Color scheme for heading decorations"
         },
-        "markdownInline.toc.autoUpdate": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically update table of contents when headings change (目次の自動更新)"
-        },
-        "markdownInline.toc.minLevel": {
-          "type": "number",
-          "default": 1,
-          "minimum": 1,
-          "maximum": 6,
-          "description": "Minimum heading level to include in table of contents"
-        },
-        "markdownInline.toc.maxLevel": {
-          "type": "number",
-          "default": 6,
-          "minimum": 1,
-          "maximum": 6,
-          "description": "Maximum heading level to include in table of contents"
-        },
         "markdownInline.advanced.autoFormatTables": {
           "type": "boolean",
           "default": false,
@@ -470,11 +439,6 @@
           "type": "boolean",
           "default": true,
           "description": "Advanced: Enable horizontal rule decorations"
-        },
-        "markdownInline.advanced.autoUpdateTableOfContents": {
-          "type": "boolean",
-          "default": true,
-          "description": "Advanced: Automatically update the table of contents when headings change"
         },
         "markdownInline.advanced.disableCompetingMarkdownFeatures": {
           "type": "boolean",
@@ -517,7 +481,7 @@
         },
         "markdownInline.preview.fontSize": {
           "type": "number",
-          "default": 13,
+          "default": 12,
           "minimum": 10,
           "maximum": 32,
           "description": "Body font size (px) used in the Preview editor"

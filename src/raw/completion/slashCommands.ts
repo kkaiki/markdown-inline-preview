@@ -159,7 +159,7 @@ export function createDefaultTableTemplate(columnCount = 2): string[] {
     const emptyCells: string[] = [];
 
     for (let i = 0; i < width; i++) {
-        headers.push(`Header ${i + 1}`);
+        headers.push('');
         separators.push('---');
         emptyCells.push('');
     }

@@ -56,7 +56,7 @@ html, body {
     margin: 0 auto;
     padding: 16px 24px 48px;
     font-family: var(--preview-font-family, var(--vscode-editor-font-family));
-    font-size: var(--preview-font-size, var(--vscode-editor-font-size, 13px));
+    font-size: var(--preview-font-size, var(--vscode-editor-font-size, 12px));
     line-height: 1.6;
 }
 
@@ -65,11 +65,15 @@ html, body {
 }
 
 .milkdown h1, .milkdown h2, .milkdown h3,
+.milkdown h4, .milkdown h5, .milkdown h6,
+.milkdown p {
+    position: relative;
+}
+
+.milkdown h1, .milkdown h2, .milkdown h3,
 .milkdown h4, .milkdown h5, .milkdown h6 {
     font-weight: 600;
     margin: 1.1em 0 0.45em;
-    border-bottom: 1px solid var(--preview-border);
-    padding-bottom: 0.2em;
 }
 
 .milkdown h1 { font-size: 1.35em; }
@@ -139,27 +143,191 @@ html, body {
 }
 .milkdown th { font-weight: 700; }
 
+/* ── Notion-style interactive table (Milkdown tableBlock) ──────────────
+   The block adds grip handles: a row handle on the left edge and a column
+   handle on the top edge. Clicking a handle selects that row/column and
+   reveals a small toolbar with delete (and align, for columns). Hovering a
+   cell boundary reveals a + line handle to add a row/column. */
+.milkdown .milkdown-table-block {
+    position: relative;
+    margin: 0.8em 0;
+}
+.milkdown .milkdown-table-block > div {
+    position: relative;
+}
+.milkdown .milkdown-table-block .table-wrapper {
+    position: relative;
+    overflow-x: auto;
+}
+.milkdown .milkdown-table-block table {
+    margin: 0;
+}
+
+/* Hidden until the component toggles data-show="true" */
+.milkdown .milkdown-table-block [data-show='false'] {
+    display: none;
+}
+
+/* Grip handles (row = left edge, column = top edge) */
+.milkdown .milkdown-table-block .handle.cell-handle {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    color: var(--preview-fg);
+    background: var(--vscode-editorWidget-background, var(--preview-code-bg));
+    border: 1px solid var(--preview-border);
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.85;
+}
+.milkdown .milkdown-table-block .handle.cell-handle:hover {
+    opacity: 1;
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+.milkdown .milkdown-table-block [data-role='col-drag-handle'] {
+    width: 24px;
+    height: 14px;
+}
+.milkdown .milkdown-table-block [data-role='row-drag-handle'] {
+    width: 14px;
+    height: 24px;
+}
+.milkdown .milkdown-table-block .handle.cell-handle .milkdown-icon {
+    display: inline-flex;
+}
+.milkdown .milkdown-table-block .handle.cell-handle svg {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
+}
+
+/* Toolbar popover next to a selected row/column grip */
+.milkdown .milkdown-table-block .button-group {
+    position: absolute;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--vscode-editorWidget-background, var(--preview-bg));
+    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    z-index: 20;
+}
+.milkdown .milkdown-table-block [data-role='col-drag-handle'] .button-group {
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+}
+.milkdown .milkdown-table-block [data-role='row-drag-handle'] .button-group {
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 4px;
+}
+.milkdown .milkdown-table-block .button-group button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    color: var(--preview-fg);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.milkdown .milkdown-table-block .button-group button:hover {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+.milkdown .milkdown-table-block .button-group svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+}
+
+/* + line handle to add a row/column at a hovered boundary */
+.milkdown .milkdown-table-block .handle.line-handle {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.milkdown .milkdown-table-block .handle.line-handle .add-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    color: var(--preview-bg);
+    background: var(--preview-link);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.milkdown .milkdown-table-block .handle.line-handle .add-button svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+}
+
+/* Drag preview ghost is positioned by the component; keep it unobtrusive */
+.milkdown .milkdown-table-block .drag-preview {
+    position: absolute;
+    z-index: 30;
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+/* Blue overlay over cells in the active row/column selection */
+.milkdown .selectedCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: var(--vscode-editor-selectionBackground, rgba(120, 160, 255, 0.3));
+    opacity: 0.4;
+    pointer-events: none;
+}
+.milkdown .milkdown-table-block td,
+.milkdown .milkdown-table-block th {
+    position: relative;
+}
+
 .milkdown ul, .milkdown ol {
-    padding-left: 1.6em;
+    padding-left: 1.4em;
     margin: 0.4em 0;
 }
 
 .milkdown li.list-item {
     list-style: none;
     display: flex;
-    align-items: flex-start;
-    gap: 0.4em;
+    align-items: baseline;
+    gap: 0.3em;
 }
 
 .milkdown li.list-item .label-wrapper {
     flex: none;
-    margin-top: 0.2em;
+    display: flex;
+    align-items: center;
 }
 
 .milkdown li.list-item .label {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    line-height: 1;
 }
 
 .milkdown li.list-item .label.checked,
@@ -177,7 +345,7 @@ html, body {
 
 .milkdown li.list-item .label.bullet,
 .milkdown li.list-item .label.ordered {
-    min-width: 1.2em;
+    min-width: 1.1em;
     color: var(--preview-fg);
     opacity: 0.75;
 }
@@ -185,6 +353,7 @@ html, body {
 .milkdown li.list-item .label svg {
     width: 10px;
     height: 10px;
+    stroke: var(--preview-bg);
 }
 
 .milkdown li.list-item .children {
@@ -254,6 +423,13 @@ body.preview-fade-in {
     pointer-events: none;
     user-select: none;
     white-space: pre;
+}
+
+/* Block prefixes (heading #, list -, blockquote >) render as an overlay so they
+   don't push the real text - and the cursor - to the right when a block is focused. */
+.md-syntax-marker--block-prefix {
+    position: absolute;
+    transform: translateX(-100%);
 }
 
 /* Preview slash command menu */

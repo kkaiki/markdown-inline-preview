@@ -4,7 +4,6 @@ import {
     debugLog,
     rawRuntime,
     resolveAutoTableFormattingEnabled,
-    resolveAutoUpdateTocEnabled,
     resolveCheckboxMouseToggleEnabled,
     resolveCodeBlockAutoCompleteEnabled,
     resolveCodeBlockDecorationsEnabled,
@@ -58,10 +57,6 @@ export function isCodeBlockDecorationsEnabled(): boolean {
 
 export function isHorizontalRuleDecorationsEnabled(): boolean {
     return resolveHorizontalRuleDecorationsEnabled(getMarkdownInlineConfig());
-}
-
-export function isAutoUpdateTocEnabled(): boolean {
-    return resolveAutoUpdateTocEnabled(getMarkdownInlineConfig());
 }
 
 export function shouldDisableCompetingMarkdownFeatures(): boolean {

@@ -22,9 +22,7 @@ import {
     getListContinuationMarker
 } from '../../src/shared/structure/list';
 import {
-    collectHeadingsFromText,
-    generateTableOfContents,
-    findTocMarker
+    collectHeadingsFromText
 } from '../../src/shared/structure/toc';
 import {
     splitTableLine,
@@ -100,23 +98,6 @@ describe('Shared Module Integration', function() {
             const headings = collectHeadingsFromText(text);
             assert.strictEqual(headings.length, 3);
         });
-
-        it('should generate table of contents', function() {
-            const headings = [
-                { level: 1, text: 'Title', line: 0 },
-                { level: 2, text: 'Section', line: 1 }
-            ];
-            const toc = generateTableOfContents(headings);
-            assert.strictEqual(toc.includes('[Title]'), true);
-            assert.strictEqual(toc.includes('[Section]'), true);
-        });
-
-        it('should find TOC marker', function() {
-            const text = 'Some text\n/目次\nMore text';
-            const result = findTocMarker(text);
-            assert.strictEqual(result.hasMarker, true);
-            assert.strictEqual(result.markerType, 'japanese');
-        });
     });
 
     describe('Slash Command Utils', function() {
@@ -156,7 +137,7 @@ describe('Shared Module Integration', function() {
         it('should create default table template', function() {
             const template = createDefaultTableTemplate();
             assert.deepStrictEqual(template, [
-                '| Header 1 | Header 2 |',
+                '|  |  |',
                 '| --- | --- |',
                 '|  |  |'
             ]);

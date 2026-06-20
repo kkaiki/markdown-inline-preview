@@ -1,1 +1,0 @@
-export { updateTableOfContents } from './updateTableOfContents';

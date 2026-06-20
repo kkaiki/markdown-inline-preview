@@ -1,7 +1,8 @@
 import type { Editor } from '@milkdown/kit/core';
 import { editorViewCtx } from '@milkdown/kit/core';
+import type { Node as ProseNode } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
-import { Plugin, PluginKey } from '@milkdown/prose/state';
+import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import { posToDOMRect } from '@milkdown/prose';
 import { $prose } from '@milkdown/utils';
 import { replaceRange, markdownToSlice } from '@milkdown/kit/utils';
@@ -9,6 +10,22 @@ import { replaceRange, markdownToSlice } from '@milkdown/kit/utils';
 import { filterSlashMenuItems, type SlashMenuItemDef } from '../../shared/slash/slashMenuItems';
 import { detectSlashMatch, type SlashMatch } from '../../shared/slash/slashMatch';
 import { getSlashLineBlockRange } from '../../shared/slash/applyPreviewSlash';
+
+/** table > table_header_row > table_header > paragraph > (content start) */
+function findFirstTableCellPos(doc: ProseNode, from: number): number | null {
+    let found = false;
+    let tablePos = 0;
+    doc.nodesBetween(from, doc.content.size, (node, pos) => {
+        if (found) return false;
+        if (node.type.name === 'table') {
+            found = true;
+            tablePos = pos;
+            return false;
+        }
+        return true;
+    });
+    return found ? tablePos + 4 : null;
+}
 
 let menuEnabled = true;
 
@@ -133,7 +150,14 @@ export class PreviewSlashMenuController {
             if (isSlashOnlyLine) {
                 const { from, to } = getSlashLineBlockRange($from);
                 const slice = markdownToSlice(markdown)(ctx);
-                view.dispatch(state.tr.replace(from, to, slice).scrollIntoView());
+                let tr = state.tr.replace(from, to, slice);
+                if (item.id === 'table') {
+                    const firstCellPos = findFirstTableCellPos(tr.doc, from);
+                    if (firstCellPos !== null) {
+                        tr = tr.setSelection(TextSelection.create(tr.doc, firstCellPos));
+                    }
+                }
+                view.dispatch(tr.scrollIntoView());
             } else {
                 replaceRange(markdown, { from: match.from, to: match.to })(ctx);
             }

@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 
 import {
+    getBlockPrefix,
     getHeadingPrefix,
     getInlineMarkMarker
 } from '../../src/shared/markdown/focusSyntaxHelpers';
@@ -27,6 +28,21 @@ describe('focusSyntaxHelpers', () => {
             open: '[',
             close: '](https://example.com)'
         });
+    });
+
+    it('getBlockPrefix resolves the list-item prefix from the inner paragraph depth', () => {
+        // findFocusedBlockDepth() always resolves to the innermost paragraph,
+        // one level below the list_item itself - getBlockPrefix must look there too.
+        const nodesByDepth: Record<number, unknown> = {
+            0: { type: { name: 'bullet_list' } },
+            1: { type: { name: 'list_item' }, attrs: {} },
+            2: { type: { name: 'paragraph' } }
+        };
+        const $pos = {
+            node: (d: number) => nodesByDepth[d],
+            index: () => 0
+        };
+        assert.strictEqual(getBlockPrefix($pos as never, 2), '- ');
     });
 });
 

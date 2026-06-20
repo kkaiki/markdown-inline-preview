@@ -144,11 +144,10 @@ npm test -- --grep "Table Cell"
 
 ### 1. 仕様を定義
 
-`docs/specifications/` に仕様書を作成:
+`docs/specifications/inline-preview-features.md`（Raw）または `preview-features.md`（Preview）に追記:
 - 機能の目的
 - 期待する動作
 - エッジケース
-- テストケース
 
 ### 2. 実装
 
@@ -200,9 +199,9 @@ describe('New Feature', function() {
 
 ### 5. ドキュメントを更新
 
-- `docs/feature-overview.md` / `docs/inline-preview-features.md` / `docs/preview-features.md`
+- `docs/specifications/inline-preview-features.md`（Raw）
+- `docs/specifications/preview-features.md`（Preview）
 - `docs/user-guide/keyboard-shortcuts.md`
-- `docs/specifications/` に詳細仕様
 
 ## パッケージの作成
 

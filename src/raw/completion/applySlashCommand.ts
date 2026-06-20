@@ -14,7 +14,6 @@ import {
     resolveCalloutType,
     resolveCodeLanguage
 } from './slashCommands';
-import { updateTableOfContents } from '../toc';
 
 export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<boolean> {
     const document = editor.document;
@@ -42,11 +41,6 @@ export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<
 
     const command = parsed.command.toLowerCase();
     debugLog(`[slash] Parsed command "${command}" with args "${parsed.argsText}"`);
-
-    if (command === 'toc' || command === '目次') {
-        await updateTableOfContents(editor, false);
-        return true;
-    }
 
     if (command === 'heading') {
         const heading = parseHeadingSlashCommand(parsed.argsText);
