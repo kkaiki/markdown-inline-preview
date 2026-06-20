@@ -457,7 +457,7 @@
         "markdownInline.preview.rememberMode": {
           "type": "boolean",
           "default": true,
-          "description": "Remember the last used mode (Preview/Raw) per file"
+          "description": "Remember the last used mode (Preview/Raw) and apply it to all Markdown files. Switching one file to Preview makes newly opened files open in Preview too."
         },
         "markdownInline.preview.syncScroll": {
           "type": "boolean",
