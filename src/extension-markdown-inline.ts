@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 
 // コマンドモジュールのインポート
 import * as commandsModule from './commands';
-import { activatePreviewFeature, setDebugLog as setPreviewDebugLog } from './webview/previewPanel';
 import {
     buildCallout,
     buildCodeBlock,
@@ -269,10 +268,6 @@ export function activate(context: vscode.ExtensionContext): void {
         updateTableOfContents
     });
 
-    // WebView プレビュー機能（iPreview: Toggle Preview）
-    setPreviewDebugLog(debugLog);
-    const previewFeature = activatePreviewFeature(context);
-
     // Notion 式スラッシュコマンド補完メニュー
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
@@ -397,7 +392,6 @@ export function activate(context: vscode.ExtensionContext): void {
             if (updateTimer) clearTimeout(updateTimer);
             updateTimer = setTimeout(() => {
                 updateAllDecorations(editor);
-                previewFeature.refreshIfOpen(editor.document);
             }, 50);
 
             // 目次自動更新

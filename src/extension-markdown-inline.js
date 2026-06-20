@@ -38,7 +38,6 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 // コマンドモジュールのインポート
 const commandsModule = __importStar(require("./commands"));
-const previewPanel_1 = require("./webview/previewPanel");
 const utils_1 = require("./utils");
 // グローバルな装飾タイプ（再利用）
 let checkedDecoration = null;
@@ -200,9 +199,6 @@ function activate(context) {
         moveLineWithHierarchy,
         updateTableOfContents
     });
-    // WebView プレビュー機能（iPreview: Toggle Preview）
-    (0, previewPanel_1.setDebugLog)(debugLog);
-    const previewFeature = (0, previewPanel_1.activatePreviewFeature)(context);
     // Notion 式スラッシュコマンド補完メニュー
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider({ language: 'markdown' }, {
         provideCompletionItems(document, position) {
@@ -307,7 +303,6 @@ function activate(context) {
             clearTimeout(updateTimer);
         updateTimer = setTimeout(() => {
             updateAllDecorations(editor);
-            previewFeature.refreshIfOpen(editor.document);
         }, 50);
         // 目次自動更新
         const hasHeadingChange = event.contentChanges.some(change => {
