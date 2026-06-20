@@ -148,8 +148,6 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | 2    | ❌   | 画像オーバーレイ（重ね合わせ） |
 
 
-
-
 ### フェーズ 1（実装済み）
 
 - 対象: `![alt](path)` — ワークスペース相対パス、`http(s)://`
@@ -190,11 +188,11 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | `/h1`〜`/h6`                       | `#`〜`######`（`/heading N` に展開） |
 | `/heading <1-6> [title]`          | 見出し挿入・変換。無効 level は警告          |
 | `/table`                          | 2 列テーブル挿入、または既存表の整形            |
-| `/table normalize on\|off`        | `autoFormatTables` をワークスペース設定に保存 |
+| `/table normalize on              | off`                           |
 | `/code [lang]`                    | フェンス挿入（`js`→`javascript` 等）    |
 | `/quote [text]`                   | `>` 引用行                        |
 | `/divider`                        | `---`                          |
-| `/callout [warning\|danger\|info]` | `> 💡` 等の引用コールアウト              |
+| `/callout [warning                | danger                         |
 | `/bullet` / `/numbered` / `/todo` | リスト行開始                         |
 
 
@@ -287,18 +285,18 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 ## ショートカット
 
 
-| 機能          | Mac                 | Windows/Linux      |
-| ----------- | ------------------- | ------------------ |
-| スマート Enter  | `Enter`             | `Enter`            |
-| チェックボックストグル | `Cmd+Enter`         | `Ctrl+Enter`       |
-| インデント       | `Tab` / `Shift+Tab` | 同左                 |
-| 見出し変換 H1/H2/H3 | `Alt+Cmd+1/2/3`   | `Alt+Ctrl+1/2/3`   |
-| リスト変換（ToDo/箇条書き/番号/本文） | `Alt+Cmd+4/5/6/0` | `Alt+Ctrl+4/5/6/0` |
-| スマート移動      | `Cmd+←→`, `↑↓`      | `Home/End`, `↑↓`   |
-| Preview へ切替 | `Cmd+Shift+M`       | `Ctrl+Shift+M`     |
+| 機能                     | Mac                 | Windows/Linux      |
+| ---------------------- | ------------------- | ------------------ |
+| スマート Enter             | `Enter`             | `Enter`            |
+| チェックボックストグル            | `Cmd+Enter`         | `Ctrl+Enter`       |
+| インデント                  | `Tab` / `Shift+Tab` | 同左                 |
+| 見出し変換 H1/H2/H3         | `Alt+Cmd+1/2/3`     | `Alt+Ctrl+1/2/3`   |
+| リスト変換（ToDo/箇条書き/番号/本文） | `Alt+Cmd+4/5/6/0`   | `Alt+Ctrl+4/5/6/0` |
+| スマート移動                 | `Cmd+←→`, `↑↓`      | `Home/End`, `↑↓`   |
+| Preview へ切替            | `Cmd+Shift+M`       | `Ctrl+Shift+M`     |
+
 
 `Cmd+Opt+<数字>`（Notion 風）のブロック変換体系は [preview-features.md](./preview-features.md#notion-風ブロック変換cmdopt数字) と共通。
-
 
 詳細: [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)
 

@@ -1,8 +1,8 @@
 /**
  * WebView 側エントリポイント。esbuild で media/milkdown.bundle.js にバンドルされる。
  */
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx } from '@milkdown/kit/core';
-import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark';
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx } from '@milkdown/kit/core';
+import { commonmark, remarkPreserveEmptyLinePlugin, insertImageCommand } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
@@ -199,6 +199,43 @@ function handlePreviewLinkClick(event: Event): boolean {
     return true;
 }
 
+function sendImageFile(file: File): void {
+    const reader = new FileReader();
+    reader.onload = () => {
+        if (typeof reader.result === 'string') {
+            vscodeApi.postMessage({ type: 'insertImage', dataUrl: reader.result, name: file.name || 'image' });
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+/** ペースト/ドロップに画像があればホストへ送って保存し、true（処理済み）を返す。 */
+function handleImageDataTransfer(data: DataTransfer | null): boolean {
+    if (!data) return false;
+    const items = Array.from(data.items ?? []);
+    const imageItem = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'));
+    if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (file) {
+            sendImageFile(file);
+            return true;
+        }
+    }
+    const file = Array.from(data.files ?? []).find((f) => f.type.startsWith('image/'));
+    if (file) {
+        sendImageFile(file);
+        return true;
+    }
+    return false;
+}
+
+function insertImageSrc(src: string): void {
+    if (!editor) return;
+    editor.action((ctx) => {
+        ctx.get(commandsCtx).call(insertImageCommand.key, { src });
+    });
+}
+
 function setEditable(editable: boolean): void {
     if (!editor) return;
     editor.action((ctx) => {
@@ -236,7 +273,21 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 ...prev,
                 editable: () => settings.editable,
                 handleDOMEvents: {
-                    click: (_view, event) => handlePreviewLinkClick(event)
+                    click: (_view, event) => handlePreviewLinkClick(event),
+                    paste: (_view, event) => {
+                        if (handleImageDataTransfer(event.clipboardData)) {
+                            event.preventDefault();
+                            return true;
+                        }
+                        return false;
+                    },
+                    drop: (_view, event) => {
+                        if (handleImageDataTransfer(event.dataTransfer)) {
+                            event.preventDefault();
+                            return true;
+                        }
+                        return false;
+                    }
                 }
             }));
             ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
@@ -357,6 +408,10 @@ window.addEventListener('message', (event: MessageEvent) => {
         applySettingsToDom(message.settings);
         setEditable(message.settings.editable);
         renderFrontmatterPanel(currentFrontmatter);
+        return;
+    }
+    if (message.type === 'imageInserted') {
+        insertImageSrc(message.src);
     }
 });
 

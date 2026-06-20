@@ -21,7 +21,8 @@ export type WebviewToHostMessage =
     | { type: 'ready' }
     | { type: 'change'; markdown: string }
     | { type: 'scroll'; ratio: number; anchor?: ScrollAnchorPayload }
-    | { type: 'openLink'; href: string };
+    | { type: 'openLink'; href: string }
+    | { type: 'insertImage'; dataUrl: string; name: string };
 
 export type HostToWebviewMessage =
     | {
@@ -33,4 +34,5 @@ export type HostToWebviewMessage =
           frontmatter?: string | null;
       }
     | { type: 'update'; markdown: string; frontmatter?: string | null }
-    | { type: 'settings'; settings: PreviewSettings };
+    | { type: 'settings'; settings: PreviewSettings }
+    | { type: 'imageInserted'; src: string };
