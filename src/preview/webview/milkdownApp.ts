@@ -17,7 +17,12 @@ import type { EditorView } from '@milkdown/prose/view';
 
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
-import { stripPlaceholderLineBreaks } from '../../shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing } from '../../shared/markdown/lineBreaks';
+
+/** Preview に出入りする Markdown の正規化（`<br />` 除去 + リスト詰め）。 */
+function normalizeMarkdown(markdown: string): string {
+    return tightenListSpacing(stripPlaceholderLineBreaks(markdown));
+}
 import {
     createScrollAnchor,
     headingMatchesScrollAnchor
@@ -47,6 +52,9 @@ document.addEventListener('keydown', (event) => {
         findBar.open();
     }
 }, true);
+
+const PROPORTIONAL_FONT_STACK =
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif';
 
 const CHECK_ICON_SVG = '<svg viewBox="0 0 16 16"><path d="M3 8.3L6.2 11.5L13 4.5" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -96,9 +104,11 @@ function applySettingsToDom(settings: PreviewSettings): void {
     currentSettings = settings;
     document.body.classList.toggle('theme-light', settings.theme === 'light');
     document.body.classList.toggle('theme-dark', settings.theme === 'dark');
+    // 既定は等幅エディタフォントではなく、CJK を含む比例フォント。等幅だと
+    // ASCII と日本語でフォールバックが分かれ、太さ（＝色）が不揃いに見えるため。
     document.documentElement.style.setProperty(
         '--preview-font-family',
-        settings.fontFamily || 'var(--vscode-editor-font-family)'
+        settings.fontFamily || PROPORTIONAL_FONT_STACK
     );
     document.documentElement.style.setProperty('--preview-font-size', `${settings.fontSize}px`);
     document.documentElement.style.setProperty(
@@ -274,9 +284,10 @@ function setEditable(editable: boolean): void {
 }
 
 function postChange(markdown: string): void {
-    if (markdown === lastSyncedMarkdown) return;
-    lastSyncedMarkdown = markdown;
-    vscodeApi.postMessage({ type: 'change', markdown });
+    const next = tightenListSpacing(markdown);
+    if (next === lastSyncedMarkdown) return;
+    lastSyncedMarkdown = next;
+    vscodeApi.postMessage({ type: 'change', markdown: next });
     void enhanceRenderedContent();
 }
 
@@ -289,7 +300,7 @@ const commonmarkWithoutEmptyLineBreaks = commonmark.filter(
 );
 
 async function createEditor(markdown: string, settings: PreviewSettings): Promise<void> {
-    const initialMarkdown = stripPlaceholderLineBreaks(markdown);
+    const initialMarkdown = normalizeMarkdown(markdown);
     lastSyncedMarkdown = initialMarkdown;
     setFocusSyntaxEnabled(settings.showFocusSyntax);
     setSlashMenuEnabled(settings.enableSlashMenu);
@@ -354,7 +365,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
 }
 
 function applyExternalMarkdown(markdown: string): void {
-    const next = stripPlaceholderLineBreaks(markdown);
+    const next = normalizeMarkdown(markdown);
     if (!editor || next === lastSyncedMarkdown) return;
     lastSyncedMarkdown = next;
     editor.action(replaceAll(next));

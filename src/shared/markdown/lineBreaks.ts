@@ -19,3 +19,38 @@ export function stripPlaceholderLineBreaks(markdown: string): string {
         .replace(EMPTY_CELL_BREAK, '$1$2')
         .replace(STANDALONE_BREAK, '');
 }
+
+// 行頭（インデント可）のリスト項目マーカー: `- ` `* ` `+ ` `1. ` `1) ` 等
+const LIST_ITEM_LINE = /^(\s*)([-*+]|\d+[.)])\s/;
+
+/**
+ * 連続するリスト項目の間にある空行を取り除き、tight（詰め）リストにする。
+ * loose リスト（項目間に空行）を保存し続けないようにするための正規化。
+ * フェンスコードブロック内は対象外。
+ */
+export function tightenListSpacing(markdown: string): string {
+    const lines = markdown.split('\n');
+    const out: string[] = [];
+    let inFence = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/^\s*(```|~~~)/.test(line)) {
+            inFence = !inFence;
+        }
+
+        if (!inFence && line.trim() === '') {
+            const prev = out.length > 0 ? out[out.length - 1] : '';
+            let j = i + 1;
+            while (j < lines.length && lines[j].trim() === '') j++;
+            const next = j < lines.length ? lines[j] : '';
+            if (LIST_ITEM_LINE.test(prev) && LIST_ITEM_LINE.test(next)) {
+                i = j - 1; // 項目に挟まれた空行（複数可）を捨てる
+                continue;
+            }
+        }
+        out.push(line);
+    }
+
+    return out.join('\n');
+}
