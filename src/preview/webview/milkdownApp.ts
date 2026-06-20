@@ -23,6 +23,7 @@ import {
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
+import { createTableMenuPlugin } from './tableMenuPlugin';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -248,6 +249,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(listener)
         .use(listItemBlockComponent)
         .use(tableBlock)
+        .use(createTableMenuPlugin())
         .use(focusSyntaxPlugin)
         .use(headingBackspacePlugin);
 
