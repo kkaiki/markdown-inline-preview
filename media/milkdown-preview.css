@@ -164,9 +164,11 @@ html, body {
     margin: 0;
 }
 
-/* Hidden until the component toggles data-show="true" */
+/* Hidden until the component toggles data-show="true".
+   !important so it beats the .handle.cell-handle rule below (higher class
+   count) — otherwise the grips would stay visible even when not hovering. */
 .milkdown .milkdown-table-block [data-show='false'] {
-    display: none;
+    display: none !important;
 }
 
 /* Hide the component's built-in toolbar, "+" line handles and drag ghost;
