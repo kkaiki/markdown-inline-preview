@@ -2,7 +2,10 @@
 .vscode-test/**
 .gitignore
 .env
-.env.example
+.env.*
+!.env.example
+scripts/
+.githooks/
 .yarnrc
 vsc-extension-quickstart.md
 **/tsconfig.json
