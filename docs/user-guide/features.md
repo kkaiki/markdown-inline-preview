@@ -43,10 +43,10 @@
 ## 3. テーブル機能
 
 ### 自動整形
-- テーブル行を編集後、別の行に移動すると自動整形
+- テーブル行を編集後、別の行に移動すると自動整形（デフォルトはオフ）
 - 列幅を揃え、アライメントを維持
-- 自動整形を止めたい場合は `markdownInline.advanced.autoFormatTables` を `false` に設定
-- 自動整形をオフにしても、コマンドパレットの `Format Markdown Table` は利用可能
+- 自動整形を有効にしたい場合は `markdownInline.advanced.autoFormatTables` を `true` に設定
+- 自動整形がオフでも、コマンドパレットの `Format Markdown Table` は利用可能
 
 ### 日本語対応
 - 全角文字の幅を正確に計算
@@ -153,7 +153,7 @@ Advanced設定では、以下のような自動動作や装飾を個別に制御
 
 | 設定 | デフォルト | 主な用途 |
 |------|-----------|----------|
-| `markdownInline.advanced.autoFormatTables` | true | 表の自動整形を止めたい |
+| `markdownInline.advanced.autoFormatTables` | false | 表の自動整形を有効にしたい |
 | `markdownInline.advanced.enableCheckboxMouseToggle` | true | クリックトグルを止めたい |
 | `markdownInline.advanced.enableCodeBlockAutoComplete` | true | ``` の自動補完を止めたい |
 | `markdownInline.advanced.enableHeadingDecorations` | true | 見出し装飾を止めたい |

@@ -80,7 +80,7 @@ Markdown Inline Previewは、VSCode上でNotionやObsidianのようなWYSIWYG的
 
 | 設定 | 型 | デフォルト | 説明 |
 |------|-----|-----------|------|
-| `advanced.autoFormatTables` | boolean | true | 行移動時の表自動整形 |
+| `advanced.autoFormatTables` | boolean | false | 行移動時の表自動整形 |
 | `advanced.enableCheckboxMouseToggle` | boolean | true | チェックボックスのマウストグル |
 | `advanced.enableCodeBlockAutoComplete` | boolean | true | ``` 入力時の自動補完 |
 | `advanced.enableHeadingDecorations` | boolean | true | 見出し装飾 |

@@ -158,6 +158,13 @@
         "icon": "$(list-tree)",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.togglePreview",
+        "title": "Toggle Preview",
+        "icon": "$(open-preview)",
+        "enablement": "editorLangId == markdown",
+        "category": "iPreview"
       }
     ],
     "menus": {
@@ -169,6 +176,11 @@
         },
         {
           "command": "markdownInline.updateTableOfContents",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        },
+        {
+          "command": "markdownInline.togglePreview",
           "when": "editorLangId == markdown",
           "group": "navigation"
         }
@@ -278,6 +290,12 @@
           "type": "boolean",
           "default": true,
           "description": "Enable preview decorations for non-focused lines"
+        },
+        "markdownInline.preview.defaultMode": {
+          "type": "string",
+          "enum": ["raw", "preview"],
+          "default": "raw",
+          "description": "Markdownファイルを開いた時の既定モード（raw=通常編集 / preview=WebViewプレビュー）"
         },
         "markdownInline.checkboxStyle": {
           "type": "string",
@@ -393,7 +411,7 @@
         },
         "markdownInline.advanced.autoFormatTables": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Advanced: Automatically format Markdown tables when leaving a table line"
         },
         "markdownInline.advanced.enableCheckboxMouseToggle": {
