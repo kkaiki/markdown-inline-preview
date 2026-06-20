@@ -144,10 +144,11 @@ html, body {
 .milkdown th { font-weight: 700; }
 
 /* ── Notion-style interactive table (Milkdown tableBlock) ──────────────
-   The block adds grip handles: a row handle on the left edge and a column
-   handle on the top edge. Clicking a handle selects that row/column and
-   reveals a small toolbar with delete (and align, for columns). Hovering a
-   cell boundary reveals a + line handle to add a row/column. */
+   Default view stays clean: only a small, subtle grip appears on hover at
+   the row's left edge / the column's top edge. Clicking a grip selects that
+   row/column and opens a labeled action menu (see .table-action-menu, driven
+   by tableMenuPlugin) with add / delete / align. The component's own
+   always-on toolbar and "+" line handles are hidden to avoid clutter. */
 .milkdown .milkdown-table-block {
     position: relative;
     margin: 0.8em 0;
@@ -168,126 +169,108 @@ html, body {
     display: none;
 }
 
-/* Grip handles (row = left edge, column = top edge) */
+/* Hide the component's built-in toolbar, "+" line handles and drag ghost;
+   the labeled .table-action-menu replaces them. */
+.milkdown .milkdown-table-block .button-group,
+.milkdown .milkdown-table-block .handle.line-handle,
+.milkdown .milkdown-table-block .drag-preview {
+    display: none !important;
+}
+
+/* Subtle grip handles (row = left edge, column = top edge) */
 .milkdown .milkdown-table-block .handle.cell-handle {
     position: absolute;
     z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
     padding: 0;
     color: var(--preview-fg);
     background: var(--vscode-editorWidget-background, var(--preview-code-bg));
     border: 1px solid var(--preview-border);
-    border-radius: 4px;
+    border-radius: 3px;
     cursor: pointer;
-    opacity: 0.85;
+    opacity: 0.45;
+    transition: opacity 0.1s ease;
 }
 .milkdown .milkdown-table-block .handle.cell-handle:hover {
-    opacity: 1;
+    opacity: 0.9;
     background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
 }
 .milkdown .milkdown-table-block [data-role='col-drag-handle'] {
-    width: 24px;
-    height: 14px;
+    width: 22px;
+    height: 11px;
 }
 .milkdown .milkdown-table-block [data-role='row-drag-handle'] {
-    width: 14px;
-    height: 24px;
+    width: 11px;
+    height: 22px;
 }
 .milkdown .milkdown-table-block .handle.cell-handle .milkdown-icon {
     display: inline-flex;
 }
 .milkdown .milkdown-table-block .handle.cell-handle svg {
-    width: 13px;
-    height: 13px;
+    width: 11px;
+    height: 11px;
     fill: currentColor;
 }
 
-/* Toolbar popover next to a selected row/column grip */
-.milkdown .milkdown-table-block .button-group {
-    position: absolute;
-    display: flex;
-    gap: 2px;
-    padding: 3px;
+/* Labeled action menu opened by clicking a row/column grip */
+.table-action-menu {
+    position: fixed;
+    z-index: 1000;
+    min-width: 168px;
+    padding: 4px;
     background: var(--vscode-editorWidget-background, var(--preview-bg));
+    color: var(--vscode-editorWidget-foreground, var(--preview-fg));
     border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
     border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-    z-index: 20;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+    font-size: 0.9em;
 }
-.milkdown .milkdown-table-block [data-role='col-drag-handle'] .button-group {
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-top: 4px;
+.table-action-menu[hidden] {
+    display: none;
 }
-.milkdown .milkdown-table-block [data-role='row-drag-handle'] .button-group {
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 4px;
-}
-.milkdown .milkdown-table-block .button-group button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    color: var(--preview-fg);
-    background: transparent;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.milkdown .milkdown-table-block .button-group button:hover {
-    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
-}
-.milkdown .milkdown-table-block .button-group svg {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: currentColor;
-}
-
-/* + line handle to add a row/column at a hovered boundary */
-.milkdown .milkdown-table-block .handle.line-handle {
-    position: absolute;
-    z-index: 10;
+.table-action-menu button {
     display: flex;
     align-items: center;
-    justify-content: center;
-}
-.milkdown .milkdown-table-block .handle.line-handle .add-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    color: var(--preview-bg);
-    background: var(--preview-link);
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
     border: none;
-    border-radius: 50%;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
     cursor: pointer;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
-.milkdown .milkdown-table-block .handle.line-handle .add-button svg {
-    width: 12px;
-    height: 12px;
-    fill: none;
-    stroke: currentColor;
+.table-action-menu button:hover {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.16));
 }
-
-/* Drag preview ghost is positioned by the component; keep it unobtrusive */
-.milkdown .milkdown-table-block .drag-preview {
-    position: absolute;
-    z-index: 30;
-    pointer-events: none;
-    opacity: 0.6;
+.table-action-menu button.danger:hover {
+    background: var(--vscode-inputValidation-errorBackground, rgba(220, 90, 90, 0.22));
+}
+.table-action-menu .tam-icon {
+    flex: none;
+    width: 16px;
+    text-align: center;
+    opacity: 0.8;
+}
+.table-action-menu .tam-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--preview-border);
+}
+.table-action-menu .tam-align-row {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+}
+.table-action-menu .tam-align-row button {
+    justify-content: center;
+    width: auto;
+    flex: 1 1 0;
+    padding: 5px 0;
 }
 
 /* Blue overlay over cells in the active row/column selection */
