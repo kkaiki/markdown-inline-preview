@@ -79,6 +79,18 @@ html, body {
 
 .milkdown p { margin: 0.5em 0; }
 
+/* Show single source newlines (soft breaks) as visible line breaks.
+   Milkdown turns a soft break into an inline hardbreak rendered as
+   <span data-type="hardbreak"> </span> (a space). Append a real newline so
+   it reads as a line break. Non-destructive: still serialized as a single \n. */
+.milkdown span[data-type='hardbreak'] {
+    white-space: pre-wrap;
+}
+.milkdown span[data-type='hardbreak']::after {
+    content: '\A';
+    white-space: pre;
+}
+
 .milkdown strong { font-weight: 700; }
 .milkdown em { font-style: italic; }
 .milkdown del { opacity: 0.6; }
@@ -284,9 +296,15 @@ html, body {
     position: relative;
 }
 
+/* Top-level lists sit flush with the body text (no left gap before the
+   checkbox/bullet). Nested lists still indent — see the .children rule below. */
 .milkdown ul, .milkdown ol {
-    padding-left: 1.4em;
+    padding-left: 0;
     margin: 0.4em 0;
+}
+.milkdown li.list-item .children ul,
+.milkdown li.list-item .children ol {
+    padding-left: 1.2em;
 }
 
 .milkdown li.list-item {
