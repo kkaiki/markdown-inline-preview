@@ -314,8 +314,14 @@ html, body {
 .milkdown li.list-item {
     list-style: none;
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     gap: 0.3em;
+}
+
+/* リスト項目内の段落マージンを消し、テキストを行頭に揃える（チェックボックス/
+   箇条書きアイコンと縦位置がずれないようにする）。 */
+.milkdown li.list-item p {
+    margin: 0;
 }
 
 /* フォーカス中のリスト項目はアイコンを隠し、`- ` / `- [ ] ` の記法マーカーを見せる
@@ -328,6 +334,8 @@ html, body {
     flex: none;
     display: flex;
     align-items: center;
+    /* 1 行目の行ボックス（line-height 1.6）に高さを合わせ、マーカーを行の中央へ。 */
+    height: 1.6em;
 }
 
 .milkdown li.list-item .label {
