@@ -8,7 +8,6 @@ import { history } from '@milkdown/kit/plugin/history';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { replaceAll } from '@milkdown/kit/utils';
 import { listItemBlockComponent, listItemBlockConfig } from '@milkdown/kit/component/list-item-block';
-import { tableBlock, tableBlockConfig, type RenderType } from '@milkdown/kit/component/table-block';
 import hljs from 'highlight.js/lib/common';
 import renderMathInElement from 'katex/contrib/auto-render';
 import mermaid from 'mermaid';
@@ -30,7 +29,7 @@ import {
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
-import { createTableMenuPlugin } from './tableMenuPlugin';
+import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin } from './previewKeymapPlugin';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
@@ -66,24 +65,6 @@ function renderListItemLabel({ label, listType, checked }: { label: string; list
     return checked ? CHECK_ICON_SVG : '';
 }
 
-// Notion-style table handle/button icons (Milkdown's `tableBlock`).
-// The grip handles sit on the left of each row and the top of each column;
-// clicking selects the row/column and reveals a small toolbar with delete + align.
-const TABLE_BUTTON_ICONS: Record<RenderType, string> = {
-    row_drag_handle: '<svg viewBox="0 0 16 16"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg>',
-    col_drag_handle: '<svg viewBox="0 0 16 16"><circle cx="4" cy="6" r="1.3"/><circle cx="4" cy="10" r="1.3"/><circle cx="8" cy="6" r="1.3"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="6" r="1.3"/><circle cx="12" cy="10" r="1.3"/></svg>',
-    add_row: '<svg viewBox="0 0 16 16"><path d="M8 3.5V12.5M3.5 8H12.5" fill="none" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    add_col: '<svg viewBox="0 0 16 16"><path d="M8 3.5V12.5M3.5 8H12.5" fill="none" stroke-width="1.6" stroke-linecap="round"/></svg>',
-    delete_row: '<svg viewBox="0 0 16 16"><path d="M3 4.5H13M6.5 4.5V3.2H9.5V4.5M5 4.5L5.6 13H10.4L11 4.5" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    delete_col: '<svg viewBox="0 0 16 16"><path d="M3 4.5H13M6.5 4.5V3.2H9.5V4.5M5 4.5L5.6 13H10.4L11 4.5" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    align_col_left: '<svg viewBox="0 0 16 16"><path d="M3 4.5H13M3 8H9M3 11.5H11" fill="none" stroke-width="1.4" stroke-linecap="round"/></svg>',
-    align_col_center: '<svg viewBox="0 0 16 16"><path d="M3 4.5H13M5 8H11M4 11.5H12" fill="none" stroke-width="1.4" stroke-linecap="round"/></svg>',
-    align_col_right: '<svg viewBox="0 0 16 16"><path d="M3 4.5H13M7 8H13M5 11.5H13" fill="none" stroke-width="1.4" stroke-linecap="round"/></svg>'
-};
-
-function renderTableButton(renderType: RenderType): string {
-    return TABLE_BUTTON_ICONS[renderType] ?? '';
-}
 
 let editor: Editor | null = null;
 let lastSyncedMarkdown: string | null = null;
@@ -354,7 +335,6 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 postChange(nextMarkdown);
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
-            ctx.set(tableBlockConfig.key, { renderButton: renderTableButton });
         })
         // Keymap overrides must come before the presets so their handleKeyDown
         // runs ahead of the base/gfm keymaps (Cmd+A, Cmd+Opt+N, Enter-in-cell).
@@ -365,8 +345,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(history)
         .use(listener)
         .use(listItemBlockComponent)
-        .use(tableBlock)
-        .use(createTableMenuPlugin())
+        .use(createTableToolbarPlugin())
         .use(createCodeLanguagePlugin())
         .use(focusSyntaxPlugin)
         .use(headingBackspacePlugin);

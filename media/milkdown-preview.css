@@ -184,148 +184,47 @@ html, body {
     text-align: left;
 }
 
-/* ── Notion-style interactive table (Milkdown tableBlock) ──────────────
-   Default view stays clean: only a small, subtle grip appears on hover at
-   the row's left edge / the column's top edge. Clicking a grip selects that
-   row/column and opens a labeled action menu (see .table-action-menu, driven
-   by tableMenuPlugin) with add / delete / align. The component's own
-   always-on toolbar and "+" line handles are hidden to avoid clutter. */
-.milkdown .milkdown-table-block {
-    position: relative;
-    margin: 0.8em 0;
-}
-.milkdown .milkdown-table-block > div {
-    position: relative;
-}
-.milkdown .milkdown-table-block .table-wrapper {
-    position: relative;
-    overflow-x: auto;
-}
-.milkdown .milkdown-table-block table {
-    margin: 0;
-}
-
-/* Hidden until the component toggles data-show="true".
-   !important so it beats the .handle.cell-handle rule below (higher class
-   count) — otherwise the grips would stay visible even when not hovering. */
-.milkdown .milkdown-table-block [data-show='false'] {
-    display: none !important;
-}
-
-/* Hide the component's built-in toolbar, "+" line handles and drag ghost;
-   the labeled .table-action-menu replaces them. */
-.milkdown .milkdown-table-block .button-group,
-.milkdown .milkdown-table-block .handle.line-handle,
-.milkdown .milkdown-table-block .drag-preview {
-    display: none !important;
-}
-
-/* Grip handles (row = left edge, column = top edge).
-   The visible chip is small, but a transparent padding extends the clickable
-   area toward the cell so there is no gap to cross between the cell and the
-   grip (the grip stops pointer propagation, so once hovered it stays). */
-.milkdown .milkdown-table-block .handle.cell-handle {
-    position: absolute;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--preview-fg);
-    background-color: var(--vscode-editorWidget-background, var(--preview-code-bg));
-    background-clip: content-box;
-    border: 1px solid var(--preview-border);
-    border-radius: 4px;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.1s ease;
-}
-.milkdown .milkdown-table-block .handle.cell-handle:hover {
-    opacity: 1;
-    background-color: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.3));
-}
-.milkdown .milkdown-table-block [data-role='col-drag-handle'] {
-    width: 30px;
-    height: 14px;
-    /* 下方向（セル側）に透明な当たり判定を広げる */
-    padding: 0 0 12px 0;
-    box-sizing: content-box;
-}
-.milkdown .milkdown-table-block [data-role='row-drag-handle'] {
-    width: 14px;
-    height: 30px;
-    /* 右方向（セル側）に透明な当たり判定を広げる */
-    padding: 0 12px 0 0;
-    box-sizing: content-box;
-}
-.milkdown .milkdown-table-block .handle.cell-handle .milkdown-icon {
-    display: inline-flex;
-}
-.milkdown .milkdown-table-block .handle.cell-handle svg {
-    width: 11px;
-    height: 11px;
-    fill: currentColor;
-}
-
-/* Labeled action menu opened by clicking a row/column grip */
-.table-action-menu {
+/* ── Standard table editing toolbar (tableToolbarPlugin) ──────────────
+   tableBlock コンポーネントは使わず標準テーブルを使う（セルに通常のテキスト
+   カーソルが出て Cmd+A も効く）。行/列の追加・削除はカーソルが表内にある間だけ
+   表の左上にフロート表示するツールバーで行う。 */
+.table-toolbar {
     position: fixed;
-    z-index: 1000;
-    min-width: 168px;
-    padding: 4px;
-    background: var(--vscode-editorWidget-background, var(--preview-bg));
-    color: var(--vscode-editorWidget-foreground, var(--preview-fg));
-    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
-    font-size: 0.9em;
-}
-.table-action-menu[hidden] {
-    display: none;
-}
-.table-action-menu button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 6px 10px;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-}
-.table-action-menu button:hover {
-    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.16));
-}
-.table-action-menu button.danger:hover {
-    background: var(--vscode-inputValidation-errorBackground, rgba(220, 90, 90, 0.22));
-}
-.table-action-menu .tam-icon {
-    flex: none;
-    width: 16px;
-    text-align: center;
-    opacity: 0.8;
-}
-.table-action-menu .tam-sep {
-    height: 1px;
-    margin: 4px 6px;
-    background: var(--preview-border);
-}
-.table-action-menu .tam-align-row {
+    z-index: 950;
     display: flex;
     gap: 2px;
-    padding: 2px;
+    padding: 3px;
+    background: var(--vscode-editorWidget-background, var(--preview-bg));
+    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    user-select: none;
 }
-.table-action-menu .tam-align-row button {
-    justify-content: center;
-    width: auto;
-    flex: 1 1 0;
-    padding: 5px 0;
+.table-toolbar[hidden] {
+    display: none;
+}
+.table-toolbar button {
+    font: inherit;
+    font-size: 11px;
+    color: var(--preview-fg);
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.table-toolbar button:hover {
+    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+.table-toolbar button.danger:hover {
+    background: var(--vscode-inputValidation-errorBackground, rgba(220, 90, 90, 0.22));
 }
 
-/* Blue overlay over cells in the active row/column selection */
+/* 行/列選択（CellSelection）時のセルの青いオーバーレイ */
+.milkdown .selectedCell {
+    position: relative;
+}
 .milkdown .selectedCell::after {
     content: '';
     position: absolute;
@@ -334,10 +233,6 @@ html, body {
     background: var(--vscode-editor-selectionBackground, rgba(120, 160, 255, 0.3));
     opacity: 0.4;
     pointer-events: none;
-}
-.milkdown .milkdown-table-block td,
-.milkdown .milkdown-table-block th {
-    position: relative;
 }
 
 /* Top-level lists sit flush with the body text (no left gap before the
