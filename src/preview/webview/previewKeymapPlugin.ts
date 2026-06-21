@@ -32,6 +32,18 @@ function findDepth($pos: ResolvedPos, names: string[]): number {
 }
 
 /**
+ * テーブルセルの depth を返す。ノード名ではなく prosemirror-tables の tableRole
+ * （`cell` / `header_cell`）で判定する（プリセットによりノード名が異なっても確実）。
+ */
+function tableCellDepth($pos: ResolvedPos): number {
+    for (let depth = $pos.depth; depth > 0; depth--) {
+        const role = $pos.node(depth).type.spec.tableRole;
+        if (role === 'cell' || role === 'header_cell') return depth;
+    }
+    return -1;
+}
+
+/**
  * Cmd+A 段階選択:
  * - テーブルセル内: セルの中身 → 行全体 → 表全体 → 文書全体。
  * - コードブロック内: ブロック内容 → 文書全体。
@@ -63,21 +75,22 @@ function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
         return true;
     }
 
-    // テーブルセル
-    const cellDepth = findDepth($from, ['table_cell', 'table_header']);
+    // テーブルセル（tableRole で判定）。セルをクリックした場合は NodeSelection に
+    // なり $from がセル階層を指すため、段落 depth に依存せずセル範囲から算出する。
+    const cellDepth = tableCellDepth($from);
     if (cellDepth < 0) return false; // セル外 → 既定の全選択
 
-    const paraDepth = cellDepth + 1;
-    if ($from.depth < paraDepth) return false;
-
-    const cellContent = TextSelection.create(state.doc, $from.start(paraDepth), $from.end(paraDepth));
+    const cellContent = TextSelection.between(
+        state.doc.resolve($from.start(cellDepth)),
+        state.doc.resolve($from.end(cellDepth))
+    );
     const isCellSelected =
         sel instanceof TextSelection && sel.from === cellContent.from && sel.to === cellContent.to;
 
     if (isCellSelected) {
         // 2 回目: 行全体を選択（CellSelection の行選択）
         const $cell = state.doc.resolve($from.before(cellDepth));
-        view.dispatch(state.tr.setSelection(CellSelection.rowSelection($cell)));
+        view.dispatch(state.tr.setSelection(CellSelection.rowSelection($cell)).scrollIntoView());
         return true;
     }
 
