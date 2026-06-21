@@ -33,6 +33,7 @@ import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled 
 import { createTableMenuPlugin } from './tableMenuPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin } from './previewKeymapPlugin';
+import { createCodeLanguagePlugin } from './codeLanguagePlugin';
 import { PreviewFindBar } from './previewFindBar';
 
 const vscodeApi = acquireVsCodeApi();
@@ -158,6 +159,9 @@ function escapeHtml(text: string): string {
 }
 
 function highlightCodeBlocks(): void {
+    // 編集可能なときは hljs で DOM を書き換えない。ProseMirror が管理する
+    // 編集中のコードブロックを書き換えるとカーソルが先頭へ飛ぶため。
+    if (currentSettings?.editable !== false) return;
     root.querySelectorAll('pre code').forEach(block => {
         const el = block as HTMLElement;
         if (el.classList.contains('language-mermaid')) return;
@@ -351,6 +355,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(listItemBlockComponent)
         .use(tableBlock)
         .use(createTableMenuPlugin())
+        .use(createCodeLanguagePlugin())
         .use(focusSyntaxPlugin)
         .use(headingBackspacePlugin);
 

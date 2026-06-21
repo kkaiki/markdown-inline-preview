@@ -111,6 +111,7 @@ html, body {
 }
 
 .milkdown pre {
+    position: relative;
     background: var(--preview-code-bg);
     color: var(--preview-code-fg);
     padding: 12px 14px;
@@ -120,6 +121,30 @@ html, body {
 .milkdown pre code {
     background: transparent;
     padding: 0;
+}
+
+/* Language dropdown overlay (codeLanguagePlugin) */
+.milkdown pre .code-lang-select {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    z-index: 5;
+    user-select: none;
+}
+.milkdown pre .code-lang-select select {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.78em;
+    color: var(--vscode-dropdown-foreground, var(--preview-fg));
+    background: var(--vscode-dropdown-background, var(--preview-bg));
+    border: 1px solid var(--vscode-dropdown-border, var(--preview-border));
+    border-radius: 4px;
+    padding: 1px 4px;
+    opacity: 0.55;
+    cursor: pointer;
+}
+.milkdown pre:hover .code-lang-select select,
+.milkdown pre .code-lang-select select:focus {
+    opacity: 1;
 }
 
 .milkdown blockquote {
@@ -189,33 +214,42 @@ html, body {
     display: none !important;
 }
 
-/* Subtle grip handles (row = left edge, column = top edge) */
+/* Grip handles (row = left edge, column = top edge).
+   The visible chip is small, but a transparent padding extends the clickable
+   area toward the cell so there is no gap to cross between the cell and the
+   grip (the grip stops pointer propagation, so once hovered it stays). */
 .milkdown .milkdown-table-block .handle.cell-handle {
     position: absolute;
     z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0;
     color: var(--preview-fg);
-    background: var(--vscode-editorWidget-background, var(--preview-code-bg));
+    background-color: var(--vscode-editorWidget-background, var(--preview-code-bg));
+    background-clip: content-box;
     border: 1px solid var(--preview-border);
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
-    opacity: 0.45;
+    opacity: 0.6;
     transition: opacity 0.1s ease;
 }
 .milkdown .milkdown-table-block .handle.cell-handle:hover {
-    opacity: 0.9;
-    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+    opacity: 1;
+    background-color: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.3));
 }
 .milkdown .milkdown-table-block [data-role='col-drag-handle'] {
-    width: 22px;
-    height: 11px;
+    width: 30px;
+    height: 14px;
+    /* 下方向（セル側）に透明な当たり判定を広げる */
+    padding: 0 0 12px 0;
+    box-sizing: content-box;
 }
 .milkdown .milkdown-table-block [data-role='row-drag-handle'] {
-    width: 11px;
-    height: 22px;
+    width: 14px;
+    height: 30px;
+    /* 右方向（セル側）に透明な当たり判定を広げる */
+    padding: 0 12px 0 0;
+    box-sizing: content-box;
 }
 .milkdown .milkdown-table-block .handle.cell-handle .milkdown-icon {
     display: inline-flex;
@@ -429,12 +463,14 @@ body.preview-fade-in {
     animation: previewFadeIn 0.2s ease;
 }
 
-/* Focused-block Markdown syntax markers (Obsidian-like) */
+/* Focused-block Markdown syntax markers (Obsidian-like).
+   本文と同じ色（currentColor）の少し薄めにする。テーマの textPreformat の
+   金色などは見づらいため使わない。フォントも本文に合わせる。 */
 .md-syntax-marker {
-    color: var(--vscode-textPreformat-foreground, #888);
-    opacity: 0.7;
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.92em;
+    color: currentColor;
+    opacity: 0.55;
+    font-family: inherit;
+    font-size: inherit;
     pointer-events: none;
     user-select: none;
     white-space: pre;
