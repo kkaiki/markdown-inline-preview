@@ -91,15 +91,20 @@ export function createTableToolbarPlugin() {
 
         function sync(view: EditorView): void {
             lastView = view;
-            if (!view.editable || !isInTable(view.state)) {
+            try {
+                if (!view.editable || !isInTable(view.state)) {
+                    currentTablePos = -1;
+                    bar.hidden = true;
+                    return;
+                }
+                const $from = view.state.selection.$from;
+                const depth = tableDepth($from);
+                currentTablePos = depth > 0 ? $from.before(depth) : -1;
+                reposition();
+            } catch {
                 currentTablePos = -1;
                 bar.hidden = true;
-                return;
             }
-            const $from = view.state.selection.$from;
-            const depth = tableDepth($from);
-            currentTablePos = depth > 0 ? $from.before(depth) : -1;
-            reposition();
         }
 
         return new Plugin({
