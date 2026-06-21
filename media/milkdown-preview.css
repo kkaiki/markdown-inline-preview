@@ -87,8 +87,8 @@ html, body {
 .milkdown .diff-modified {
     position: relative;
 }
-.milkdown .diff-added::before,
-.milkdown .diff-modified::before {
+.milkdown .diff-added::after,
+.milkdown .diff-modified::after {
     content: '';
     position: absolute;
     top: 0;
@@ -97,11 +97,35 @@ html, body {
     width: 3px;
     border-radius: 2px;
 }
-.milkdown .diff-added::before {
+.milkdown .diff-added::after {
     background: var(--vscode-editorGutter-addedBackground, #2ea043);
 }
-.milkdown .diff-modified::before {
+.milkdown .diff-modified::after {
     background: var(--vscode-editorGutter-modifiedBackground, #58a6ff);
+}
+
+/* ── フォーカス行の行頭マーカー（focusSyntaxPlugin） ──────────────
+   フォーカス中の行だけ `## ` `- ` `1. ` `- [ ] ` `> ` を ::before で表示。
+   CSS 生成内容なのでカーソルには影響しない。 */
+.milkdown .md-focus-block::before {
+    content: attr(data-md-prefix);
+    color: currentColor;
+    opacity: 0.4;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-weight: 400;
+    white-space: pre;
+}
+/* リスト項目はフォーカス時、アイコンを隠してマーカーをその位置に出す */
+.milkdown li.list-item.md-focus-list > .label-wrapper {
+    display: none;
+}
+.milkdown li.list-item.md-focus-list::before {
+    content: attr(data-md-prefix);
+    flex: none;
+    color: currentColor;
+    opacity: 0.55;
+    font-family: var(--vscode-editor-font-family, monospace);
+    white-space: pre;
 }
 .milkdown .diff-deleted-marker {
     display: block;
