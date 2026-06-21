@@ -37,6 +37,7 @@ import {
     createScrollAnchor,
     headingMatchesScrollAnchor
 } from '../../shared/structure/scrollAnchor';
+import { scrollRatioFromPixels, pixelsFromScrollRatio } from '../../shared/preview/scrollSync';
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
@@ -67,6 +68,15 @@ document.addEventListener('keydown', (event) => {
         event.preventDefault();
         event.stopPropagation();
         findBar.open();
+        return;
+    }
+
+    // Cmd/Ctrl+Shift+M: Raw（Markdown ソース）へ戻る。WebView 内には VS Code の
+    // キーバインドが届かないため、ここで拾ってホストへトグルを依頼する。
+    if (shortcut?.kind === 'toggleRaw') {
+        event.preventDefault();
+        event.stopPropagation();
+        vscodeApi.postMessage({ type: 'toggleRaw' });
         return;
     }
 
@@ -444,7 +454,8 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             createPreviewToolbarPlugin({
                 isMac,
                 showShortcuts: settings.toolbarShowShortcuts,
-                onExport: () => vscodeApi.postMessage({ type: 'exportRequest' })
+                onExport: () => vscodeApi.postMessage({ type: 'exportRequest' }),
+                onToggleRaw: () => vscodeApi.postMessage({ type: 'toggleRaw' })
             })
         );
     }
@@ -472,15 +483,17 @@ function applyExternalMarkdown(markdown: string): void {
     void enhanceRenderedContent();
 }
 
-function scrollToAnchor(anchor: ScrollAnchorPayload): void {
+/** アンカー見出しまでスクロール。一致する見出しが無ければ false（呼び出し側が比率で代替）。 */
+function scrollToAnchor(anchor: ScrollAnchorPayload): boolean {
     const headings = root.querySelectorAll('h1,h2,h3,h4,h5,h6');
     for (const heading of headings) {
         const text = heading.textContent?.trim() ?? '';
         if (headingMatchesScrollAnchor(text, anchor)) {
             heading.scrollIntoView({ block: 'start', behavior: 'auto' });
-            return;
+            return true;
         }
     }
+    return false;
 }
 
 function findVisibleAnchor(): ScrollAnchorPayload | undefined {
@@ -505,8 +518,7 @@ function isHostMessage(data: unknown): data is HostToWebviewMessage {
 
 const reportScroll = debounce(() => {
     if (!scrollReportEnabled) return;
-    const denom = Math.max(1, root.scrollHeight - root.clientHeight);
-    const ratio = root.scrollTop / denom;
+    const ratio = scrollRatioFromPixels(root.scrollTop, root.scrollHeight, root.clientHeight);
     const anchor = findVisibleAnchor();
     vscodeApi.postMessage({ type: 'scroll', ratio, anchor });
 }, 150);
@@ -534,12 +546,18 @@ window.addEventListener('message', (event: MessageEvent) => {
         renderFrontmatterPanel(currentFrontmatter);
         void createEditor(message.markdown, message.settings).then(() => {
             const { settings, scrollAnchor, scrollRatio } = message;
+            const applyRatio = (): void => {
+                if (typeof scrollRatio === 'number') {
+                    root.scrollTop = pixelsFromScrollRatio(scrollRatio, root.scrollHeight, root.clientHeight);
+                }
+            };
             if (settings.syncScroll && scrollAnchor) {
-                requestAnimationFrame(() => scrollToAnchor(scrollAnchor));
-            } else if (settings.syncScroll && typeof scrollRatio === 'number') {
+                // アンカー見出しが見つからなければ比率でフォールバック。
                 requestAnimationFrame(() => {
-                    root.scrollTop = scrollRatio * Math.max(0, root.scrollHeight - root.clientHeight);
+                    if (!scrollToAnchor(scrollAnchor)) applyRatio();
                 });
+            } else if (settings.syncScroll && typeof scrollRatio === 'number') {
+                requestAnimationFrame(applyRatio);
             }
             applyFadeIn(settings.enableTransitions);
         }).catch((error: unknown) => {

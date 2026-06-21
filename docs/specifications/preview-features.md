@@ -113,7 +113,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | テーマ | VS Code 追従 or light/dark 固定 | `preview.theme` |
 | フォント | ファミリー・サイズ（既定は CJK 対応の比例フォント。等幅だと ASCII と日本語で太さが不揃いに見えるため） | `preview.fontFamily`, `fontSize` |
 | 最大幅 | 本文の最大表示幅 | `preview.maxWidth` |
-| スクロール同期 | Raw 切替時に見出しアンカーで位置復元 | `preview.syncScroll` |
+| スクロール同期 | Raw ⇄ Preview 切替時に**画面最上部の位置**を双方向で引き継ぐ（見出しアンカー優先・比率フォールバック）。詳細は [preview-scroll-sync.md](./preview-scroll-sync.md) | `preview.syncScroll` |
 | 切替アニメーション | Preview 表示時のフェードイン | `preview.enableTransitions` |
 | モード記憶 | 最後のモードを全 Markdown ファイル横断で記憶（**双方向**: Preview/Raw どちらに切り替えても、開く/アクティブにした Markdown ファイルへ同じモードを適用） | `preview.rememberMode` |
 | 既定モード | 初回オープン時 Raw or Preview | `preview.defaultMode` |
@@ -128,7 +128,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | `Cmd+Shift+M` | Raw ↔ Preview トグル |
 | 同一タブ切替 | 別タブを開かず `vscode.openWith` で切替 |
 
-スクロール同期: Raw 側の見出しスラッグと Preview の DOM を突き合わせ、切替時に近い位置へ復元（`preview.syncScroll`）。
+スクロール同期: 切替時、**画面最上部の可視行**を基準に、Raw 側の見出しスラッグと Preview の DOM を突き合わせて位置を引き継ぐ（見出しが無ければスクロール比率でフォールバック）。Raw→Preview / Preview→Raw の双方向で動作（`preview.syncScroll`）。設計の詳細は [preview-scroll-sync.md](./preview-scroll-sync.md)。
 
 ---
 
