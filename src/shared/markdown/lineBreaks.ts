@@ -20,8 +20,10 @@ export function stripPlaceholderLineBreaks(markdown: string): string {
         .replace(STANDALONE_BREAK, '');
 }
 
-// 行頭（インデント可）のリスト項目マーカー: `- ` `* ` `+ ` `1. ` `1) ` 等
-const LIST_ITEM_LINE = /^(\s*)([-*+]|\d+[.)])\s/;
+// 行頭（インデント可）のリスト項目マーカー: `- ` `* ` `+ ` `1. ` `1) ` のほか、
+// 中身が空のマーカーだけの行（`*` `-` `1.`）も対象にする。
+// `***`（水平線）や `*emphasis*` はマーカー直後が空白/行末でないため除外される。
+const LIST_ITEM_LINE = /^(\s*)([-*+]|\d+[.)])(\s|$)/;
 
 /**
  * 連続するリスト項目の間にある空行を取り除き、tight（詰め）リストにする。
