@@ -77,7 +77,9 @@ html, body {
 .milkdown h5 { font-size: 1em; }
 .milkdown h6 { font-size: 0.95em; opacity: 0.85; }
 
-.milkdown p { margin: 0.5em 0; }
+/* 段落間の余白をゼロにして、空行で区切られた段落も「1 行改行」のように
+   詰めて表示する（ソースの段落構造は保持。非破壊）。 */
+.milkdown p { margin: 0; }
 
 /* Show single source newlines (soft breaks) as visible line breaks.
    Milkdown turns a soft break into an inline hardbreak rendered as
