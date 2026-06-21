@@ -103,7 +103,9 @@ function buildSettingsPayload(): PreviewSettings {
         showFrontmatter: getConfig<boolean>('preview.showFrontmatter', true),
         enableTransitions: getConfig<boolean>('preview.enableTransitions', true),
         showFocusSyntax: getConfig<boolean>('preview.showFocusSyntax', true),
-        enableSlashMenu: getConfig<boolean>('preview.enableSlashMenu', true)
+        enableSlashMenu: getConfig<boolean>('preview.enableSlashMenu', true),
+        showToolbar: getConfig<boolean>('preview.showToolbar', true),
+        toolbarShowShortcuts: getConfig<boolean>('preview.toolbarShowShortcuts', true)
     };
 }
 
@@ -378,6 +380,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (message.type === 'insertImage' && typeof message.dataUrl === 'string') {
                 void this.savePastedImage(message.dataUrl, message.name, document, documentDir, webviewPanel.webview);
+                return;
+            }
+            if (message.type === 'exportRequest') {
+                void handleExportRequest();
             }
         });
 
@@ -450,6 +456,25 @@ async function openLinkFromPreview(href: string, documentUri: vscode.Uri): Promi
         await vscode.window.showTextDocument(targetUri, { preview: false });
     } catch {
         vscode.window.showWarningMessage(`Could not open link: ${trimmed}`);
+    }
+}
+
+// Preview ツールバーの Export ボタンからの要求を処理する。
+// 実際の PDF / Marp 生成とライセンス検証は docs/specifications/pro-export-pdf-marp.md
+// で実装予定。現状は Pro 課金導線（アップグレード案内）だけを出す。
+async function handleExportRequest(): Promise<void> {
+    const upgrade = 'アップグレード';
+    const later = 'あとで';
+    const choice = await vscode.window.showInformationMessage(
+        'PDF / Marp へのエクスポートは Markdown Inline Preview Pro の機能です。Pro にアップグレードすると、テーマ付き PDF やスライド出力が使えます。',
+        upgrade,
+        later
+    );
+    if (choice === upgrade) {
+        // TODO: 正式な料金/アップグレードページの URL に差し替える（pro-export-pdf-marp.md）。
+        await vscode.env.openExternal(
+            vscode.Uri.parse('https://github.com/kkaiki/markdown-inline-preview#pro')
+        );
     }
 }
 

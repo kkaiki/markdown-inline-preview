@@ -41,6 +41,7 @@ import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
+import { createPreviewToolbarPlugin } from './previewToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin, handleSelectAll } from './previewKeymapPlugin';
 import { classifyPreviewShortcut } from '../../shared/preview/previewShortcuts';
@@ -436,6 +437,17 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
         .use(headingBackspacePlugin);
+
+    if (settings.showToolbar) {
+        const isMac = /mac/i.test(navigator.platform || navigator.userAgent || '');
+        builder.use(
+            createPreviewToolbarPlugin({
+                isMac,
+                showShortcuts: settings.toolbarShowShortcuts,
+                onExport: () => vscodeApi.postMessage({ type: 'exportRequest' })
+            })
+        );
+    }
 
     if (slashMenuPlugin) {
         builder.use(slashMenuPlugin);

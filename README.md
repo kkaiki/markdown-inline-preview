@@ -1,8 +1,8 @@
-# iPreview
+# Markdown Inline Preview
 
 **Notion- and Obsidian-like Markdown editing for VS Code / Cursor.**
 
-iPreview (`ipreview`) edits the same `.md` file in two modes:
+Markdown Inline Preview (`ipreview`) edits the same `.md` file in two modes:
 
 | | **Raw** | **Preview** |
 |---|---------|-------------|
