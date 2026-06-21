@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing } from '../../src/shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities } from '../../src/shared/markdown/lineBreaks';
 
 describe('stripPlaceholderLineBreaks', () => {
     it('turns a standalone <br /> line into an empty line', () => {
@@ -37,6 +37,35 @@ describe('stripPlaceholderLineBreaks', () => {
     it('leaves normal markdown untouched', () => {
         const input = '# Title\n\n- item\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n';
         assert.strictEqual(stripPlaceholderLineBreaks(input), input);
+    });
+});
+
+describe('convertTableCellBreaksToEntities', () => {
+    it('converts <br> inside a table row to &#10;', () => {
+        const input = '| a | b |\n| --- | --- |\n| x<br>z | y |\n';
+        const output = convertTableCellBreaksToEntities(input);
+        assert.strictEqual(output, '| a | b |\n| --- | --- |\n| x&#10;z | y |\n');
+    });
+
+    it('handles <br>, <br/>, <br /> variants in cells', () => {
+        const input = '| x<br>z<br/>w<br />v | y |';
+        assert.strictEqual(
+            convertTableCellBreaksToEntities(input),
+            '| x&#10;z&#10;w&#10;v | y |'
+        );
+    });
+
+    it('leaves <br> in normal paragraphs untouched', () => {
+        const input = 'foo<br>bar\n\n| a |\n| --- |\n| x<br>z |\n';
+        assert.strictEqual(
+            convertTableCellBreaksToEntities(input),
+            'foo<br>bar\n\n| a |\n| --- |\n| x&#10;z |\n'
+        );
+    });
+
+    it('does not touch table-like lines inside fenced code', () => {
+        const input = '```\n| x<br>z |\n```\n';
+        assert.strictEqual(convertTableCellBreaksToEntities(input), input);
     });
 });
 

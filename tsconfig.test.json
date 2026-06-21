@@ -15,5 +15,5 @@
     "types": ["mocha", "node"]
   },
   "include": ["test/**/*.ts"],
-  "exclude": ["node_modules", "out-test"]
+  "exclude": ["node_modules", "out-test", "test/webview"]
 }
