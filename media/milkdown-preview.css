@@ -125,28 +125,25 @@ html, body {
     padding: 0;
 }
 
-/* Language dropdown overlay (codeLanguagePlugin) */
-.milkdown pre .code-lang-select {
-    position: absolute;
-    top: 4px;
-    right: 6px;
-    z-index: 5;
+/* Language dropdown overlay (codeLanguagePlugin) — floats over the focused
+   code block's top-right; appended to document.body, fixed-positioned. */
+.code-lang-select {
+    position: fixed;
+    z-index: 900;
     user-select: none;
 }
-.milkdown pre .code-lang-select select {
+.code-lang-select[hidden] {
+    display: none;
+}
+.code-lang-select select {
     font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 0.78em;
+    font-size: 11px;
     color: var(--vscode-dropdown-foreground, var(--preview-fg));
-    background: var(--vscode-dropdown-background, var(--preview-bg));
+    background: var(--vscode-dropdown-background, var(--preview-code-bg));
     border: 1px solid var(--vscode-dropdown-border, var(--preview-border));
     border-radius: 4px;
     padding: 1px 4px;
-    opacity: 0.55;
     cursor: pointer;
-}
-.milkdown pre:hover .code-lang-select select,
-.milkdown pre .code-lang-select select:focus {
-    opacity: 1;
 }
 
 .milkdown blockquote {
