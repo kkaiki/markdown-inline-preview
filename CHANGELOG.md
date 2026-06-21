@@ -1,3 +1,13 @@
+## 1.9.2 - 2026-06-22
+
+- Add: "What's New" notification on update — links to the changelog / getting-started walkthrough so existing users see new features.
+- Add: Getting-started walkthrough (`contributes.walkthroughs`) — Preview/Raw toggle, slash menu, shortcuts.
+- Add: Preview top toolbar (heading / checkbox / numbered list / Export) with hover shortcut tooltips; right-aligned `Preview | Raw` toggle.
+- Add: Preview ⇔ Raw toggle works both ways via `Cmd/Ctrl+Shift+M` (also from inside Preview).
+- Add: Raw `Preview │ Raw` toggle shown above the first line (CodeLens), `preview.showToggleLineWidget`.
+- Change: Larger, clearer heading size steps in Preview (H1–H6).
+- Chore: Marketplace metadata — keywords, categories, gallery banner.
+
 ## 1.8.5 - 2026-06-21
 
 - Fix: Preview slash menu block inserts (`/table`, `/code`, etc.) replace the whole slash line via `applyPreviewSlash.ts` instead of partial inline replace.
