@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "1.8.5",
+  "version": "1.9.2",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -13,14 +13,66 @@
     "vscode": "^1.74.0"
   },
   "categories": [
+    "Programming Languages",
+    "Visualization",
+    "Notebooks",
     "Other"
   ],
+  "keywords": [
+    "markdown",
+    "preview",
+    "wysiwyg",
+    "notion",
+    "obsidian",
+    "table",
+    "slash commands",
+    "checkbox",
+    "toc",
+    "md"
+  ],
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
   "activationEvents": [
     "onLanguage:markdown",
     "onCustomEditor:ipreview.preview"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "walkthroughs": [
+      {
+        "id": "ipreview.gettingStarted",
+        "title": "iPreview をはじめる",
+        "description": "Notion 風の Markdown 編集 — Preview/Raw 切り替え、スラッシュメニュー、ショートカット",
+        "steps": [
+          {
+            "id": "toggle",
+            "title": "Preview ⇔ Raw を切り替える",
+            "description": "Markdown を WYSIWYG の Preview と素のソース Raw で行き来できます。\n[Preview / Raw を切り替える](command:markdownInline.togglePreview)",
+            "media": {
+              "markdown": "media/walkthrough/toggle.md"
+            }
+          },
+          {
+            "id": "slash",
+            "title": "スラッシュメニューで挿入",
+            "description": "行頭で / を打つと、見出し・リスト・テーブルなどを素早く挿入できます。",
+            "media": {
+              "markdown": "media/walkthrough/slash.md"
+            }
+          },
+          {
+            "id": "shortcuts",
+            "title": "ショートカット",
+            "description": "見出し・チェックボックス・整形などのショートカットを覚えると一気に速くなります。",
+            "media": {
+              "markdown": "media/walkthrough/shortcuts.md"
+            }
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "markdownInline.smartEnter",
@@ -47,7 +99,6 @@
       {
         "command": "markdownInline.formatTable",
         "title": "Format Markdown Table",
-        "icon": "$(table)",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
@@ -215,11 +266,6 @@
           "command": "markdownInline.togglePreview",
           "when": "ipreview.markdownEditor",
           "group": "navigation@1"
-        },
-        {
-          "command": "markdownInline.formatTable",
-          "when": "editorLangId == markdown",
-          "group": "navigation@2"
         }
       ]
     },
@@ -347,7 +393,7 @@
         "command": "markdownInline.togglePreview",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "resourceLangId == markdown"
+        "when": "resourceLangId == markdown && !ipreview.previewActive"
       }
     ],
     "configuration": {
@@ -488,8 +534,13 @@
         },
         "markdownInline.preview.showToggleCodeLens": {
           "type": "boolean",
+          "default": false,
+          "description": "Show a Preview / Raw toggle as a CodeLens above the first line of Markdown files. Off by default; use the editor title-bar toggle icon or Cmd/Ctrl+Shift+M instead. (CodeLens cannot be right-aligned and shares the line with git blame.)"
+        },
+        "markdownInline.preview.showToggleLineWidget": {
+          "type": "boolean",
           "default": true,
-          "description": "Show a Preview / Raw toggle button above the first line of Markdown files (always visible, unlike the toolbar icon which Cursor may hide in the overflow menu)"
+          "description": "Show a 'Preview / Raw' label aligned to the right of the first line in Raw (text) mode. Click the end of the first line, or use the title-bar icon / Cmd+Shift+M (Ctrl+Shift+M), to switch."
         },
         "markdownInline.preview.showToolbar": {
           "type": "boolean",
