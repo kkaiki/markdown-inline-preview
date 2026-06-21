@@ -90,7 +90,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 
 | 機能         | 操作                          | 説明                                                                        |
 | ------------ | ----------------------------- | --------------------------------------------------------------------------- |
-| 手動整形     | タイトルバー /`formatTable` | 列幅を揃える                                                                |
+| 手動整形     | コマンド `formatTable`（コマンドパレット） | 列幅を揃える（タイトルバーの整形アイコンは廃止）                            |
 | 自動整形     | テーブル行から離脱時          | `advanced.autoFormatTables` が `true` のときのみ（**既定: off**） |
 | 日本語幅計算 | 設定                          | `table.widthCalculation: smart` で全角/半角を考慮                         |
 
@@ -213,7 +213,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | `markdownInline.smartSelectLeft` / `smartSelectAll`                       | 段階的選択                 |
 | `markdownInline.moveLineUp` / `Down`                                      | 行ブロック移動             |
 
-タイトルバー: `formatTable`（整形ボタン）。
+`formatTable` はコマンドパレットから実行（タイトルバーの整形アイコンは廃止）。テーブル行から離れる際の自動整形（`advanced.autoFormatTables`）もあわせて利用できる。
 
 ---
 

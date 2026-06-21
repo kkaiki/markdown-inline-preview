@@ -13,12 +13,12 @@ import {
     turnIntoTextCommand,
     wrapInHeadingCommand,
     wrapInBulletListCommand,
-    wrapInOrderedListCommand,
     createCodeBlockCommand,
     wrapInBlockquoteCommand,
     splitListItemCommand
 } from '@milkdown/kit/preset/commonmark';
 import { selectTableCommand } from '@milkdown/kit/preset/gfm';
+import { wrapInList, liftListItem } from '@milkdown/prose/schema-list';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import { CellSelection } from '@milkdown/prose/tables';
 import type { ResolvedPos } from '@milkdown/prose/model';
@@ -113,6 +113,70 @@ function makeTodo(view: EditorView, ctx: Ctx): void {
     view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
 }
 
+/**
+ * 箇条書き / 番号付きリストの適用・相互変換・解除。
+ *
+ * Milkdown 既定の `wrapInBulletList` / `wrapInOrderedList` は「リストでないブロックを
+ * 囲む」だけで、既存の箇条書きを番号付きに変える（その逆も）ことができない。
+ * そのため箇条書きの中で番号付きショートカットを押しても何も起きなかった。
+ * ここでは選択中のリストを直接別種へ変換し、番号も振り直す。
+ *
+ * - リスト外: 指定種別で囲む。
+ * - 別種のリスト内: リストノードの種別を変換し、各項目の listType/label を更新。
+ * - 同種のリスト内: リストを解除（項目を持ち上げて段落へ戻す）。
+ */
+export function applyListType(view: EditorView, target: 'bullet' | 'ordered'): boolean {
+    const { state } = view;
+    const { schema } = state;
+    const bulletType = schema.nodes.bullet_list;
+    const orderedType = schema.nodes.ordered_list;
+    const listItemType = schema.nodes.list_item;
+    if (!bulletType || !orderedType || !listItemType) return false;
+    const targetType = target === 'ordered' ? orderedType : bulletType;
+
+    const { $from } = state.selection;
+    let listDepth = -1;
+    for (let depth = $from.depth; depth > 0; depth--) {
+        const type = $from.node(depth).type;
+        if (type === bulletType || type === orderedType) {
+            listDepth = depth;
+            break;
+        }
+    }
+
+    // リスト外 → 指定種別で囲む。
+    if (listDepth < 0) {
+        const wrapped = wrapInList(targetType)(state, view.dispatch, view);
+        view.focus();
+        return wrapped;
+    }
+
+    const listNode = $from.node(listDepth);
+
+    // 同種のリスト内 → 解除（段落へ戻す）。ツールバーのアクティブ表示と対になる。
+    if (listNode.type === targetType) {
+        const lifted = liftListItem(listItemType)(state, view.dispatch, view);
+        view.focus();
+        return lifted;
+    }
+
+    // 別種のリスト内 → ノード種別を変換し、各項目の listType/label を更新する。
+    const listPos = $from.before(listDepth);
+    const tr = state.tr.setNodeMarkup(listPos, targetType);
+    listNode.forEach((child, offset, index) => {
+        if (child.type !== listItemType) return;
+        const childPos = listPos + 1 + offset;
+        tr.setNodeMarkup(childPos, undefined, {
+            ...child.attrs,
+            listType: target === 'ordered' ? 'ordered' : 'bullet',
+            label: target === 'ordered' ? `${index + 1}.` : '•'
+        });
+    });
+    view.dispatch(tr);
+    view.focus();
+    return true;
+}
+
 /** Notion 風ブロック変換。種別ごとに対応する Milkdown コマンドを実行する。 */
 function runNotionBlock(view: EditorView, ctx: Ctx, action: NotionBlockAction): boolean {
     const commands = ctx.get(commandsCtx);
@@ -122,8 +186,8 @@ function runNotionBlock(view: EditorView, ctx: Ctx, action: NotionBlockAction): 
         case 'heading2': commands.call(wrapInHeadingCommand.key, 2); return true;
         case 'heading3': commands.call(wrapInHeadingCommand.key, 3); return true;
         case 'todo': makeTodo(view, ctx); return true;
-        case 'bulletList': commands.call(wrapInBulletListCommand.key); return true;
-        case 'orderedList': commands.call(wrapInOrderedListCommand.key); return true;
+        case 'bulletList': return applyListType(view, 'bullet');
+        case 'orderedList': return applyListType(view, 'ordered');
         case 'codeBlock': commands.call(createCodeBlockCommand.key); return true;
         case 'blockquote': commands.call(wrapInBlockquoteCommand.key); return true;
         default: return false;
