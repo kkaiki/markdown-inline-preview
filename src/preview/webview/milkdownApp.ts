@@ -159,15 +159,27 @@ function escapeHtml(text: string): string {
 }
 
 function highlightCodeBlocks(): void {
-    // 編集可能なときは hljs で DOM を書き換えない。ProseMirror が管理する
-    // 編集中のコードブロックを書き換えるとカーソルが先頭へ飛ぶため。
-    if (currentSettings?.editable !== false) return;
+    // カーソルがあるコードブロックは hljs で DOM を書き換えない（ProseMirror が
+    // 管理する編集中の要素を書き換えるとカーソルが先頭へ飛ぶため）。それ以外の
+    // ブロックは色付けする。フォーカスが外れたら再ハイライトできるようにする。
+    const selection = document.getSelection();
+    const anchor = selection?.anchorNode ?? null;
+    const focusedPre = anchor
+        ? ((anchor instanceof Element ? anchor : anchor.parentElement)?.closest('pre') ?? null)
+        : null;
+
     root.querySelectorAll('pre code').forEach(block => {
         const el = block as HTMLElement;
+        const pre = el.parentElement;
         if (el.classList.contains('language-mermaid')) return;
-        if (el.parentElement?.dataset.highlighted === 'yes') return;
+        if (pre && pre === focusedPre) {
+            // 編集中のブロックは素のまま。外れたら再着色できるようマークを外す。
+            delete pre.dataset.highlighted;
+            return;
+        }
+        if (pre?.dataset.highlighted === 'yes') return;
         hljs.highlightElement(el);
-        if (el.parentElement) el.parentElement.dataset.highlighted = 'yes';
+        if (pre) pre.dataset.highlighted = 'yes';
     });
 }
 
@@ -416,6 +428,11 @@ const reportScroll = debounce(() => {
     vscodeApi.postMessage({ type: 'scroll', ratio, anchor });
 }, 150);
 root.addEventListener('scroll', reportScroll);
+
+// カーソルがコードブロックから外れたときに、そのブロックを再着色する。
+// 既に着色済みのブロックはスキップされるため負荷は小さい。
+const rehighlightOnSelection = debounce(() => highlightCodeBlocks(), 120);
+document.addEventListener('selectionchange', rehighlightOnSelection);
 
 function applyFadeIn(enabled: boolean): void {
     if (!enabled) return;
