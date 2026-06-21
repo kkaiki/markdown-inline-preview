@@ -52,3 +52,6 @@ coverage/
 
 # --- Local AI / tooling ---
 .claude/settings.local.json
+
+# --- Private business/strategy notes (never commit to public repo) ---
+/private/
