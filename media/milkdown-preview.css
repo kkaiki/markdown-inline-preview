@@ -365,12 +365,6 @@ html, body {
     margin: 0;
 }
 
-/* フォーカス中のリスト項目はアイコンを隠し、`- ` / `- [ ] ` の記法マーカーを見せる
-   （focusSyntaxPlugin が付与する class）。直下の項目のみ対象（ネストは除外）。 */
-.milkdown .milkdown-list-item-block.md-focus-list-item > .list-item > .label-wrapper {
-    display: none;
-}
-
 .milkdown li.list-item .label-wrapper {
     flex: none;
     display: flex;
@@ -483,15 +477,6 @@ body.preview-fade-in {
     white-space: pre;
 }
 
-/* Block prefixes (heading #, list -, blockquote >) render inline, in the
-   block's own font, so a focused heading reads simply as "## heading 2"
-   instead of a detached marker floating in the gutter. */
-.md-syntax-marker--block-prefix {
-    font-family: inherit;
-    font-size: inherit;
-    color: inherit;
-    opacity: 0.4;
-}
 
 /* In-preview find bar (Cmd/Ctrl+F) */
 .preview-find-bar {

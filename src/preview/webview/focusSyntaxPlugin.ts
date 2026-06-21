@@ -1,12 +1,10 @@
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
-import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 
 import {
     collectInlineMarksInRange,
-    findFocusedBlockDepth,
-    getBlockPrefix
+    findFocusedBlockDepth
 } from '../../shared/markdown/focusSyntaxHelpers';
 
 let enabled = true;
@@ -15,33 +13,19 @@ export function setFocusSyntaxEnabled(value: boolean): void {
     enabled = value;
 }
 
-/**
- * フォーカス中のリスト項目の DOM に class を付与する（リスト項目はカスタム Vue
- * nodeView のため node decoration が効かない）。CSS でアイコンを隠し、代わりに
- * `- ` / `- [ ] ` の記法マーカーを見せる。
- */
-function focusedListItemDOM(view: EditorView): Element | null {
-    if (!enabled) return null;
-    const $from = view.state.selection.$from;
-    for (let depth = $from.depth; depth > 0; depth--) {
-        if ($from.node(depth).type.name === 'list_item') {
-            const dom = view.nodeDOM($from.before(depth));
-            return dom instanceof Element ? dom : null;
-        }
-    }
-    return null;
-}
-
-function mkMarker(text: string, extraClass?: string): () => HTMLElement {
+function mkMarker(text: string): () => HTMLElement {
     return () => {
         const el = document.createElement('span');
-        el.className = extraClass ? `md-syntax-marker ${extraClass}` : 'md-syntax-marker';
+        el.className = 'md-syntax-marker';
         el.textContent = text;
         el.setAttribute('aria-hidden', 'true');
         return el;
     };
 }
 
+// 行頭マーカー（`## ` `- ` `- [ ] `）は表示しない。行頭の widget decoration が
+// カーソルの左移動を阻害して不自然になるため。行内のマーカー（** * ` ~~ [..](..)）
+// のみフォーカス時に表示する。
 export const focusSyntaxPlugin = $prose(() => {
     return new Plugin({
         key: new PluginKey('focusSyntax'),
@@ -57,15 +41,6 @@ export const focusSyntaxPlugin = $prose(() => {
                 const blockEnd = $pos.end(depth);
                 const decorations = [];
 
-                const prefix = getBlockPrefix($pos, depth);
-                if (prefix) {
-                    // Rendered as an absolutely-positioned overlay (see CSS) so it doesn't
-                    // push the block's real text - and the cursor - to the right when focused.
-                    decorations.push(
-                        Decoration.widget(blockStart, mkMarker(prefix, 'md-syntax-marker--block-prefix'), { side: -1, key: `prefix-${blockStart}` })
-                    );
-                }
-
                 for (const { pos, end, marker } of collectInlineMarksInRange(state.doc, blockStart, blockEnd)) {
                     decorations.push(
                         Decoration.widget(pos, mkMarker(marker.open), { side: -1, key: `open-${pos}` }),
@@ -75,21 +50,6 @@ export const focusSyntaxPlugin = $prose(() => {
 
                 return DecorationSet.create(state.doc, decorations);
             }
-        },
-        view(editorView) {
-            let marked: Element | null = null;
-            const sync = (view: EditorView): void => {
-                const next = focusedListItemDOM(view);
-                if (next === marked) return;
-                marked?.classList.remove('md-focus-list-item');
-                next?.classList.add('md-focus-list-item');
-                marked = next;
-            };
-            sync(editorView);
-            return {
-                update: (view) => sync(view),
-                destroy: () => marked?.classList.remove('md-focus-list-item')
-            };
         }
     });
 });
