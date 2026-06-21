@@ -49,7 +49,7 @@ function tableCellDepth($pos: ResolvedPos): number {
  * - コードブロック内: ブロック内容 → 文書全体。
  * - それ以外: false（既定の全選択に委ねる）。
  */
-function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
+export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     const { state } = view;
     const sel = state.selection;
 
