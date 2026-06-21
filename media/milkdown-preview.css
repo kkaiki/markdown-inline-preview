@@ -226,7 +226,8 @@ html, body {
 .milkdown table {
     border-collapse: collapse;
     width: 100%;
-    margin: 0.8em 0;
+    /* 上に余白を確保して、編集ツールバー（フロート表示）が上の項目に被らないようにする */
+    margin: 2.6em 0 0.8em;
 }
 .milkdown th, .milkdown td {
     border: 1px solid var(--preview-border);
@@ -255,11 +256,12 @@ html, body {
     z-index: 950;
     display: flex;
     gap: 2px;
-    padding: 3px;
-    background: var(--vscode-editorWidget-background, var(--preview-bg));
-    border: 1px solid var(--vscode-editorWidget-border, var(--preview-border));
+    padding: 2px;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #2c2c34));
+    color: var(--vscode-menu-foreground, var(--vscode-foreground, #e6e6e6));
+    border: 1px solid var(--vscode-menu-border, var(--vscode-editorWidget-border, rgba(255,255,255,0.15)));
     border-radius: 6px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
     user-select: none;
 }
 .table-toolbar[hidden] {
@@ -268,19 +270,24 @@ html, body {
 .table-toolbar button {
     font: inherit;
     font-size: 11px;
-    color: var(--preview-fg);
+    color: inherit;
     background: transparent;
     border: none;
     border-radius: 4px;
-    padding: 3px 7px;
+    padding: 3px 8px;
     cursor: pointer;
     white-space: nowrap;
 }
 .table-toolbar button:hover {
-    background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.18));
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #0a64c2));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #ffffff));
+}
+.table-toolbar button.danger {
+    color: var(--vscode-errorForeground, #f08080);
 }
 .table-toolbar button.danger:hover {
-    background: var(--vscode-inputValidation-errorBackground, rgba(220, 90, 90, 0.22));
+    background: var(--vscode-inputValidation-errorBackground, rgba(220, 90, 90, 0.45));
+    color: #ffffff;
 }
 
 /* 行/列選択（CellSelection）時のセルの青いオーバーレイ */
