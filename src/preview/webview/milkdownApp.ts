@@ -17,11 +17,11 @@ import type { EditorView } from '@milkdown/prose/view';
 
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
-import { stripPlaceholderLineBreaks, tightenListSpacing } from '../../shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing } from '../../shared/markdown/lineBreaks';
 
-/** Preview に出入りする Markdown の正規化（`<br />` 除去 + リスト詰め）。 */
+/** Preview に出入りする Markdown の正規化（`<br />` 除去 + リスト/段落詰め）。 */
 function normalizeMarkdown(markdown: string): string {
-    return tightenListSpacing(stripPlaceholderLineBreaks(markdown));
+    return tightenParagraphSpacing(tightenListSpacing(stripPlaceholderLineBreaks(markdown)));
 }
 import {
     createScrollAnchor,
@@ -300,7 +300,7 @@ function setEditable(editable: boolean): void {
 }
 
 function postChange(markdown: string): void {
-    const next = tightenListSpacing(markdown);
+    const next = tightenParagraphSpacing(tightenListSpacing(markdown));
     if (next === lastSyncedMarkdown) return;
     lastSyncedMarkdown = next;
     vscodeApi.postMessage({ type: 'change', markdown: next });

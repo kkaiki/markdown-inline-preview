@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { stripPlaceholderLineBreaks, tightenListSpacing } from '../../src/shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing } from '../../src/shared/markdown/lineBreaks';
 
 describe('stripPlaceholderLineBreaks', () => {
     it('turns a standalone <br /> line into an empty line', () => {
@@ -84,5 +84,38 @@ describe('tightenListSpacing', () => {
     it('does not treat emphasis as a list item', () => {
         const input = '*emphasis*\n\n*more*';
         assert.strictEqual(tightenListSpacing(input), input);
+    });
+});
+
+describe('tightenParagraphSpacing', () => {
+    it('collapses a blank line between two plain paragraphs', () => {
+        assert.strictEqual(tightenParagraphSpacing('テスト\n\nテスト'), 'テスト\nテスト');
+    });
+
+    it('collapses multiple blank lines between paragraphs', () => {
+        assert.strictEqual(tightenParagraphSpacing('a\n\n\n\nb'), 'a\nb');
+    });
+
+    it('keeps the blank line next to a heading', () => {
+        const input = '# Title\n\npara';
+        assert.strictEqual(tightenParagraphSpacing(input), input);
+    });
+
+    it('keeps the blank line next to a list', () => {
+        assert.strictEqual(tightenParagraphSpacing('para\n\n- item'), 'para\n\n- item');
+    });
+
+    it('keeps the blank line next to a table', () => {
+        const input = 'para\n\n| a | b |\n| --- | --- |';
+        assert.strictEqual(tightenParagraphSpacing(input), input);
+    });
+
+    it('does not touch blank lines inside a fenced code block', () => {
+        const input = '```\na\n\nb\n```';
+        assert.strictEqual(tightenParagraphSpacing(input), input);
+    });
+
+    it('keeps blank line next to a blockquote', () => {
+        assert.strictEqual(tightenParagraphSpacing('para\n\n> quote'), 'para\n\n> quote');
     });
 });

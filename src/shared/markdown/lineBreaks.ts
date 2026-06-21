@@ -56,3 +56,51 @@ export function tightenListSpacing(markdown: string): string {
 
     return out.join('\n');
 }
+
+/**
+ * 「普通の段落」の行かどうか。見出し・リスト・引用・テーブル・水平線・
+ * インデントコード・フェンスは段落として扱わない（結合の誤爆を防ぐ）。
+ */
+function isPlainParagraphLine(line: string): boolean {
+    if (line.trim() === '') return false;
+    if (/^\s{4,}/.test(line) || /^\t/.test(line)) return false;        // インデントコード
+    if (/^\s{0,3}#{1,6}(\s|$)/.test(line)) return false;               // 見出し
+    if (/^\s*([-*+]|\d+[.)])(\s|$)/.test(line)) return false;          // リスト
+    if (/^\s*>/.test(line)) return false;                              // 引用
+    if (line.includes('|')) return false;                             // テーブル（保守的に除外）
+    if (/^\s{0,3}([-*_])\s*(\1\s*){2,}$/.test(line)) return false;     // 水平線
+    if (/^\s*(```|~~~)/.test(line)) return false;                      // フェンス
+    return true;
+}
+
+/**
+ * 普通の段落どうしの間にある空行を取り除き、1 行改行のように詰める。
+ * 段落以外（見出し・リスト・テーブル・コード等）に隣接する空行は保持する。
+ * フェンスコードブロック内は対象外。
+ */
+export function tightenParagraphSpacing(markdown: string): string {
+    const lines = markdown.split('\n');
+    const out: string[] = [];
+    let inFence = false;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/^\s*(```|~~~)/.test(line)) {
+            inFence = !inFence;
+        }
+
+        if (!inFence && line.trim() === '') {
+            const prev = out.length > 0 ? out[out.length - 1] : '';
+            let j = i + 1;
+            while (j < lines.length && lines[j].trim() === '') j++;
+            const next = j < lines.length ? lines[j] : '';
+            if (isPlainParagraphLine(prev) && isPlainParagraphLine(next)) {
+                i = j - 1; // 段落に挟まれた空行（複数可）を捨てる
+                continue;
+            }
+        }
+        out.push(line);
+    }
+
+    return out.join('\n');
+}
