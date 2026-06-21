@@ -33,6 +33,7 @@ import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin, handleSelectAll } from './previewKeymapPlugin';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
+import { createPreviewDiffPlugin, setDiffBase } from './previewDiffPlugin';
 import { PreviewFindBar } from './previewFindBar';
 
 const vscodeApi = acquireVsCodeApi();
@@ -275,6 +276,17 @@ function insertImageSrc(src: string): void {
     });
 }
 
+// 差分基準（Git HEAD 本文）。エディタ作成前に届くこともあるので保留しておく。
+let pendingDiffBase: string | null | undefined;
+
+function applyDiffBase(baseMarkdown: string | null): void {
+    if (!editor) {
+        pendingDiffBase = baseMarkdown;
+        return;
+    }
+    editor.action((ctx) => setDiffBase(ctx, baseMarkdown));
+}
+
 /** 選択テキストがある状態で URL を貼ると、その選択をリンクにする（テキストは保持）。 */
 function handleUrlPaste(view: EditorView, data: DataTransfer | null): boolean {
     if (!data) return false;
@@ -367,6 +379,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(listItemBlockComponent)
         .use(createTableToolbarPlugin())
         .use(createCodeLanguagePlugin())
+        .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
         .use(headingBackspacePlugin);
 
@@ -376,6 +389,11 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
 
     editor = await builder.create();
     slashMenuController?.bindEditor(editor);
+
+    if (pendingDiffBase !== undefined) {
+        applyDiffBase(pendingDiffBase);
+        pendingDiffBase = undefined;
+    }
 
     await enhanceRenderedContent();
 }
@@ -477,6 +495,10 @@ window.addEventListener('message', (event: MessageEvent) => {
     }
     if (message.type === 'imageInserted') {
         insertImageSrc(message.src);
+        return;
+    }
+    if (message.type === 'baseMarkdown') {
+        applyDiffBase(message.baseMarkdown);
     }
 });
 

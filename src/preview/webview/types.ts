@@ -32,7 +32,9 @@ export type HostToWebviewMessage =
           scrollRatio?: number;
           scrollAnchor?: ScrollAnchorPayload;
           frontmatter?: string | null;
+          baseMarkdown?: string | null;
       }
-    | { type: 'update'; markdown: string; frontmatter?: string | null }
+    | { type: 'update'; markdown: string; frontmatter?: string | null; baseMarkdown?: string | null }
     | { type: 'settings'; settings: PreviewSettings }
-    | { type: 'imageInserted'; src: string };
+    | { type: 'imageInserted'; src: string }
+    | { type: 'baseMarkdown'; baseMarkdown: string | null };

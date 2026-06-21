@@ -81,6 +81,44 @@ html, body {
    詰めて表示する（ソースの段落構造は保持。非破壊）。 */
 .milkdown p { margin: 0; }
 
+/* ── Git HEAD との差分ガター（previewDiffPlugin） ──────────────
+   追加=緑・変更=青のバーをブロック左の余白に出す。削除はその位置に赤い線。 */
+.milkdown .diff-added,
+.milkdown .diff-modified {
+    position: relative;
+}
+.milkdown .diff-added::before,
+.milkdown .diff-modified::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -14px;
+    width: 3px;
+    border-radius: 2px;
+}
+.milkdown .diff-added::before {
+    background: var(--vscode-editorGutter-addedBackground, #2ea043);
+}
+.milkdown .diff-modified::before {
+    background: var(--vscode-editorGutter-modifiedBackground, #58a6ff);
+}
+.milkdown .diff-deleted-marker {
+    display: block;
+    height: 0;
+    position: relative;
+}
+.milkdown .diff-deleted-marker::before {
+    content: '';
+    position: absolute;
+    left: -16px;
+    width: 7px;
+    height: 2px;
+    top: -1px;
+    border-radius: 1px;
+    background: var(--vscode-editorGutter-deletedBackground, #f85149);
+}
+
 /* Show single source newlines (soft breaks) as visible line breaks.
    Milkdown turns a soft break into an inline hardbreak rendered as
    <span data-type="hardbreak"> </span> (a space). Append a real newline so
