@@ -106,8 +106,9 @@ html, body {
 
 /* ── フォーカス行の行頭マーカー（focusSyntaxPlugin） ──────────────
    フォーカス中の行だけ `## ` `- ` `1. ` `- [ ] ` `> ` を ::before で表示。
-   CSS 生成内容なのでカーソルには影響しない。 */
-.milkdown .md-focus-block::before {
+   node decoration で class + data-md-prefix を付け、::before で見せる
+   （DOM を直接いじらないので ProseMirror の再描画ループにならない）。 */
+.milkdown .md-focus-block:not(.md-focus-list)::before {
     content: attr(data-md-prefix);
     color: currentColor;
     opacity: 0.4;
@@ -115,17 +116,29 @@ html, body {
     font-weight: 400;
     white-space: pre;
 }
-/* リスト項目はフォーカス時、アイコンを隠してマーカーをその位置に出す */
-.milkdown li.list-item.md-focus-list > .label-wrapper {
-    display: none;
+/* リスト項目は node decoration の class がラッパー
+   （div.milkdown-list-item-block）に付く。ラッパーを flex 化してマーカーを
+   bullet があった位置に出し、本来の bullet/アイコンは隠す。 */
+.milkdown .milkdown-list-item-block.md-focus-list {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.3em;
 }
-.milkdown li.list-item.md-focus-list::before {
+.milkdown .milkdown-list-item-block.md-focus-list::before {
     content: attr(data-md-prefix);
     flex: none;
+    line-height: 1.6;
     color: currentColor;
     opacity: 0.55;
     font-family: var(--vscode-editor-font-family, monospace);
     white-space: pre;
+}
+.milkdown .milkdown-list-item-block.md-focus-list > li.list-item {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.milkdown .milkdown-list-item-block.md-focus-list > li.list-item > .label-wrapper {
+    display: none;
 }
 .milkdown .diff-deleted-marker {
     display: block;
