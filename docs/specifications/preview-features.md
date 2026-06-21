@@ -71,7 +71,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 
 | 機能 | 説明 | 設定キー |
 |------|------|----------|
-| シンタックスハイライト | highlight.js（主要言語）。**編集中は無効**（DOM 書き換えでカーソルが先頭へ飛ぶのを防ぐため、非編集時のみ着色） | 常時 on |
+| シンタックスハイライト | highlight.js（主要言語）。**カーソルがあるコードブロックのみ**着色しない（編集中の DOM 書き換えでカーソルが飛ぶのを防ぐ）。他ブロックは着色し、フォーカスが外れたら再着色 | 常時 on |
 | コードブロック言語選択 | コードブロック右上のドロップダウンで言語（`bash`/`js`/`python` 等）を選択。`language` 属性に保存（` ```js ` 等） | 自動 |
 | KaTeX 数式 | `$...$`（インライン）、`$$...$$`（ブロック） | `preview.enableMath` |
 | Mermaid 図 | ` ```mermaid ` コードブロック | `preview.enableMermaid` |
