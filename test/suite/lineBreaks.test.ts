@@ -70,4 +70,19 @@ describe('tightenListSpacing', () => {
         const input = '- a\n- b\n- c\n';
         assert.strictEqual(tightenListSpacing(input), input);
     });
+
+    it('tightens around empty marker-only items', () => {
+        const input = '* [ ] a\n\n*\n\n*\n\n* [ ] b';
+        assert.strictEqual(tightenListSpacing(input), '* [ ] a\n*\n*\n* [ ] b');
+    });
+
+    it('does not collapse around a thematic break (***)', () => {
+        const input = '- a\n\n***\n\n- b';
+        assert.strictEqual(tightenListSpacing(input), input);
+    });
+
+    it('does not treat emphasis as a list item', () => {
+        const input = '*emphasis*\n\n*more*';
+        assert.strictEqual(tightenListSpacing(input), input);
+    });
 });
