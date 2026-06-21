@@ -31,7 +31,7 @@ import { headingBackspacePlugin } from './headingBackspacePlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
-import { createPreviewKeymapPlugin } from './previewKeymapPlugin';
+import { createPreviewKeymapPlugin, handleSelectAll } from './previewKeymapPlugin';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
 import { PreviewFindBar } from './previewFindBar';
 
@@ -46,10 +46,30 @@ if (!root) {
 
 const findBar = new PreviewFindBar(root);
 document.addEventListener('keydown', (event) => {
-    if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && (event.code === 'KeyF' || event.key === 'f')) {
+    const mod = event.metaKey || event.ctrlKey;
+
+    // Cmd/Ctrl+F: Preview 内検索
+    if (mod && !event.altKey && !event.shiftKey && (event.code === 'KeyF' || event.key === 'f')) {
         event.preventDefault();
         event.stopPropagation();
         findBar.open();
+        return;
+    }
+
+    // Cmd/Ctrl+A: テーブル/コードブロックの段階選択。
+    // capture フェーズで横取りして、ProseMirror 標準の全選択より先に処理する
+    // （プラグインの handleKeyDown は読み込み順により負けることがあるため）。
+    if (mod && !event.altKey && !event.shiftKey && (event.code === 'KeyA' || event.key === 'a')) {
+        if (!editor) return;
+        const handled = editor.action((ctx) => {
+            const view = ctx.get(editorViewCtx);
+            if (!view.hasFocus()) return false;
+            return handleSelectAll(view, ctx);
+        });
+        if (handled) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
     }
 }, true);
 
