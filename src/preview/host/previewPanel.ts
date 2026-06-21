@@ -20,6 +20,7 @@ import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';
 import { splitFrontmatter, mergeFrontmatter } from '../../shared/markdown/frontmatter';
 import { findScrollAnchor, findLineBySlug } from '../../shared/structure/scrollAnchor';
+import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/scrollSync';
 
 const execFileAsync = promisify(execFile);
 
@@ -155,18 +156,18 @@ function getRememberedMode(context: vscode.ExtensionContext): 'raw' | 'preview' 
     return context.globalState.get<'raw' | 'preview'>(GLOBAL_MODE_KEY);
 }
 
+/** エディタの「現在画面最上部の行」。スクロール位置の同期基準に使う。 */
+function topVisibleLine(editor: vscode.TextEditor): number {
+    return editor.visibleRanges[0]?.start.line ?? editor.selection.active.line;
+}
+
 function computeScrollRatio(editor: vscode.TextEditor | undefined): number | undefined {
-    if (!editor || editor.document.lineCount <= 1) return undefined;
-    const topLine = editor.visibleRanges[0]?.start.line ?? 0;
-    return topLine / editor.document.lineCount;
+    if (!editor) return undefined;
+    return scrollRatioFromLine(topVisibleLine(editor), editor.document.lineCount);
 }
 
 function revealRatio(editor: vscode.TextEditor, ratio: number): void {
-    const document = editor.document;
-    const targetLine = Math.min(
-        document.lineCount - 1,
-        Math.max(0, Math.round(ratio * document.lineCount))
-    );
+    const targetLine = lineFromScrollRatio(ratio, editor.document.lineCount);
     const range = new vscode.Range(targetLine, 0, targetLine, 0);
     editor.revealRange(range, vscode.TextEditorRevealType.AtTop);
 }
@@ -384,6 +385,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (message.type === 'exportRequest') {
                 void handleExportRequest();
+                return;
+            }
+            if (message.type === 'toggleRaw') {
+                void vscode.commands.executeCommand('markdownInline.togglePreview');
             }
         });
 
@@ -559,13 +564,15 @@ async function switchToPreview(
 ): Promise<void> {
     const key = document.uri.toString();
     if (getConfig<boolean>('preview.syncScroll', true) && editor) {
-        const line = editor.selection.active.line;
-        const anchor = findScrollAnchor(document, line);
+        // カーソル行ではなく「画面最上部の行」を基準にする。マウスホイールでスクロール
+        // しただけ（カーソルは動かない）でも Preview が同じ位置で開くようにするため。
+        const topLine = topVisibleLine(editor);
+        const anchor = findScrollAnchor(document, topLine);
         if (anchor) {
             pendingOpenScrollAnchor.set(key, anchor);
-        } else {
-            pendingOpenScrollRatio.set(key, computeScrollRatio(editor) ?? 0);
         }
+        // アンカー見出しが Preview 側で見つからない場合の保険として、比率も常に渡す。
+        pendingOpenScrollRatio.set(key, computeScrollRatio(editor) ?? 0);
     }
     rememberMode(context, 'preview');
     await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
