@@ -13,11 +13,30 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 
 import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';
 import { splitFrontmatter, mergeFrontmatter } from '../../shared/markdown/frontmatter';
 import { findScrollAnchor, findLineBySlug } from '../../shared/structure/scrollAnchor';
+
+const execFileAsync = promisify(execFile);
+
+/** Git HEAD 版のファイル本文（frontmatter 除去後）。git 管理外/新規なら null。 */
+async function getGitHeadBody(fsPath: string): Promise<string | null> {
+    const dir = path.dirname(fsPath);
+    const base = path.basename(fsPath);
+    try {
+        const { stdout } = await execFileAsync('git', ['show', `HEAD:./${base}`], {
+            cwd: dir,
+            maxBuffer: 16 * 1024 * 1024
+        });
+        return splitFrontmatter(stdout).body;
+    } catch {
+        return null;
+    }
+}
 
 type DebugLogFunction = (message: string, ...args: unknown[]) => void;
 
@@ -155,8 +174,18 @@ function revealAnchor(editor: vscode.TextEditor, anchor: ScrollAnchorPayload): v
 class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly imageUriMaps = new Map<string, Map<string, string>>();
     private readonly frontmatterMaps = new Map<string, string | null>();
+    // Git HEAD 本文のキャッシュ（差分の基準。ファイルを開いた時点で取得）
+    private readonly baseBodyCache = new Map<string, string | null>();
 
     constructor(private readonly context: vscode.ExtensionContext) {}
+
+    private async getBaseBody(document: vscode.TextDocument): Promise<string | null> {
+        const key = document.uri.toString();
+        if (this.baseBodyCache.has(key)) return this.baseBodyCache.get(key) ?? null;
+        const body = document.uri.scheme === 'file' ? await getGitHeadBody(document.uri.fsPath) : null;
+        this.baseBodyCache.set(key, body);
+        return body;
+    }
 
     private prepareForWebview(
         markdown: string,
@@ -322,6 +351,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                     scrollAnchor,
                     scrollRatio
                 });
+                // Git HEAD 本文（差分基準）は取得が非同期なので別メッセージで送る
+                void this.getBaseBody(document).then((baseMarkdown) => {
+                    void webviewPanel.webview.postMessage({ type: 'baseMarkdown', baseMarkdown });
+                });
                 return;
             }
             if (message.type === 'change' && typeof message.markdown === 'string') {
@@ -352,6 +385,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             if (pushTimer) clearTimeout(pushTimer);
             this.imageUriMaps.delete(key);
             this.frontmatterMaps.delete(key);
+            this.baseBodyCache.delete(key);
             syncEditorContext();
         });
 
