@@ -20,6 +20,7 @@ import {
 } from './list';
 import * as previewModule from '../preview/activate';
 import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
+import { registerPreviewToggleCodeLensProvider } from './providers/previewToggleCodeLens';
 import { registerImageHoverProvider } from './providers/imageHover';
 import { registerTableWrapHoverProvider } from './providers/tableWrapHover';
 import {
@@ -85,6 +86,10 @@ export function activate(context: vscode.ExtensionContext): void {
     previewModule.activatePreviewFeature(context);
 
     registerCheckboxCodeLensProvider(context, () => isPreviewEnabled() && isShowCheckboxCodeLensEnabled());
+    registerPreviewToggleCodeLensProvider(
+        context,
+        () => getMarkdownInlineConfig().get<boolean>('preview.showToggleCodeLens', true)
+    );
     registerImageHoverProvider(context, () => isImageHoverPreviewEnabled());
     registerTableWrapHoverProvider(
         context,

@@ -1,8 +1,8 @@
-# iPreview
+# Markdown Inline Preview
 
 **VS Code / Cursor 向け Notion・Obsidian 風 Markdown エディタ**
 
-iPreview（`ipreview`）は、同じ `.md` ファイルを **2 モード** で編集する拡張機能です。
+Markdown Inline Preview（`ipreview`）は、同じ `.md` ファイルを **2 モード** で編集する拡張機能です。
 
 | | **Raw** | **Preview** |
 |---|---------|-------------|

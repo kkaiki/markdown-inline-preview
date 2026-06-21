@@ -15,6 +15,8 @@ export interface PreviewSettings {
     enableTransitions: boolean;
     showFocusSyntax: boolean;
     enableSlashMenu: boolean;
+    showToolbar: boolean;
+    toolbarShowShortcuts: boolean;
 }
 
 export type WebviewToHostMessage =
@@ -22,7 +24,8 @@ export type WebviewToHostMessage =
     | { type: 'change'; markdown: string }
     | { type: 'scroll'; ratio: number; anchor?: ScrollAnchorPayload }
     | { type: 'openLink'; href: string }
-    | { type: 'insertImage'; dataUrl: string; name: string };
+    | { type: 'insertImage'; dataUrl: string; name: string }
+    | { type: 'exportRequest' };
 
 export type HostToWebviewMessage =
     | {

@@ -558,3 +558,85 @@ body.preview-fade-in {
     opacity: 0.75;
     margin-top: 2px;
 }
+
+/* Preview 上部固定ツールバー（docs/specifications/preview-toolbar.md） */
+.preview-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: var(--preview-bg);
+    border-bottom: 1px solid var(--preview-border);
+    box-sizing: border-box;
+    backdrop-filter: saturate(120%);
+}
+
+.preview-toolbar-btn {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--preview-fg);
+    font-family: var(--vscode-editor-font-family, system-ui);
+    font-size: 12px;
+    line-height: 1;
+    min-width: 26px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.preview-toolbar-btn:hover {
+    background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+.preview-toolbar-btn.active {
+    background: var(--vscode-inputOption-activeBackground, rgba(55, 148, 255, 0.25));
+    border-color: var(--vscode-inputOption-activeBorder, var(--preview-link));
+}
+
+.preview-toolbar-spacer {
+    flex: 1 1 auto;
+}
+
+.preview-toolbar-export {
+    font-weight: 600;
+    border-color: var(--preview-border);
+}
+
+.preview-toolbar-tooltip {
+    position: fixed;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 320px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--vscode-editorHoverWidget-background, #252526);
+    color: var(--vscode-editorHoverWidget-foreground, var(--preview-fg));
+    border: 1px solid var(--vscode-editorHoverWidget-border, var(--preview-border));
+    font-size: 11.5px;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.preview-toolbar-tooltip[hidden] {
+    display: none;
+}
+
+.preview-toolbar-key {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 10.5px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--vscode-keybindingLabel-background, rgba(128, 128, 128, 0.22));
+    border: 1px solid var(--vscode-keybindingLabel-border, var(--preview-border));
+    color: var(--vscode-keybindingLabel-foreground, var(--preview-fg));
+}

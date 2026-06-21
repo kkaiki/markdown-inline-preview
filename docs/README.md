@@ -1,4 +1,4 @@
-# iPreview ドキュメント
+# Markdown Inline Preview ドキュメント
 
 プロジェクト概要（英語）: [README.md](../README.md) · 日本語: [README.ja.md](../README.ja.md)
 

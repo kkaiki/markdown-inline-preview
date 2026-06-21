@@ -491,6 +491,16 @@
           "default": true,
           "description": "Show a Preview / Raw toggle button above the first line of Markdown files (always visible, unlike the toolbar icon which Cursor may hide in the overflow menu)"
         },
+        "markdownInline.preview.showToolbar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a formatting toolbar (heading / checkbox / numbered list / export) fixed at the top of the Preview editor"
+        },
+        "markdownInline.preview.toolbarShowShortcuts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show keyboard shortcuts in the tooltip when hovering over Preview toolbar buttons"
+        },
         "markdownInline.preview.defaultMode": {
           "type": "string",
           "default": "raw",
