@@ -47,6 +47,17 @@ module.exports = tseslint.config(
     },
 
     {
+        // test/webview は tsconfig.test.json から除外しているため専用 project を使う
+        files: ['test/webview/**/*.ts'],
+        languageOptions: {
+            parserOptions: {
+                project: './tsconfig.webview-test.json',
+                tsconfigRootDir: __dirname,
+            },
+        },
+    },
+
+    {
         rules: {
             '@typescript-eslint/no-unused-vars': ['error', {
                 argsIgnorePattern: '^_',

@@ -13,14 +13,25 @@ import renderMathInElement from 'katex/contrib/auto-render';
 import mermaid from 'mermaid';
 
 import type { EditorView } from '@milkdown/prose/view';
+import { Selection } from '@milkdown/prose/state';
+import { overrideHardbreakSerializer } from './hardbreakSerializer';
 
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
-import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing } from '../../shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities } from '../../shared/markdown/lineBreaks';
 
-/** Preview に出入りする Markdown の正規化（`<br />` 除去 + リスト/段落詰め）。 */
+/**
+ * Preview に出入りする Markdown の正規化:
+ * - `<br />` プレースホルダ（空行・空セル）除去
+ * - テーブルセル内 `<br>` → `&#10;`（hardbreak として編集できるように）
+ * - リスト/段落の余分な空行詰め
+ */
 function normalizeMarkdown(markdown: string): string {
-    return tightenParagraphSpacing(tightenListSpacing(stripPlaceholderLineBreaks(markdown)));
+    return tightenParagraphSpacing(
+        tightenListSpacing(
+            convertTableCellBreaksToEntities(stripPlaceholderLineBreaks(markdown))
+        )
+    );
 }
 import {
     createScrollAnchor,
@@ -32,6 +43,7 @@ import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled 
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createPreviewKeymapPlugin, handleSelectAll } from './previewKeymapPlugin';
+import { classifyPreviewShortcut } from '../../shared/preview/previewShortcuts';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
 import { createPreviewDiffPlugin, setDiffBase } from './previewDiffPlugin';
 import { PreviewFindBar } from './previewFindBar';
@@ -47,10 +59,10 @@ if (!root) {
 
 const findBar = new PreviewFindBar(root);
 document.addEventListener('keydown', (event) => {
-    const mod = event.metaKey || event.ctrlKey;
+    const shortcut = classifyPreviewShortcut(event);
 
     // Cmd/Ctrl+F: Preview 内検索
-    if (mod && !event.altKey && !event.shiftKey && (event.code === 'KeyF' || event.key === 'f')) {
+    if (shortcut?.kind === 'find') {
         event.preventDefault();
         event.stopPropagation();
         findBar.open();
@@ -60,7 +72,7 @@ document.addEventListener('keydown', (event) => {
     // Cmd/Ctrl+A: テーブル/コードブロックの段階選択。
     // capture フェーズで横取りして、ProseMirror 標準の全選択より先に処理する
     // （プラグインの handleKeyDown は読み込み順により負けることがあるため）。
-    if (mod && !event.altKey && !event.shiftKey && (event.code === 'KeyA' || event.key === 'a')) {
+    if (shortcut?.kind === 'selectAll') {
         if (!editor) return;
         const handled = editor.action((ctx) => {
             const view = ctx.get(editorViewCtx);
@@ -73,6 +85,43 @@ document.addEventListener('keydown', (event) => {
         }
     }
 }, true);
+
+/**
+ * 末尾ブロックより下の余白をダブルクリックしたら、文書末尾に空段落を追加して
+ * そこへカーソルを移す。テーブルやコードブロックで終わっている文書でも、
+ * その下に続きを書き始められるようにするため。
+ */
+function appendTrailingParagraph(view: EditorView): void {
+    const { state } = view;
+    const last = state.doc.lastChild;
+    const alreadyEmpty = last?.type.name === 'paragraph' && last.content.size === 0;
+
+    let tr = state.tr;
+    if (!alreadyEmpty) {
+        const paragraph = state.schema.nodes.paragraph.createAndFill();
+        if (!paragraph) return;
+        tr = tr.insert(state.doc.content.size, paragraph);
+    }
+    tr = tr.setSelection(Selection.atEnd(tr.doc)).scrollIntoView();
+    view.dispatch(tr);
+    view.focus();
+}
+
+root.addEventListener('dblclick', (event) => {
+    if (!editor) return;
+    editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        if (!view.editable) return;
+        // ProseMirror の描画領域（.ProseMirror）の最終ブロックより下をクリックした時だけ。
+        // 本文をダブルクリックした場合は ProseMirror の既定（単語選択など）に任せる。
+        const lastBlock = view.dom.lastElementChild;
+        const bottom = lastBlock
+            ? lastBlock.getBoundingClientRect().bottom
+            : view.dom.getBoundingClientRect().bottom;
+        if (event.clientY <= bottom) return;
+        appendTrailingParagraph(view);
+    });
+});
 
 const PROPORTIONAL_FONT_STACK =
     '-apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Yu Gothic UI", Meiryo, "Noto Sans JP", sans-serif';
@@ -313,10 +362,14 @@ function setEditable(editable: boolean): void {
 }
 
 function postChange(markdown: string): void {
-    const next = tightenParagraphSpacing(tightenListSpacing(markdown));
-    if (next === lastSyncedMarkdown) return;
-    lastSyncedMarkdown = next;
-    vscodeApi.postMessage({ type: 'change', markdown: next });
+    // ファイルに書く形（テーブルセル内改行は `<br>` のまま）。
+    const fileMarkdown = tightenParagraphSpacing(tightenListSpacing(markdown));
+    // 重複判定は取り込み時と同じ正規形（セル内改行は `&#10;`）で行う。こうしないと
+    // ホストからのエコーバック（`<br>`）を正規化した結果と食い違い、無駄な再描画になる。
+    const canonical = normalizeMarkdown(markdown);
+    if (canonical === lastSyncedMarkdown) return;
+    lastSyncedMarkdown = canonical;
+    vscodeApi.postMessage({ type: 'change', markdown: fileMarkdown });
     void enhanceRenderedContent();
 }
 
@@ -367,6 +420,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 postChange(nextMarkdown);
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
+            overrideHardbreakSerializer(ctx);
         })
         // Keymap overrides must come before the presets so their handleKeyDown
         // runs ahead of the base/gfm keymaps (Cmd+A, Cmd+Opt+N, Enter-in-cell).

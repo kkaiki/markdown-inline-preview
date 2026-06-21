@@ -1,6 +1,6 @@
 {
   "name": "ipreview",
-  "displayName": "iPreview",
+  "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
   "version": "1.8.5",
   "publisher": "ipreview",
@@ -173,19 +173,23 @@
       },
       {
         "command": "markdownInline.openPreview",
-        "title": "$(open-preview) Preview",
+        "title": "Preview",
         "shortTitle": "Preview",
+        "icon": "$(open-preview)",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.openRaw",
-        "title": "$(open-preview) Raw",
+        "title": "Raw",
         "shortTitle": "Raw",
+        "icon": "$(code)",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.togglePreview",
         "title": "Toggle Preview / Raw",
+        "shortTitle": "Preview / Raw",
+        "icon": "$(book)",
         "enablement": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview' || resourceLangId == markdown",
         "category": "Markdown Inline Preview"
       }
@@ -193,7 +197,7 @@
     "customEditors": [
       {
         "viewType": "ipreview.preview",
-        "displayName": "iPreview",
+        "displayName": "Markdown Inline Preview",
         "selector": [
           {
             "filenamePattern": "*.md"
@@ -208,19 +212,14 @@
     "menus": {
       "editor/title": [
         {
-          "command": "markdownInline.formatTable",
-          "when": "editorLangId == markdown",
+          "command": "markdownInline.togglePreview",
+          "when": "ipreview.markdownEditor",
           "group": "navigation@1"
         },
         {
-          "command": "markdownInline.openPreview",
-          "when": "ipreview.markdownEditor && !ipreview.previewActive",
-          "group": "navigation@3"
-        },
-        {
-          "command": "markdownInline.openRaw",
-          "when": "ipreview.markdownEditor && ipreview.previewActive",
-          "group": "navigation@3"
+          "command": "markdownInline.formatTable",
+          "when": "editorLangId == markdown",
+          "group": "navigation@2"
         }
       ]
     },
@@ -487,6 +486,11 @@
           "default": true,
           "description": "Advanced: Disable built-in Markdown completion and table formatter settings that conflict with this extension"
         },
+        "markdownInline.preview.showToggleCodeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a Preview / Raw toggle button above the first line of Markdown files (always visible, unlike the toolbar icon which Cursor may hide in the overflow menu)"
+        },
         "markdownInline.preview.defaultMode": {
           "type": "string",
           "default": "raw",
@@ -620,15 +624,16 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:webview",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:webview && npm run build:webview-test",
     "build:webview": "esbuild src/preview/webview/milkdownApp.ts --bundle --minify --outfile=media/milkdown.bundle.js --format=iife --platform=browser --target=es2020",
+    "build:webview-test": "npx tsc -p tsconfig.webview-test.json && esbuild test/webview/*.test.ts --bundle --platform=node --format=cjs --outdir=out-test/webview --external:jsdom --log-level=error",
     "watch": "npx tsc --watch",
     "lint": "eslint src test --ext .ts",
     "lint:error": "eslint src test --ext .ts --max-warnings 0",
     "lint:fix": "eslint src test --ext .ts --fix",
     "pretest": "npm run compile",
     "test": "node ./out-test/runTest.js",
-    "test:unit": "mocha out-test/test/suite/*.test.js --ignore out-test/test/suite/index.js --timeout 5000",
+    "test:unit": "mocha out-test/test/suite/*.test.js out-test/webview/*.test.js --ignore out-test/test/suite/index.js --timeout 15000",
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "setup:hooks": "sh scripts/install-githooks.sh",
@@ -640,6 +645,7 @@
   },
   "devDependencies": {
     "@milkdown/kit": "^7.21.2",
+    "@types/jsdom": "^28.0.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^16.18.126",
     "@types/vscode": "^1.74.0",
@@ -651,6 +657,7 @@
     "eslint": "^10.5.0",
     "glob": "^8.0.0",
     "highlight.js": "^11.11.1",
+    "jsdom": "^29.1.1",
     "mocha": "^10.2.0",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",

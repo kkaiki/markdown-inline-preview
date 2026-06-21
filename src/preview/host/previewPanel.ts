@@ -51,6 +51,10 @@ const GLOBAL_MODE_KEY = 'markdownInline.previewMode';
 const PREVIEW_ACTIVE_CONTEXT = 'ipreview.previewActive';
 const MARKDOWN_EDITOR_CONTEXT = 'ipreview.markdownEditor';
 
+// 画面下部に常時出すモード切り替えトグル。Cursor のタイトルバーは幅が狭いと
+// アイコンを「…」へ折りたたむため、確実に見える保険としてステータスバーにも置く。
+let modeStatusBarItem: vscode.StatusBarItem | undefined;
+
 // Preview を開く直前のスクロール状態（resolveCustomTextEditor の init で消費）
 const pendingOpenScrollRatio = new Map<string, number>();
 const pendingOpenScrollAnchor = new Map<string, ScrollAnchorPayload>();
@@ -464,6 +468,26 @@ function syncEditorContext(): void {
 
     void vscode.commands.executeCommand('setContext', PREVIEW_ACTIVE_CONTEXT, previewUri !== undefined);
     void vscode.commands.executeCommand('setContext', MARKDOWN_EDITOR_CONTEXT, isMarkdown);
+
+    updateModeStatusBar(isMarkdown, previewUri !== undefined);
+}
+
+// ステータスバーのトグルを現在のモードに合わせて更新する。Markdown 以外を
+// 開いているときは隠す。クリックで Preview ⇔ Raw を切り替える。
+function updateModeStatusBar(isMarkdown: boolean, previewActive: boolean): void {
+    if (!modeStatusBarItem) return;
+    if (!isMarkdown) {
+        modeStatusBarItem.hide();
+        return;
+    }
+    if (previewActive) {
+        modeStatusBarItem.text = '$(book) Preview';
+        modeStatusBarItem.tooltip = 'Markdown Inline Preview: クリックで Raw（Markdown ソース）に切り替え';
+    } else {
+        modeStatusBarItem.text = '$(markdown) Raw';
+        modeStatusBarItem.tooltip = 'Markdown Inline Preview: クリックで Preview（WYSIWYG）に切り替え';
+    }
+    modeStatusBarItem.show();
 }
 
 function findTabs(matches: (tab: vscode.Tab) => boolean): vscode.Tab[] {
@@ -494,7 +518,12 @@ function isPreviewTabForUri(uri: vscode.Uri): (tab: vscode.Tab) => boolean {
 // (先に閉じてしまうと、ドキュメントが一瞬どのタブにも属さなくなり保存確認が出ることがあるため)
 async function closeStaleTabs(tabs: vscode.Tab[]): Promise<void> {
     if (tabs.length === 0) return;
-    await vscode.window.tabGroups.close(tabs, true);
+    try {
+        await vscode.window.tabGroups.close(tabs, true);
+    } catch {
+        // openWith may have already replaced/closed the tab in-place, leaving a
+        // stale handle. VS Code then throws "Invalid tab not found!" — ignore it.
+    }
 }
 
 async function switchToPreview(
@@ -514,9 +543,10 @@ async function switchToPreview(
         }
     }
     rememberMode(context, 'preview');
-    const staleTextTabs = findTabs(isTextTabForUri(document.uri));
     await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
-    await closeStaleTabs(staleTextTabs);
+    // Re-query after openWith: it may have replaced the text tab in-place, which
+    // would make a pre-captured handle stale and throw on close.
+    await closeStaleTabs(findTabs(isTextTabForUri(document.uri)));
 }
 
 async function switchToRaw(
@@ -528,9 +558,9 @@ async function switchToRaw(
     const anchor = lastKnownScrollAnchor.get(key);
     const ratio = lastKnownScrollRatio.get(key);
     rememberMode(context, 'raw');
-    const stalePreviewTabs = findTabs(isPreviewTabForUri(uri));
     await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
-    await closeStaleTabs(stalePreviewTabs);
+    // Re-query after openWith (see switchToPreview): avoids closing a stale handle.
+    await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
 
     if (!getConfig<boolean>('preview.syncScroll', true)) return;
     const editor = vscode.window.activeTextEditor;
@@ -547,6 +577,11 @@ async function switchToRaw(
 
 export function activatePreviewFeature(context: vscode.ExtensionContext): void {
     const provider = new PreviewEditorProvider(context);
+
+    // 常時表示のモードトグル（タイトルバーが折りたたまれても見える保険）。
+    modeStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    modeStatusBarItem.command = 'markdownInline.togglePreview';
+    context.subscriptions.push(modeStatusBarItem);
 
     syncEditorContext();
 

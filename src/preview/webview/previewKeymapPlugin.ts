@@ -15,7 +15,8 @@ import {
     wrapInBulletListCommand,
     wrapInOrderedListCommand,
     createCodeBlockCommand,
-    wrapInBlockquoteCommand
+    wrapInBlockquoteCommand,
+    splitListItemCommand
 } from '@milkdown/kit/preset/commonmark';
 import { selectTableCommand } from '@milkdown/kit/preset/gfm';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
@@ -23,6 +24,7 @@ import { CellSelection } from '@milkdown/prose/tables';
 import type { ResolvedPos } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
+import { classifyPreviewShortcut, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
 
 function findDepth($pos: ResolvedPos, names: string[]): number {
     for (let depth = $pos.depth; depth > 0; depth--) {
@@ -111,21 +113,52 @@ function makeTodo(view: EditorView, ctx: Ctx): void {
     view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
 }
 
-/** Notion 風ブロック変換。対応していない数字は false を返す。 */
-function runNotionBlock(view: EditorView, ctx: Ctx, n: number): boolean {
+/** Notion 風ブロック変換。種別ごとに対応する Milkdown コマンドを実行する。 */
+function runNotionBlock(view: EditorView, ctx: Ctx, action: NotionBlockAction): boolean {
     const commands = ctx.get(commandsCtx);
-    switch (n) {
-        case 0: commands.call(turnIntoTextCommand.key); return true;
-        case 1: commands.call(wrapInHeadingCommand.key, 1); return true;
-        case 2: commands.call(wrapInHeadingCommand.key, 2); return true;
-        case 3: commands.call(wrapInHeadingCommand.key, 3); return true;
-        case 4: makeTodo(view, ctx); return true;
-        case 5: commands.call(wrapInBulletListCommand.key); return true;
-        case 6: commands.call(wrapInOrderedListCommand.key); return true;
-        case 8: commands.call(createCodeBlockCommand.key); return true;
-        case 9: commands.call(wrapInBlockquoteCommand.key); return true;
+    switch (action) {
+        case 'paragraph': commands.call(turnIntoTextCommand.key); return true;
+        case 'heading1': commands.call(wrapInHeadingCommand.key, 1); return true;
+        case 'heading2': commands.call(wrapInHeadingCommand.key, 2); return true;
+        case 'heading3': commands.call(wrapInHeadingCommand.key, 3); return true;
+        case 'todo': makeTodo(view, ctx); return true;
+        case 'bulletList': commands.call(wrapInBulletListCommand.key); return true;
+        case 'orderedList': commands.call(wrapInOrderedListCommand.key); return true;
+        case 'codeBlock': commands.call(createCodeBlockCommand.key); return true;
+        case 'blockquote': commands.call(wrapInBlockquoteCommand.key); return true;
         default: return false;
     }
+}
+
+/**
+ * チェックボックス（タスクリスト）項目で Enter を押したときの継続。
+ *
+ * Milkdown 既定の splitListItem は新項目に元の属性（checked）を引き継ぐため、
+ * `- [x]` で改行すると新項目も `- [x]` になってしまう。新しい項目は常に未チェック
+ * （`- [ ]`）にしたいので、分割後にその checked を false に戻す。
+ * タスク項目（checked が boolean）以外には関与しない。
+ */
+function handleTaskListEnter(view: EditorView, ctx: Ctx): boolean {
+    const { state } = view;
+    const { $from, empty } = state.selection;
+    if (!empty) return false;
+
+    const depth = findDepth($from, ['list_item']);
+    if (depth < 0) return false;
+    if (typeof $from.node(depth).attrs.checked !== 'boolean') return false; // タスク項目のみ
+
+    if (!ctx.get(commandsCtx).call(splitListItemCommand.key)) return false;
+
+    // 分割後はカーソルが新しい項目に入っている。その項目が checked なら false へ。
+    const after = view.state;
+    const newDepth = findDepth(after.selection.$from, ['list_item']);
+    if (newDepth >= 0) {
+        const pos = after.selection.$from.before(newDepth);
+        if (after.doc.nodeAt(pos)?.attrs.checked === true) {
+            view.dispatch(after.tr.setNodeAttribute(pos, 'checked', false));
+        }
+    }
+    return true;
 }
 
 /**
@@ -162,38 +195,37 @@ export function createPreviewKeymapPlugin() {
             key: new PluginKey('previewKeymap'),
             props: {
                 handleKeyDown(view, event) {
-                    // Enter: ``` / ```lang の段落をコードブロック化
-                    if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-                        if (handleFenceEnter(view)) {
-                            event.preventDefault();
-                            return true;
-                        }
-                        return false;
-                    }
+                    const shortcut = classifyPreviewShortcut(event);
+                    if (!shortcut) return false;
 
-                    const mod = event.metaKey || event.ctrlKey;
-                    if (!mod) return false;
-
-                    // Notion 風: Cmd/Ctrl+Opt+<数字>（Mac の Alt+数字は記号になるため code を見る）
-                    if (event.altKey && !event.shiftKey) {
-                        const match = /^Digit(\d)$/.exec(event.code);
-                        if (match) {
-                            const handled = runNotionBlock(view, ctx, Number(match[1]));
-                            if (handled) {
+                    switch (shortcut.kind) {
+                        case 'fenceEnter':
+                            // Enter: ``` / ```lang の段落をコードブロック化
+                            if (handleFenceEnter(view)) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            // fence でなければタスク項目の継続を試す
+                            if (handleTaskListEnter(view, ctx)) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            return false;
+                        case 'notionBlock':
+                            // Notion 風: Cmd/Ctrl+Opt+<数字>
+                            if (runNotionBlock(view, ctx, shortcut.action)) {
                                 event.preventDefault();
                                 view.focus();
                                 return true;
                             }
-                        }
-                        return false;
+                            return false;
+                        case 'selectAll':
+                            // Cmd/Ctrl+A: テーブルセル/コードブロックの段階選択
+                            return handleSelectAll(view, ctx);
+                        default:
+                            // find は milkdownApp の capture リスナが処理する
+                            return false;
                     }
-
-                    // Cmd/Ctrl+A（修飾は Mod のみ）: テーブルセル/コードブロックの段階選択
-                    if (!event.altKey && !event.shiftKey && (event.code === 'KeyA' || event.key === 'a')) {
-                        return handleSelectAll(view, ctx);
-                    }
-
-                    return false;
                 }
             }
         });

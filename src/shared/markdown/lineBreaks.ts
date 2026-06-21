@@ -20,6 +20,37 @@ export function stripPlaceholderLineBreaks(markdown: string): string {
         .replace(STANDALONE_BREAK, '');
 }
 
+// テーブル行（インデント可、`|` で始まり `|` で終わる行）。区切り行 `| --- |` も含むが
+// そこに `<br>` は無いので無害。フェンスコード内は別途除外する。
+const TABLE_ROW_LINE = /^\s{0,3}\|.*\|\s*$/;
+// セル内改行を表す HTML。`<br>` `<br/>` `<br />`（大小文字問わず）。
+const INLINE_BR = /<br\s*\/?>/gi;
+
+/**
+ * テーブルセル内の `<br>` を改行エンティティ `&#10;` に変換する。
+ *
+ * GFM テーブルのセルはリテラル改行を持てないため、セル内改行は `<br>` で表す。
+ * Milkdown のパーサは `<br>` をセル内改行として解釈できない（無視して結合する）が、
+ * `&#10;` なら改行 → hardbreak に変換できる。そこで取り込み時にテーブル行内の
+ * `<br>` だけを `&#10;` へ置換し、セル内改行が hardbreak として編集できるようにする。
+ * 段落など表の外の `<br>` は利用者の意図を尊重してそのまま残す。
+ */
+export function convertTableCellBreaksToEntities(markdown: string): string {
+    const lines = markdown.split('\n');
+    let inFence = false;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (/^\s*(```|~~~)/.test(line)) {
+            inFence = !inFence;
+            continue;
+        }
+        if (!inFence && TABLE_ROW_LINE.test(line)) {
+            lines[i] = line.replace(INLINE_BR, '&#10;');
+        }
+    }
+    return lines.join('\n');
+}
+
 // 行頭（インデント可）のリスト項目マーカー: `- ` `* ` `+ ` `1. ` `1) ` のほか、
 // 中身が空のマーカーだけの行（`*` `-` `1.`）も対象にする。
 // `***`（水平線）や `*emphasis*` はマーカー直後が空白/行末でないため除外される。
