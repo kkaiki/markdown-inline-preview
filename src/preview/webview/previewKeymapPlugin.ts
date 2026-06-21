@@ -17,7 +17,9 @@ import {
     createCodeBlockCommand,
     wrapInBlockquoteCommand
 } from '@milkdown/kit/preset/commonmark';
-import { NodeSelection, Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
+import { selectTableCommand } from '@milkdown/kit/preset/gfm';
+import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
+import { CellSelection } from '@milkdown/prose/tables';
 import type { ResolvedPos } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
@@ -31,13 +33,17 @@ function findDepth($pos: ResolvedPos, names: string[]): number {
 
 /**
  * Cmd+A 段階選択:
- * - テーブルセル内: セル内容 → テーブル全体 →（既定の全選択）。
+ * - テーブルセル内: セル内容 → 全セル → （既定の全選択）。
  * - コードブロック内: ブロック内容 →（既定の全選択）。
  * - それ以外: false（既定の全選択に委ねる）。
  */
-function handleSelectAll(view: EditorView): boolean {
+function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     const { state } = view;
     const sel = state.selection;
+
+    // 既に全セル選択（CellSelection）→ 次は既定の全選択（ドキュメント全体）
+    if (sel instanceof CellSelection) return false;
+
     const $from = sel.$from;
 
     // コードブロック
@@ -62,9 +68,9 @@ function handleSelectAll(view: EditorView): boolean {
     const isCellSelected =
         sel instanceof TextSelection && sel.from === cellContent.from && sel.to === cellContent.to;
 
-    const tableDepth = findDepth($from, ['table']);
-    if (isCellSelected && tableDepth > 0) {
-        view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $from.before(tableDepth))));
+    if (isCellSelected) {
+        // 2 回目: テーブルの全セルを選択（CellSelection）
+        ctx.get(commandsCtx).call(selectTableCommand.key);
         return true;
     }
 
@@ -126,7 +132,7 @@ export function createPreviewKeymapPlugin() {
 
                     // Cmd/Ctrl+A（修飾は Mod のみ）: テーブルセル/コードブロックの段階選択
                     if (!event.altKey && !event.shiftKey && (event.code === 'KeyA' || event.key === 'a')) {
-                        return handleSelectAll(view);
+                        return handleSelectAll(view, ctx);
                     }
 
                     return false;
