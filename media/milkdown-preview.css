@@ -66,16 +66,18 @@ html, body {
 
 .milkdown h1, .milkdown h2, .milkdown h3,
 .milkdown h4, .milkdown h5, .milkdown h6 {
-    font-weight: 600;
+    font-weight: 700;
     margin: 1.1em 0 0.45em;
+    line-height: 1.25;
 }
 
-.milkdown h1 { font-size: 1.35em; }
-.milkdown h2 { font-size: 1.2em; }
-.milkdown h3 { font-size: 1.1em; }
-.milkdown h4 { font-size: 1.05em; }
+/* レベルごとにサイズ差をはっきり付ける（h1 が一番大きく、段階的に小さく） */
+.milkdown h1 { font-size: 2.1em; font-weight: 800; }
+.milkdown h2 { font-size: 1.65em; }
+.milkdown h3 { font-size: 1.35em; }
+.milkdown h4 { font-size: 1.15em; }
 .milkdown h5 { font-size: 1em; }
-.milkdown h6 { font-size: 0.95em; opacity: 0.85; }
+.milkdown h6 { font-size: 0.88em; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.03em; }
 
 /* 段落間の余白をゼロにして、空行で区切られた段落も「1 行改行」のように
    詰めて表示する（ソースの段落構造は保持。非破壊）。 */
@@ -224,9 +226,20 @@ html, body {
 .milkdown blockquote {
     border-left: 4px solid var(--preview-border);
     margin: 0.8em 0;
-    padding-left: 14px;
-    opacity: 0.85;
+    padding: 0.2em 14px;
+    /* VS Code 既定の webview スタイルは blockquote に
+       var(--vscode-textBlockQuote-background/border) を当てる。Preview のテーマを
+       固定（light/dark）している場合、これが実 VS Code テーマ側の色のままになり、
+       本文色（--preview-fg）と被って「暗い空箱」に見える。背景・文字色を自前の
+       パレットで明示し、その継承を断つ。 */
+    background: var(--preview-code-bg);
+    color: var(--preview-fg);
+    border-radius: 0 4px 4px 0;
+    opacity: 0.9;
 }
+
+.milkdown blockquote > :first-child { margin-top: 0; }
+.milkdown blockquote > :last-child { margin-bottom: 0; }
 
 .milkdown hr {
     border: none;
@@ -567,7 +580,7 @@ body.preview-fade-in {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 10px;
+    padding: 9px 14px;
     background: var(--preview-bg);
     border-bottom: 1px solid var(--preview-border);
     box-sizing: border-box;
@@ -608,6 +621,46 @@ body.preview-fade-in {
 .preview-toolbar-export {
     font-weight: 600;
     border-color: var(--preview-border);
+}
+
+/* Export とトグルを確実に右端へ寄せる（spacer が効かない環境への保険） */
+.preview-toolbar-export {
+    margin-left: auto;
+}
+
+/* 右端の Preview / Raw セグメント切り替え */
+.preview-toolbar-toggle {
+    display: inline-flex;
+    margin-left: 8px;
+    border: 1px solid var(--preview-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.preview-toolbar-seg {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--preview-fg);
+    font-family: var(--vscode-font-family, system-ui);
+    font-size: 12px;
+    line-height: 1;
+    height: 24px;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.preview-toolbar-seg:hover:not(.active) {
+    background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.18));
+}
+
+/* アクティブ側はボタン色（不透明な背景＋専用前景色）で確実に読めるようにする。
+   inputOption-* は半透明トグル用で文字とのコントラストが不足しがちなため使わない。 */
+.preview-toolbar-seg.active {
+    background: var(--vscode-button-background, #0e639c);
+    color: var(--vscode-button-foreground, #ffffff);
+    cursor: default;
+    font-weight: 600;
 }
 
 .preview-toolbar-tooltip {

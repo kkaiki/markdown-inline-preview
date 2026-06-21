@@ -43,6 +43,39 @@ describe('webview統合: Notion風ブロック変換 (Cmd/Ctrl+Opt+数字)', () 
         assert.ok(h.topLevelTypes().includes('bullet_list'), `bullet_list になっていない: ${h.topLevelTypes().join(", ")}`);
     });
 
+    it('Cmd+Opt+6 で段落→番号付きリスト', async () => {
+        await setupParagraph();
+        h.pressKey({ code: 'Digit6', key: '6', meta: true, alt: true });
+        assert.ok(h.topLevelTypes().includes('ordered_list'), `ordered_list になっていない: ${h.topLevelTypes().join(", ")}`);
+    });
+
+    it('Cmd+Opt+6 で既存の箇条書き→番号付きへ変換（番号も振り直す）', async () => {
+        h = await createPreviewEditor('- one\n- two\n');
+        h.setCursor(findFirstPosOfType(h, 'paragraph'));
+        const res = h.pressKey({ code: 'Digit6', key: '6', meta: true, alt: true });
+        assert.strictEqual(res.defaultPrevented, true);
+        assert.ok(h.topLevelTypes().includes('ordered_list'), `ordered_list になっていない: ${h.topLevelTypes().join(", ")}`);
+        const labels: string[] = [];
+        h.view.state.doc.descendants((n) => {
+            if (n.type.name === 'list_item') labels.push(n.attrs.label as string);
+        });
+        assert.deepStrictEqual(labels, ['1.', '2.'], `番号がずれている: ${JSON.stringify(labels)}`);
+    });
+
+    it('Cmd+Opt+5 で既存の番号付き→箇条書きへ変換', async () => {
+        h = await createPreviewEditor('1. one\n2. two\n');
+        h.setCursor(findFirstPosOfType(h, 'paragraph'));
+        h.pressKey({ code: 'Digit5', key: '5', meta: true, alt: true });
+        assert.ok(h.topLevelTypes().includes('bullet_list'), `bullet_list になっていない: ${h.topLevelTypes().join(", ")}`);
+    });
+
+    it('Cmd+Opt+6 を番号付きリスト内でもう一度 → リスト解除', async () => {
+        h = await createPreviewEditor('1. one\n');
+        h.setCursor(findFirstPosOfType(h, 'paragraph'));
+        h.pressKey({ code: 'Digit6', key: '6', meta: true, alt: true });
+        assert.ok(!h.topLevelTypes().includes('ordered_list'), `解除されていない: ${h.topLevelTypes().join(", ")}`);
+    });
+
     it('Cmd+Opt+9 で段落→引用', async () => {
         await setupParagraph();
         h.pressKey({ code: 'Digit9', key: '9', meta: true, alt: true });

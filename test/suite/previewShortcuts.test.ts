@@ -146,6 +146,30 @@ describe('previewShortcuts: classifyPreviewShortcut - selectAll / find', () => {
     });
 });
 
+describe('previewShortcuts: classifyPreviewShortcut - toggleRaw', () => {
+    it('Cmd+Shift+M -> toggleRaw', () => {
+        assert.deepStrictEqual(
+            classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true, shiftKey: true })),
+            { kind: 'toggleRaw' }
+        );
+    });
+    it('Ctrl+Shift+M -> toggleRaw', () => {
+        assert.deepStrictEqual(
+            classifyPreviewShortcut(key({ code: 'KeyM', key: 'M', ctrlKey: true, shiftKey: true })),
+            { kind: 'toggleRaw' }
+        );
+    });
+    it('Cmd+M（Shift なし）は無効', () => {
+        assert.strictEqual(classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true })), null);
+    });
+    it('Cmd+Shift+Opt+M（Alt 付き）は toggleRaw ではない', () => {
+        assert.strictEqual(
+            classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true, shiftKey: true, altKey: true })),
+            null
+        );
+    });
+});
+
 describe('previewShortcuts: classifyPreviewShortcut - fenceEnter', () => {
     it('Enter（修飾なし）-> fenceEnter', () => {
         assert.deepStrictEqual(classifyPreviewShortcut(key({ key: 'Enter' })), { kind: 'fenceEnter' });

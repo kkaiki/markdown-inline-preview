@@ -56,6 +56,7 @@ export type PreviewShortcut =
     | { kind: 'notionBlock'; n: number; action: NotionBlockAction }
     | { kind: 'selectAll' }
     | { kind: 'find' }
+    | { kind: 'toggleRaw' }
     | null;
 
 /** Mod キー（Mac の Cmd / Win・Linux の Ctrl）が押されているか。 */
@@ -74,6 +75,13 @@ export function classifyPreviewShortcut(e: KeyLike): PreviewShortcut {
     }
 
     if (!isModPressed(e)) return null;
+
+    // Cmd/Ctrl+Shift+M: Raw（Markdown ソース）へ戻る。
+    // package.json の togglePreview キーバインドと対になるが、WebView 内には
+    // VS Code のキーバインドが届かないため、ここで拾ってホストへ通知する。
+    if (e.shiftKey && !e.altKey && (e.code === 'KeyM' || e.key === 'm' || e.key === 'M')) {
+        return { kind: 'toggleRaw' };
+    }
 
     // Notion 風: Cmd/Ctrl+Opt+<数字>
     // Mac では Alt+数字が記号になるため key ではなく code（DigitN）で判定する。

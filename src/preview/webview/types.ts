@@ -25,7 +25,8 @@ export type WebviewToHostMessage =
     | { type: 'scroll'; ratio: number; anchor?: ScrollAnchorPayload }
     | { type: 'openLink'; href: string }
     | { type: 'insertImage'; dataUrl: string; name: string }
-    | { type: 'exportRequest' };
+    | { type: 'exportRequest' }
+    | { type: 'toggleRaw' };
 
 export type HostToWebviewMessage =
     | {
