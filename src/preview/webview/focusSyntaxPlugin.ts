@@ -64,23 +64,26 @@ export const focusSyntaxPlugin = $prose(() => {
             // 行内マーカー（** * ` ~~ [..](..)）はフォーカス行に widget で表示する
             decorations(state) {
                 if (!enabled) return DecorationSet.empty;
+                try {
+                    const depth = findFocusedBlockDepth(state.selection.$from);
+                    if (depth === null) return DecorationSet.empty;
 
-                const depth = findFocusedBlockDepth(state.selection.$from);
-                if (depth === null) return DecorationSet.empty;
+                    const $pos = state.selection.$from;
+                    const blockStart = $pos.start(depth);
+                    const blockEnd = $pos.end(depth);
+                    const decorations = [];
 
-                const $pos = state.selection.$from;
-                const blockStart = $pos.start(depth);
-                const blockEnd = $pos.end(depth);
-                const decorations = [];
+                    for (const { pos, end, marker } of collectInlineMarksInRange(state.doc, blockStart, blockEnd)) {
+                        decorations.push(
+                            Decoration.widget(pos, mkMarker(marker.open), { side: -1, key: `open-${pos}` }),
+                            Decoration.widget(end, mkMarker(marker.close), { side: 1, key: `close-${end}` })
+                        );
+                    }
 
-                for (const { pos, end, marker } of collectInlineMarksInRange(state.doc, blockStart, blockEnd)) {
-                    decorations.push(
-                        Decoration.widget(pos, mkMarker(marker.open), { side: -1, key: `open-${pos}` }),
-                        Decoration.widget(end, mkMarker(marker.close), { side: 1, key: `close-${end}` })
-                    );
+                    return DecorationSet.create(state.doc, decorations);
+                } catch {
+                    return DecorationSet.empty;
                 }
-
-                return DecorationSet.create(state.doc, decorations);
             }
         },
         // 行頭マーカーは DOM への class/data 属性 + CSS で表示（カーソルに影響しない）
@@ -92,13 +95,17 @@ export const focusSyntaxPlugin = $prose(() => {
                 marked = null;
             };
             const sync = (view: EditorView): void => {
-                const target = focusBlockTarget(view);
-                if (marked && marked !== target?.el) clear();
-                if (!target) return;
-                target.el.classList.add('md-focus-block');
-                if (target.isList) target.el.classList.add('md-focus-list');
-                target.el.setAttribute('data-md-prefix', target.prefix);
-                marked = target.el;
+                try {
+                    const target = focusBlockTarget(view);
+                    if (marked && marked !== target?.el) clear();
+                    if (!target) return;
+                    target.el.classList.add('md-focus-block');
+                    if (target.isList) target.el.classList.add('md-focus-list');
+                    target.el.setAttribute('data-md-prefix', target.prefix);
+                    marked = target.el;
+                } catch {
+                    clear();
+                }
             };
             sync(editorView);
             return {

@@ -476,6 +476,16 @@ window.addEventListener('message', (event: MessageEvent) => {
                 });
             }
             applyFadeIn(settings.enableTransitions);
+        }).catch((error: unknown) => {
+            // エディタ生成に失敗しても真っ白にしない: 原因を表示し本文を素のテキストで出す
+            const pre = document.createElement('pre');
+            pre.style.whiteSpace = 'pre-wrap';
+            pre.style.padding = '12px';
+            pre.textContent =
+                `[Preview の初期化に失敗しました。Raw モードで編集してください]\n` +
+                `${error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error)}\n\n` +
+                message.markdown;
+            root.replaceChildren(pre);
         });
         return;
     }
