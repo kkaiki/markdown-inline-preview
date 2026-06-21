@@ -171,12 +171,19 @@ html, body {
     border: 1px solid var(--preview-border);
     padding: 6px 10px;
     text-align: left;
-    /* 1em で本文サイズに揃える（table の UA 既定 medium=16px が継承されず
+    /* ヘッダー行(th)もボディ行(td)も同じフォント・サイズ・太さにする。
+       1em で本文サイズに揃える（table の UA 既定 medium=16px が継承されず
        セルだけ大きく見えるのを防ぐ）。 */
+    font-family: inherit;
     font-size: 1em;
+    font-weight: 400;
     line-height: 1.5;
 }
-.milkdown th { font-weight: 700; }
+/* th の UA 既定（bold / center）も明示的に打ち消す */
+.milkdown th {
+    font-weight: 400;
+    text-align: left;
+}
 
 /* ── Notion-style interactive table (Milkdown tableBlock) ──────────────
    Default view stays clean: only a small, subtle grip appears on hover at
