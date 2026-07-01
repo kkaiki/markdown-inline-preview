@@ -4,7 +4,7 @@
 
 | 機能 | Mac | Windows/Linux | 説明 |
 |------|-----|---------------|------|
-| Preview / Raw 切替 | `Cmd+Shift+M` | `Ctrl+Shift+M` | WYSIWYG とソース編集を切り替え |
+| Preview / Raw 切替 | `Cmd+Shift+.` | `Ctrl+Shift+.` | WYSIWYG とソース編集を切り替え |
 
 ## 基本操作
 
@@ -33,7 +33,7 @@
 | スマート上移動 | `Up` | `Up` | テーブルでは同じ列位置に移動 |
 | スマート下移動 | `Down` | `Down` | テーブルでは同じ列位置に移動 |
 | スマート左選択 | `Shift+Cmd+Left` | `Shift+Home` | コンテンツ開始位置まで選択 |
-| コンテキスト全選択 | `Cmd+A` | `Ctrl+A` | 段階的に選択範囲を拡大 |
+| コンテキスト全選択 | `Cmd+A` | `Ctrl+A` | まず行全体 → 段階的に選択範囲を拡大 |
 
 ## テーブル操作
 

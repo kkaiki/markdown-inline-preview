@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "1.9.2",
+  "version": "1.9.9",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -39,33 +39,34 @@
     "onCustomEditor:ipreview.preview"
   ],
   "main": "./out/extension.js",
+  "l10n": "./l10n",
   "contributes": {
     "walkthroughs": [
       {
         "id": "ipreview.gettingStarted",
-        "title": "iPreview をはじめる",
-        "description": "Notion 風の Markdown 編集 — Preview/Raw 切り替え、スラッシュメニュー、ショートカット",
+        "title": "%walkthrough.title%",
+        "description": "%walkthrough.description%",
         "steps": [
           {
             "id": "toggle",
-            "title": "Preview ⇔ Raw を切り替える",
-            "description": "Markdown を WYSIWYG の Preview と素のソース Raw で行き来できます。\n[Preview / Raw を切り替える](command:markdownInline.togglePreview)",
+            "title": "%walkthrough.toggle.title%",
+            "description": "%walkthrough.toggle.description%",
             "media": {
               "markdown": "media/walkthrough/toggle.md"
             }
           },
           {
             "id": "slash",
-            "title": "スラッシュメニューで挿入",
-            "description": "行頭で / を打つと、見出し・リスト・テーブルなどを素早く挿入できます。",
+            "title": "%walkthrough.slash.title%",
+            "description": "%walkthrough.slash.description%",
             "media": {
               "markdown": "media/walkthrough/slash.md"
             }
           },
           {
             "id": "shortcuts",
-            "title": "ショートカット",
-            "description": "見出し・チェックボックス・整形などのショートカットを覚えると一気に速くなります。",
+            "title": "%walkthrough.shortcuts.title%",
+            "description": "%walkthrough.shortcuts.description%",
             "media": {
               "markdown": "media/walkthrough/shortcuts.md"
             }
@@ -263,8 +264,13 @@
     "menus": {
       "editor/title": [
         {
-          "command": "markdownInline.togglePreview",
-          "when": "ipreview.markdownEditor",
+          "command": "markdownInline.openPreview",
+          "when": "editorLangId == markdown",
+          "group": "navigation@1"
+        },
+        {
+          "command": "markdownInline.openRaw",
+          "when": "activeCustomEditorId == 'ipreview.preview'",
           "group": "navigation@1"
         }
       ]
@@ -391,8 +397,8 @@
       },
       {
         "command": "markdownInline.togglePreview",
-        "key": "ctrl+shift+m",
-        "mac": "cmd+shift+m",
+        "key": "ctrl+shift+.",
+        "mac": "cmd+shift+.",
         "when": "resourceLangId == markdown && !ipreview.previewActive"
       }
     ],
@@ -535,12 +541,30 @@
         "markdownInline.preview.showToggleCodeLens": {
           "type": "boolean",
           "default": false,
-          "description": "Show a Preview / Raw toggle as a CodeLens above the first line of Markdown files. Off by default; use the editor title-bar toggle icon or Cmd/Ctrl+Shift+M instead. (CodeLens cannot be right-aligned and shares the line with git blame.)"
+          "description": "Show a Preview / Raw toggle as a CodeLens above the first line of Markdown files. Off by default; use the editor title-bar toggle icon or Cmd/Ctrl+Shift+. instead. (CodeLens cannot be right-aligned and shares the line with git blame.)"
         },
         "markdownInline.preview.showToggleLineWidget": {
           "type": "boolean",
           "default": true,
-          "description": "Show a 'Preview / Raw' label aligned to the right of the first line in Raw (text) mode. Click the end of the first line, or use the title-bar icon / Cmd+Shift+M (Ctrl+Shift+M), to switch."
+          "description": "Show a 'Preview / Raw' label aligned to the right of the first line in Raw (text) mode. Click the end of the first line, or use the title-bar icon / Cmd+Shift+. (Ctrl+Shift+.), to switch."
+        },
+        "markdownInline.export.mode": {
+          "type": "string",
+          "default": "local",
+          "enum": [
+            "local",
+            "server"
+          ],
+          "enumDescriptions": [
+            "Use the local Chrome / Edge / Chromium browser to generate PDF (no sign-in required, works offline)",
+            "Use the Markdown Inline Preview Pro server API (requires Pro subscription — currently shows upgrade prompt)"
+          ],
+          "description": "How PDF export is generated. \"local\" uses your installed Chromium-based browser via headless mode; \"server\" routes to the Pro cloud API."
+        },
+        "markdownInline.export.browserPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Chrome / Edge / Chromium executable for local PDF export. Leave empty to auto-detect from standard install locations."
         },
         "markdownInline.preview.showToolbar": {
           "type": "boolean",
@@ -551,6 +575,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show keyboard shortcuts in the tooltip when hovering over Preview toolbar buttons"
+        },
+        "markdownInline.preview.showLineNumbers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show the source Markdown line number at the left of each block in the Preview editor (alongside the Git diff gutter)"
         },
         "markdownInline.preview.defaultMode": {
           "type": "string",
@@ -641,8 +670,8 @@
         },
         "markdownInline.imagePreview.showThumbnail": {
           "type": "boolean",
-          "default": true,
-          "description": "Show inline thumbnail after ![alt](path) lines (non-editing lines)"
+          "default": false,
+          "description": "Show inline thumbnail after ![alt](path) lines in Raw mode (non-editing lines). Off by default because the thumbnail can make editing harder; image preview is still available on hover."
         },
         "markdownInline.table.inlineWrap.enabled": {
           "type": "boolean",
@@ -676,7 +705,8 @@
         "editor.suggest.snippetsPreventQuickSuggestions": false,
         "markdown.suggest.paths.enabled": false,
         "github.copilot.inlineSuggest.enable": false,
-        "github.copilot.editor.enableAutoCompletions": false
+        "github.copilot.editor.enableAutoCompletions": false,
+        "markdown.editor.showImages": false
       }
     },
     "markdown.previewStyles": [
@@ -685,7 +715,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:webview && npm run build:webview-test",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:webview && npm run build:webview-test",
+    "build:host": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode",
     "build:webview": "esbuild src/preview/webview/milkdownApp.ts --bundle --minify --outfile=media/milkdown.bundle.js --format=iife --platform=browser --target=es2020",
     "build:webview-test": "npx tsc -p tsconfig.webview-test.json && esbuild test/webview/*.test.ts --bundle --platform=node --format=cjs --outdir=out-test/webview --external:jsdom --log-level=error",
     "watch": "npx tsc --watch",
@@ -695,6 +726,8 @@
     "pretest": "npm run compile",
     "test": "node ./out-test/runTest.js",
     "test:unit": "mocha out-test/test/suite/*.test.js out-test/webview/*.test.js --ignore out-test/test/suite/index.js --timeout 15000",
+    "build:browser-test": "npx tsc -p tsconfig.browser-test.json",
+    "test:browser": "npm run build:webview && npm run build:browser-test && mocha out-test/test/browser/*.test.js --timeout 60000",
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "setup:hooks": "sh scripts/install-githooks.sh",
@@ -720,12 +753,14 @@
     "highlight.js": "^11.11.1",
     "jsdom": "^29.1.1",
     "mocha": "^10.2.0",
+    "playwright": "^1.61.1",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.61.1"
   },
   "dependencies": {
     "katex": "^0.17.0",
+    "marked": "^18.0.5",
     "mermaid": "^11.15.0"
   }
 }

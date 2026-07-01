@@ -949,4 +949,71 @@ suite('Markdown Inline Preview Test Suite', () => {
             assert.strictEqual(doc.lineAt(0).text, '/heading 0');
         });
     });
+
+    suite('9. 複数ファイル Preview/Raw トグル', () => {
+
+        const PREVIEW_VIEW_TYPE = 'ipreview.preview';
+
+        function activeTabUri(): vscode.Uri | undefined {
+            const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+            const input = tab?.input;
+            if (input instanceof vscode.TabInputText) return input.uri;
+            if (input instanceof vscode.TabInputCustom) return input.uri;
+            return undefined;
+        }
+
+        function activeTabIsRawText(): boolean {
+            return vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputText;
+        }
+
+        test('9.1 左のファイルをPreview→Rawに戻しても右のファイルへフォーカスが移動しない', async function () {
+            this.timeout(30000);
+
+            // ファイルA・B・Cを開き、すべてPreviewモードにする（開いた順に左からA, B, Cのタブになる）。
+            const editorA = await createTestDocument('# File A\n\nContent A');
+            const docA = editorA.document;
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const editorB = await createTestDocument('# File B\n\nContent B');
+            const docB = editorB.document;
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            const editorC = await createTestDocument('# File C\n\nContent C');
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 何度か「左のタブ(A)へフォーカスを戻す → Raw に戻す → もう一度 Preview に戻す」を
+            // 繰り返し、非同期処理のタイミング次第で右隣のタブへフォーカスが漂流しないか確認する。
+            for (let i = 0; i < 5; i++) {
+                // Aの Preview タブへ確実にフォーカスを移す（vscode.openWith は URI を明示するため、
+                // インデックス依存のコマンドよりも対象の取り違えが起きない）。
+                await vscode.commands.executeCommand('vscode.openWith', docA.uri, PREVIEW_VIEW_TYPE, vscode.ViewColumn.Active);
+                assert.strictEqual(
+                    activeTabUri()?.toString(),
+                    docA.uri.toString(),
+                    `[iteration ${i}] 前提条件: Aの Preview タブがアクティブになっていません（アクティブタブ: ${activeTabUri()?.toString()}）`
+                );
+
+                // 実際のユーザー操作を模し、意図的な待機を入れずに直後にRaw切り替えを実行する。
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await new Promise(resolve => setTimeout(resolve, 400));
+
+                assert.ok(
+                    activeTabIsRawText(),
+                    `[iteration ${i}] Rawへの切り替え後、アクティブタブがテキストエディタになっていません（アクティブタブ: ${activeTabUri()?.toString()}）`
+                );
+                assert.strictEqual(
+                    activeTabUri()?.toString(),
+                    docA.uri.toString(),
+                    `[iteration ${i}] Aを Raw に戻したのに、他のファイル(アクティブタブ: ${activeTabUri()?.toString()}, B=${docB.uri.toString()})へフォーカスが移動しました`
+                );
+
+                // 次のイテレーションのためにAをPreviewへ戻す。
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+        });
+    });
 });

@@ -42,6 +42,17 @@ export function pixelsFromScrollRatio(ratio: number, scrollHeight: number, clien
     return clampRatio(ratio) * Math.max(0, scrollHeight - clientHeight);
 }
 
+/**
+ * 「最終行より下へのスクロール余白（scroll beyond last line）」を除いた実コンテンツ高。
+ *
+ * Preview は最終行を画面最上部まで送れるよう、本来のコンテンツより下に大きな余白を持つ。
+ * その余白をスクロール比率の計算に含めると、同じ本文位置でも比率が小さく出て Raw⇄Preview
+ * の同期が末尾付近でズレる。比率計算には必ずこの実コンテンツ高を使う。
+ */
+export function contentScrollHeight(scrollHeight: number, scrollBeyondPadding: number): number {
+    return Math.max(0, scrollHeight - Math.max(0, scrollBeyondPadding));
+}
+
 /** 0〜1 にクランプ。NaN は 0 として扱う。 */
 function clampRatio(ratio: number): number {
     if (!Number.isFinite(ratio)) return 0;

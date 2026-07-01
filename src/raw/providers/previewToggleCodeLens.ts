@@ -19,7 +19,7 @@ export function registerPreviewToggleCodeLensProvider(
             return [
                 new vscode.CodeLens(range, {
                     title: '$(book) Preview',
-                    tooltip: 'Preview（WYSIWYG）で開く  ·  Cmd/Ctrl+Shift+M',
+                    tooltip: 'Preview（WYSIWYG）で開く  ·  Cmd/Ctrl+Shift+.',
                     command: 'markdownInline.openPreview'
                 }),
                 new vscode.CodeLens(range, {

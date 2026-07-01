@@ -41,8 +41,7 @@ import {
     isTableWrapHoverEnabled,
     getTableWrapMaxWidth,
     rebuildHeadingDecorations,
-    shouldDisableCompetingMarkdownFeatures,
-    shouldHideStrikethroughOnEditingLine
+    shouldDisableCompetingMarkdownFeatures
 } from './settings';
 import {
     formatTableAtLine,
@@ -66,7 +65,6 @@ export function activate(context: vscode.ExtensionContext): void {
         isImageThumbnailEnabled,
         isTableWrapHoverEnabled,
         getTableWrapMaxWidth: () => getTableWrapMaxWidth(),
-        shouldHideStrikethroughOnEditingLine,
         debugLog
     });
     createRawDecorations(getMarkdownInlineConfig());

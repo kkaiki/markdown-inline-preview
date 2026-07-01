@@ -1,0 +1,10 @@
+{
+  "walkthrough.title": "Get started with iPreview",
+  "walkthrough.description": "Notion-style Markdown editing — Preview/Raw toggle, slash menu, shortcuts",
+  "walkthrough.toggle.title": "Switch between Preview and Raw",
+  "walkthrough.toggle.description": "Move between the WYSIWYG Preview and the plain Markdown source (Raw).\n[Toggle Preview / Raw](command:markdownInline.togglePreview)",
+  "walkthrough.slash.title": "Insert with the slash menu",
+  "walkthrough.slash.description": "Type / at the start of a line to quickly insert headings, lists, tables, and more.",
+  "walkthrough.shortcuts.title": "Shortcuts",
+  "walkthrough.shortcuts.description": "Learn the shortcuts for headings, checkboxes, and formatting to speed things up."
+}

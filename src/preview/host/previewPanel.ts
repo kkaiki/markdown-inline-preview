@@ -12,15 +12,20 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { exportToPdfLocal } from './localExport';
 
 import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';
 import { splitFrontmatter, mergeFrontmatter } from '../../shared/markdown/frontmatter';
 import { findScrollAnchor, findLineBySlug } from '../../shared/structure/scrollAnchor';
 import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/scrollSync';
+import { rawToCursorAnchor, cursorAnchorToRaw, type CursorAnchor } from '../../shared/preview/cursorAnchor';
+import { pickPreviewUri, type PreviewTabInfo } from './previewTabs';
+import { decidePreviewToggle } from './toggleDecision';
 
 const execFileAsync = promisify(execFile);
 
@@ -61,6 +66,10 @@ const pendingOpenScrollRatio = new Map<string, number>();
 const pendingOpenScrollAnchor = new Map<string, ScrollAnchorPayload>();
 const lastKnownScrollRatio = new Map<string, number>();
 const lastKnownScrollAnchor = new Map<string, ScrollAnchorPayload>();
+// カーソル位置の引き継ぎ。Raw→Preview は pendingOpenCursor（init で消費）、
+// Preview→Raw は WebView から逐次受け取る lastKnownCursor を使う。
+const pendingOpenCursor = new Map<string, CursorAnchor>();
+const lastKnownCursor = new Map<string, CursorAnchor>();
 
 function getConfig<T>(key: string, fallback: T): T {
     return vscode.workspace.getConfiguration('markdownInline').get<T>(key, fallback);
@@ -106,7 +115,9 @@ function buildSettingsPayload(): PreviewSettings {
         showFocusSyntax: getConfig<boolean>('preview.showFocusSyntax', true),
         enableSlashMenu: getConfig<boolean>('preview.enableSlashMenu', true),
         showToolbar: getConfig<boolean>('preview.showToolbar', true),
-        toolbarShowShortcuts: getConfig<boolean>('preview.toolbarShowShortcuts', true)
+        toolbarShowShortcuts: getConfig<boolean>('preview.toolbarShowShortcuts', true),
+        showLineNumbers: getConfig<boolean>('preview.showLineNumbers', false),
+        language: vscode.env.language
     };
 }
 
@@ -143,9 +154,10 @@ function buildHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
 </html>`;
 }
 
-// Raw / Preview のモードは「最後に使ったモード」を全 Markdown ファイル横断で
-// 共有する（globalState）。あるファイルを Preview に切り替えると、以降に開く
-// すべての Markdown ファイルが Preview で開くようになる。
+// Raw / Preview のモードは「最後に使ったモード」を globalState に記憶する。
+// この記憶は **新規に開く** Markdown ファイルの初期モードにのみ使う
+// （最後に Preview なら新規も Preview、最後に Raw なら新規も Raw）。
+// 既に開いているファイルには適用しない（強制切替しない）。
 function rememberMode(context: vscode.ExtensionContext, mode: 'raw' | 'preview'): void {
     if (!getConfig<boolean>('preview.rememberMode', true)) return;
     void context.globalState.update(GLOBAL_MODE_KEY, mode);
@@ -251,7 +263,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             await vscode.workspace.fs.writeFile(vscode.Uri.file(filePath), bytes);
         } catch (error) {
             debugLog(`[preview] Failed to save pasted image: ${String(error)}`);
-            void vscode.window.showWarningMessage('画像の保存に失敗しました。');
+            void vscode.window.showWarningMessage(vscode.l10n.t('Failed to save image.'));
             return;
         }
 
@@ -289,28 +301,44 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         webviewPanel.webview.html = buildHtml(webviewPanel.webview, this.context.extensionUri);
 
         let applyingRemoteEdit = false;
+        // 直近に Webview 由来で文書へ書き込んだ本文。onDidChangeTextDocument は
+        // applyEdit より遅れて非同期発火するため、applyingRemoteEdit（同期フラグ）だけでは
+        // 自分のエコーを取りこぼす。内容ベースでも弾くことで、入力中に update が Webview へ
+        // 戻って applyExternalContent が走り「フォーカスが飛ぶ／文字が重複する」のを防ぐ。
+        let lastAppliedFromWebview: string | null = null;
         let pushTimer: ReturnType<typeof setTimeout> | undefined;
 
-        const schedulePush = (): void => {
+        const pushMarkdownToWebview = (markdown: string): void => {
+            const prepared = this.prepareForWebview(markdown, document, webviewPanel.webview);
+            void webviewPanel.webview.postMessage({
+                type: 'update',
+                markdown: prepared.body,
+                frontmatter: prepared.frontmatter
+            });
+        };
+
+        // 本文の取得元を遅延評価で受け取る。エディタ内編集は document.getText()、
+        // 外部（AI・他ツール）のディスク編集は最新のディスク内容を読み直して反映する。
+        const schedulePush = (readMarkdown: () => string | Thenable<string>): void => {
             if (pushTimer) clearTimeout(pushTimer);
             pushTimer = setTimeout(() => {
                 pushTimer = undefined;
-                const prepared = this.prepareForWebview(
-                    document.getText(),
-                    document,
-                    webviewPanel.webview
+                void Promise.resolve(readMarkdown()).then(
+                    pushMarkdownToWebview,
+                    (err: unknown) => debugLog(`[preview] push failed: ${String(err)}`)
                 );
-                void webviewPanel.webview.postMessage({
-                    type: 'update',
-                    markdown: prepared.body,
-                    frontmatter: prepared.frontmatter
-                });
             }, 100);
+        };
+
+        const readDocumentFromDisk = async (): Promise<string> => {
+            const bytes = await vscode.workspace.fs.readFile(document.uri);
+            return new TextDecoder('utf-8').decode(bytes);
         };
 
         const applyMarkdownFromWebview = async (markdown: string): Promise<void> => {
             const restored = this.restoreFromWebview(markdown, document);
             if (document.getText() === restored) return;
+            lastAppliedFromWebview = restored;
             applyingRemoteEdit = true;
             try {
                 const fullRange = new vscode.Range(
@@ -328,8 +356,29 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
 
         const changeSub = vscode.workspace.onDidChangeTextDocument(event => {
             if (event.document.uri.toString() !== key || applyingRemoteEdit) return;
-            schedulePush();
+            // applyEdit の後に遅れて届いた「自分のエコー」を内容ベースで弾く。
+            // Webview には既に同じ本文があるので push する必要はない。Raw 側や外部ツールの
+            // 本当の編集はこの内容と一致しないため、通常どおり Webview へ反映される。
+            if (document.getText() === lastAppliedFromWebview) return;
+            schedulePush(() => document.getText());
         });
+
+        // 外部（AI・他ツール）が .md をディスク上で直接編集した場合、Preview だけを開いて
+        // いる（Raw のテキストエディタが無い）と onDidChangeTextDocument が発火しないことが
+        // あるため、ファイルウォッチャでも変更を拾って最新のディスク内容を反映する。
+        // 自分の保存によるエコーは WebView 側の重複判定（lastSyncedMarkdown）で無視される。
+        const fileWatcher = vscode.workspace.createFileSystemWatcher(
+            new vscode.RelativePattern(
+                vscode.Uri.file(path.dirname(document.uri.fsPath)),
+                path.basename(document.uri.fsPath)
+            )
+        );
+        const onExternalFileChange = (): void => {
+            if (applyingRemoteEdit) return;
+            schedulePush(readDocumentFromDisk);
+        };
+        fileWatcher.onDidChange(onExternalFileChange);
+        fileWatcher.onDidCreate(onExternalFileChange);
 
         const themeSub = vscode.window.onDidChangeActiveColorTheme(() => {
             void webviewPanel.webview.postMessage({ type: 'settings', settings: buildSettingsPayload() });
@@ -349,6 +398,8 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 pendingOpenScrollAnchor.delete(key);
                 const scrollRatio = pendingOpenScrollRatio.get(key);
                 pendingOpenScrollRatio.delete(key);
+                const cursorAnchor = pendingOpenCursor.get(key);
+                pendingOpenCursor.delete(key);
                 const prepared = this.prepareForWebview(document.getText(), document, webviewPanel.webview);
                 void webviewPanel.webview.postMessage({
                     type: 'init',
@@ -356,7 +407,8 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                     frontmatter: prepared.frontmatter,
                     settings: buildSettingsPayload(),
                     scrollAnchor,
-                    scrollRatio
+                    scrollRatio,
+                    cursorAnchor
                 });
                 // Git HEAD 本文（差分基準）は取得が非同期なので別メッセージで送る
                 void this.getBaseBody(document).then((baseMarkdown) => {
@@ -375,6 +427,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 }
                 return;
             }
+            if (message.type === 'cursor' && message.anchor && typeof message.anchor.block === 'number') {
+                lastKnownCursor.set(key, message.anchor);
+                return;
+            }
             if (message.type === 'openLink' && typeof message.href === 'string') {
                 void openLinkFromPreview(message.href, document.uri);
                 return;
@@ -384,16 +440,26 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 return;
             }
             if (message.type === 'exportRequest') {
-                void handleExportRequest();
+                void handleExportRequest(document, this.context.extensionPath);
+                return;
+            }
+            if (message.type === 'copyImageRequest' && typeof message.src === 'string') {
+                void handleCopyImageRequest(message.src, document.uri, this.imageUriMaps, webviewPanel.webview);
                 return;
             }
             if (message.type === 'toggleRaw') {
-                void vscode.commands.executeCommand('markdownInline.togglePreview');
+                // この Preview の document は確定しているので、findPreviewUri の推測に頼らず
+                // 直接その URI を Raw に戻す。複数の Preview を開いているときに別ファイルへ
+                // 飛んでしまう不具合（誤ったタブを掴む）を避けるため。
+                void switchToRaw(this.context, document.uri, webviewPanel.viewColumn).then(() => {
+                    syncEditorContext();
+                });
             }
         });
 
         webviewPanel.onDidDispose(() => {
             changeSub.dispose();
+            fileWatcher.dispose();
             themeSub.dispose();
             configSub.dispose();
             messageSub.dispose();
@@ -417,26 +483,23 @@ function isPreviewTab(tab: vscode.Tab | undefined): vscode.Uri | undefined {
 }
 
 function findPreviewUri(): vscode.Uri | undefined {
-    const fromActiveTab = isPreviewTab(vscode.window.tabGroups.activeTabGroup.activeTab);
-    if (fromActiveTab) return fromActiveTab;
-
-    for (const group of vscode.window.tabGroups.all) {
-        if (!group.isActive) continue;
-        for (const tab of group.tabs) {
-            if (!tab.isActive) continue;
-            const uri = isPreviewTab(tab);
-            if (uri) return uri;
-        }
-    }
-
+    // VS Code のタブ構造を判定に必要な最小情報へ落とし込み、選択は純粋関数に委ねる
+    // （ロジックは previewTabs.ts でユニットテスト）。
+    const tabs: PreviewTabInfo[] = [];
+    const uriByString = new Map<string, vscode.Uri>();
     for (const group of vscode.window.tabGroups.all) {
         for (const tab of group.tabs) {
-            const uri = isPreviewTab(tab);
-            if (uri) return uri;
+            const previewUri = isPreviewTab(tab);
+            if (previewUri) uriByString.set(previewUri.toString(), previewUri);
+            tabs.push({
+                isActiveGroup: group.isActive,
+                isActiveTab: tab.isActive,
+                previewUri: previewUri?.toString()
+            });
         }
     }
-
-    return undefined;
+    const picked = pickPreviewUri(tabs);
+    return picked ? uriByString.get(picked) : undefined;
 }
 
 async function openLinkFromPreview(href: string, documentUri: vscode.Uri): Promise<void> {
@@ -464,22 +527,93 @@ async function openLinkFromPreview(href: string, documentUri: vscode.Uri): Promi
     }
 }
 
-// Preview ツールバーの Export ボタンからの要求を処理する。
-// 実際の PDF / Marp 生成とライセンス検証は docs/specifications/pro-export-pdf-marp.md
-// で実装予定。現状は Pro 課金導線（アップグレード案内）だけを出す。
-async function handleExportRequest(): Promise<void> {
-    const upgrade = 'アップグレード';
-    const later = 'あとで';
+/**
+ * Preview ツールバーの Export ボタンからの要求を処理する。
+ *
+ * `markdownInline.export.mode` 設定で動作を切り替える:
+ *   "local"  → Chrome / Edge ヘッドレスでローカル PDF 生成（localExport.ts）
+ *   "server" → 将来の Pro API（現状はアップグレード導線のみ）
+ */
+async function handleExportRequest(
+    document: vscode.TextDocument,
+    extensionPath: string
+): Promise<void> {
+    const mode = vscode.workspace
+        .getConfiguration('markdownInline')
+        .get<string>('export.mode', 'local');
+
+    if (mode === 'local') {
+        try {
+            await exportToPdfLocal(document, extensionPath);
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            void vscode.window.showErrorMessage(
+                vscode.l10n.t('PDF export failed: {0}', msg)
+            );
+        }
+        return;
+    }
+
+    // server モード（将来の Pro API）
+    const upgrade = vscode.l10n.t('Upgrade to Pro');
+    const later = vscode.l10n.t('Later');
     const choice = await vscode.window.showInformationMessage(
-        'PDF / Marp へのエクスポートは Markdown Inline Preview Pro の機能です。Pro にアップグレードすると、テーマ付き PDF やスライド出力が使えます。',
+        vscode.l10n.t(
+            'Server-based PDF / Marp export is a Markdown Inline Preview Pro feature. ' +
+            'Switch markdownInline.export.mode to "local" to use your local Chrome browser instead.'
+        ),
         upgrade,
         later
     );
     if (choice === upgrade) {
-        // TODO: 正式な料金/アップグレードページの URL に差し替える（pro-export-pdf-marp.md）。
         await vscode.env.openExternal(
             vscode.Uri.parse('https://github.com/kkaiki/markdown-inline-preview#pro')
         );
+    }
+}
+
+/**
+ * Preview 内の画像を実体データとしてクリップボードにコピーする要求を処理する。
+ *
+ * WebView の CSP が fetch を禁止しているため、ファイル読み取りは Extension Host 側で行い、
+ * base64 エンコードした data URL を WebView に返す。WebView 側がそれを Clipboard API に渡す。
+ *
+ * @param src  Milkdown 画像ノードの src 属性（vscode-webview-resource:// URI）
+ * @param docUri  現在の TextDocument の URI（uriMap の参照キー）
+ * @param imageUriMaps  URI マップのコレクション（webviewUri → 相対パス の逆引き）
+ * @param webview  返信先 WebView
+ */
+async function handleCopyImageRequest(
+    src: string,
+    docUri: vscode.Uri,
+    imageUriMaps: Map<string, Map<string, string>>,
+    webview: vscode.Webview
+): Promise<void> {
+    const key = docUri.toString();
+    const uriMap = imageUriMaps.get(key);
+    const originalRelPath = uriMap?.get(src);
+
+    if (!originalRelPath) {
+        // uriMap に無い場合（例: 外部 URL、または data: URL が誤って届いた場合）は失敗として返す
+        void webview.postMessage({ type: 'imageCopied', dataUrl: null });
+        return;
+    }
+
+    const docDir = path.dirname(docUri.fsPath);
+    const absPath = path.resolve(docDir, originalRelPath);
+
+    try {
+        const buf = await fs.promises.readFile(absPath);
+        const ext = path.extname(absPath).toLowerCase().slice(1);
+        const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+                   : ext === 'gif'  ? 'image/gif'
+                   : ext === 'webp' ? 'image/webp'
+                   : ext === 'svg'  ? 'image/svg+xml'
+                   : 'image/png';
+        const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+        void webview.postMessage({ type: 'imageCopied', dataUrl });
+    } catch {
+        void webview.postMessage({ type: 'imageCopied', dataUrl: null });
     }
 }
 
@@ -512,10 +646,10 @@ function updateModeStatusBar(isMarkdown: boolean, previewActive: boolean): void 
     }
     if (previewActive) {
         modeStatusBarItem.text = '$(book) Preview';
-        modeStatusBarItem.tooltip = 'Markdown Inline Preview: クリックで Raw（Markdown ソース）に切り替え';
+        modeStatusBarItem.tooltip = vscode.l10n.t('Markdown Inline Preview: click to switch to Raw (Markdown source)');
     } else {
         modeStatusBarItem.text = '$(markdown) Raw';
-        modeStatusBarItem.tooltip = 'Markdown Inline Preview: クリックで Preview（WYSIWYG）に切り替え';
+        modeStatusBarItem.tooltip = vscode.l10n.t('Markdown Inline Preview: click to switch to Preview (WYSIWYG)');
     }
     modeStatusBarItem.show();
 }
@@ -563,6 +697,11 @@ async function switchToPreview(
     editor?: vscode.TextEditor
 ): Promise<void> {
     const key = document.uri.toString();
+    if (editor) {
+        // カーソル位置を引き継ぐ（同じ場所で編集を続けられるように）。
+        const pos = editor.selection.active;
+        pendingOpenCursor.set(key, rawToCursorAnchor(document.getText(), pos.line, pos.character));
+    }
     if (getConfig<boolean>('preview.syncScroll', true) && editor) {
         // カーソル行ではなく「画面最上部の行」を基準にする。マウスホイールでスクロール
         // しただけ（カーソルは動かない）でも Preview が同じ位置で開くようにするため。
@@ -589,15 +728,35 @@ async function switchToRaw(
     const key = uri.toString();
     const anchor = lastKnownScrollAnchor.get(key);
     const ratio = lastKnownScrollRatio.get(key);
+    const cursor = lastKnownCursor.get(key);
     rememberMode(context, 'raw');
     await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
+
+    // 古い Preview タブを閉じる前に、対象ファイルの Raw エディタへ明示的にフォーカスを固定する。
+    // openWith 後もまだ古い Preview タブが「アクティブ」のままだと、後続の closeStaleTabs が
+    // それ（＝アクティブなタブ）を閉じることになり、VS Code の既定動作（閉じたタブの隣を
+    // 自動選択）が発動して、複数ファイルを Preview 中に切替えた別ファイルへフォーカスが
+    // 漂流することがある。先にフォーカスを移しておけば、閉じるのは非アクティブなタブに
+    // なるため、この自動選択は発生しない。
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(doc, { viewColumn, preserveFocus: false });
+
     // Re-query after openWith (see switchToPreview): avoids closing a stale handle.
     await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
 
-    if (!getConfig<boolean>('preview.syncScroll', true)) return;
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document.uri.toString() !== key) return;
+    // カーソル位置の引き継ぎ（Preview → Raw）。同じ場所で編集を続けられるように、
+    // カーソルを置いてその行を見せる（スクロール同期より優先）。
+    if (cursor) {
+        const { line, character } = cursorAnchorToRaw(editor.document.getText(), cursor);
+        const safeLine = Math.min(Math.max(line, 0), editor.document.lineCount - 1);
+        const safeCol = Math.min(Math.max(character, 0), editor.document.lineAt(safeLine).text.length);
+        const p = new vscode.Position(safeLine, safeCol);
+        editor.selection = new vscode.Selection(p, p);
+        editor.revealRange(new vscode.Range(p, p), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+        return;
+    }
 
+    if (!getConfig<boolean>('preview.syncScroll', true)) return;
     if (anchor) {
         revealAnchor(editor, anchor);
         return;
@@ -617,23 +776,21 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
     syncEditorContext();
 
-    // グローバルモードが raw のとき、アクティブな Preview タブを Raw に切り替える。
-    // （Raw→Preview 方向は onDidChangeActiveTextEditor が担当。これで両方向対称になる）
-    let enforcingRawMode = false;
-    const enforceRawModeOnActiveTab = async (): Promise<void> => {
-        if (enforcingRawMode) return;
-        const mode = getRememberedMode(context) ?? getConfig<string>('preview.defaultMode', 'raw');
-        if (mode !== 'raw') return;
-        const previewUri = isPreviewTab(vscode.window.tabGroups.activeTabGroup.activeTab);
-        if (!previewUri) return;
-        enforcingRawMode = true;
-        try {
-            await switchToRaw(context, previewUri, vscode.ViewColumn.Active);
-            syncEditorContext();
-        } finally {
-            enforcingRawMode = false;
+    // 「このセッションで既に開いた（=モードを尊重すべき既存の）Markdown ファイル」の URI。
+    // 拡張機能の起動時点で開いていたタブと、その後アクティブになったファイルを記録する。
+    // ここに含まれない URI が初めてアクティブになったときだけ「新規オープン」とみなし、
+    // 記憶した最後のモードを適用する。既存ファイルにはモードを強制しない。
+    const seenMarkdownUris = new Set<string>();
+    for (const group of vscode.window.tabGroups.all) {
+        for (const tab of group.tabs) {
+            const input = tab.input;
+            if (input instanceof vscode.TabInputText && isMarkdownResource(input.uri)) {
+                seenMarkdownUris.add(input.uri.toString());
+            } else if (input instanceof vscode.TabInputCustom && input.viewType === VIEW_TYPE) {
+                seenMarkdownUris.add(input.uri.toString());
+            }
         }
-    };
+    }
 
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
@@ -643,7 +800,6 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
         vscode.window.tabGroups.onDidChangeTabs(() => {
             syncEditorContext();
-            void enforceRawModeOnActiveTab();
         }),
 
         vscode.window.onDidChangeActiveTextEditor(() => {
@@ -673,21 +829,29 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
         }),
 
         vscode.commands.registerCommand('markdownInline.togglePreview', async () => {
-            const previewUri = findPreviewUri();
-            if (previewUri) {
-                await switchToRaw(context, previewUri, vscode.ViewColumn.Active);
-                syncEditorContext();
-                return;
-            }
             const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'markdown') {
+            const isRawMarkdown = !!editor && editor.document.languageId === 'markdown';
+            const action = decidePreviewToggle({
+                activeEditorIsRawMarkdown: isRawMarkdown,
+                activeMarkdownUri: isRawMarkdown ? editor.document.uri.toString() : undefined,
+                resolvedPreviewUri: findPreviewUri()?.toString()
+            });
+            if (action.kind === 'toPreview' && editor) {
                 await switchToPreview(context, editor.document, editor.viewColumn, editor);
+                syncEditorContext();
+            } else if (action.kind === 'toRaw') {
+                await switchToRaw(context, vscode.Uri.parse(action.uri), vscode.ViewColumn.Active);
                 syncEditorContext();
             }
         }),
 
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (!editor || editor.document.languageId !== 'markdown') return;
+            const key = editor.document.uri.toString();
+            // 既存（このセッションで既に開いていた）ファイルにはモードを強制しない。
+            // 初めて見る URI＝新規オープンのときだけ、記憶した最後のモードを適用する。
+            if (seenMarkdownUris.has(key)) return;
+            seenMarkdownUris.add(key);
             const remembered = getRememberedMode(context);
             const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');
             if (mode === 'preview') {
@@ -695,13 +859,4 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             }
         })
     );
-
-    const initialEditor = vscode.window.activeTextEditor;
-    if (initialEditor && initialEditor.document.languageId === 'markdown') {
-        const remembered = getRememberedMode(context);
-        const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');
-        if (mode === 'preview') {
-            void switchToPreview(context, initialEditor.document, initialEditor.viewColumn, initialEditor);
-        }
-    }
 }

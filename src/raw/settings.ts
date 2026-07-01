@@ -9,7 +9,6 @@ import {
     resolveCodeBlockDecorationsEnabled,
     resolveDisableCompetingMarkdownFeatures,
     resolveHeadingDecorationsEnabled,
-    resolveHideStrikethroughOnEditingLine,
     resolveHorizontalRuleDecorationsEnabled,
     resolveImageHoverPreviewEnabled,
     resolveImageThumbnailEnabled,
@@ -20,7 +19,6 @@ import {
 } from '../core';
 import {
     rebuildHeadingDecorations as rebuildHeadingDecorationTypes,
-    rawDecorationState,
     updateAllDecorations
 } from './decorations';
 
@@ -63,13 +61,6 @@ export function shouldDisableCompetingMarkdownFeatures(): boolean {
     return resolveDisableCompetingMarkdownFeatures(getMarkdownInlineConfig());
 }
 
-export function shouldHideStrikethroughOnEditingLine(line: number): boolean {
-    return resolveHideStrikethroughOnEditingLine(
-        getMarkdownInlineConfig(),
-        line,
-        rawDecorationState.currentEditingLine
-    );
-}
 
 export function isShowCheckboxCodeLensEnabled(): boolean {
     return resolveShowCheckboxCodeLensEnabled(getMarkdownInlineConfig());

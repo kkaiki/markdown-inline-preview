@@ -26,7 +26,7 @@ export function registerPreviewToggleLineWidget(
             return [
                 new vscode.CodeLens(range, {
                     title: LABEL,
-                    tooltip: 'Preview（WYSIWYG）と Raw を切り替える  ·  Cmd/Ctrl+Shift+M',
+                    tooltip: 'Preview（WYSIWYG）と Raw を切り替える  ·  Cmd/Ctrl+Shift+.',
                     command: 'markdownInline.togglePreview'
                 })
             ];

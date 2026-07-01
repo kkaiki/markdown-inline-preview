@@ -2,7 +2,7 @@
 
 | 操作 | Mac | Windows / Linux |
 |------|-----|------------------|
-| Preview ⇔ Raw | `Cmd+Shift+M` | `Ctrl+Shift+M` |
+| Preview ⇔ Raw | `Cmd+Shift+.` | `Ctrl+Shift+.` |
 | 見出し H1 / H2 / H3 | `⌥⌘1` / `⌥⌘2` / `⌥⌘3` | `Alt+Ctrl+1/2/3` |
 | チェックボックス | `⌥⌘4` | `Alt+Ctrl+4` |
 | 箇条書き / 番号付き | `⌥⌘5` / `⌥⌘6` | `Alt+Ctrl+5/6` |

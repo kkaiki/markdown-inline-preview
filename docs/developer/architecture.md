@@ -35,6 +35,24 @@ src/
 
 ---
 
+## レイヤー境界（ヘキサゴナル）
+
+ポート&アダプタで整理する。詳細と決定理由は [ADR-0001](./adr/0001-hexagonal-shared-core.md)。
+
+| レイヤー | ディレクトリ | 依存してよいもの |
+|----------|--------------|------------------|
+| **中心（純粋コア）** | `src/shared/**` | 標準ライブラリのみ。**`vscode` 禁止**（型も）。**Milkdown は実体禁止・型のみ可** |
+| アダプタ（Raw） | `src/raw/**` | `vscode`、`shared` |
+| アダプタ（Preview ホスト） | `src/preview/host/**` | `vscode`、`shared` |
+| アダプタ（Preview WebView） | `src/preview/webview/**` | `@milkdown/*`、`shared` |
+| 合成ルート | `src/raw/activate.ts` | 全層を組み立て注入 |
+
+この境界は **eslint（`@typescript-eslint/no-restricted-imports`、`src/shared/**` 限定）で機械的に
+強制**される。違反すると `npm run lint` が失敗する。`shared` は両ランタイム（Node / ブラウザ）から
+import されるため、フレームワーク非依存を保つことが必須。
+
+---
+
 ## Raw: イベントフロー
 
 ```

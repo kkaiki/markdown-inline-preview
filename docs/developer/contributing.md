@@ -138,7 +138,57 @@ npm test
 
 # 特定のテストのみ
 npm test -- --grep "Table Cell"
+
+# ユニット（VS Code 非依存 + jsdom webview）
+npm run test:unit
+
+# 実ブラウザ回帰（Preview のキャレット/選択など、実レイアウトが必要なもの）
+npm run test:browser
 ```
+
+### 実ブラウザ回帰テスト（test/browser）
+
+Preview は Milkdown（ProseMirror + `list-item-block` Web Component）で描画される。
+**キャレットや選択の挙動には実レイアウト + 実コンポーネントが無いと再現しない不具合**があり
+（例: チェックボックス行頭 Backspace でカーソルが上の行へ飛ぶ）、jsdom 系の
+`test/webview` では原理的に検出できない。
+
+`test/browser` は **ビルド済みの `media/milkdown.bundle.js` を本物の Chrome（Playwright）**で
+起動し、実キー操作と実キャレット座標で検証する。`acquireVsCodeApi` をスタブして `init`
+メッセージで本文を流し込む（ハーネス: `test/browser/previewBrowserHarness.ts`）。
+
+- 実行: `npm run test:browser`（`build:webview` → `build:browser-test` → mocha）
+- ブラウザはシステムの Google Chrome（`channel: 'chrome'`）を優先。無ければ Playwright 同梱
+  Chromium（`npx playwright install chromium`）。どちらも無い環境では **skip**（CI を壊さない）。
+- jsdom で再現できない描画レイヤの回帰は、必ずここに追加すること。
+
+#### 構成（test/browser）
+
+| ファイル | 内容 |
+| --- | --- |
+| `previewBrowserHarness.ts` | 実バンドル起動・操作・モデル観測・スクショのハーネス |
+| `caretRegression.test.ts` | キャレット保持（markerBackspace 等）の回帰 |
+| `basicOperations.test.ts` | Markdown ロード/構造・展開折りたたみ・インライン整形 |
+| `editingOperations.test.ts` | Enter 継続・インデント・Backspace 解除・Undo/Redo |
+| `visualShowcase.test.ts` | 各種要素をレンダリングしてスクショ撮影（目視確認） |
+
+#### ブラウザ画面を見ながら実行（目視）
+
+```bash
+# 実ブラウザ画面を表示し、操作をゆっくり（slowMo）見せる
+HEADED=1 npm run test:browser
+# 速度調整（ミリ秒）
+HEADED=1 SLOWMO=600 npm run test:browser
+```
+
+スクリーンショットは `visualShowcase.test.ts` が `test-screenshots/*.png`（.gitignore 済み）に
+保存する。レイアウト崩れ・記号欠落・装飾異常などの **視覚的退行**を画像で確認できる。
+
+#### カーソル配置の注意
+
+Playwright→Milkdown では一部キー（`End`・`Cmd+A`）が効かないため、テストでカーソルを
+行末や特定位置へ置くときは**キーに頼らず**ハーネスの `placeCursorAfterText` /
+`selectText` /`placeCursorAtLineStart` を使う（DOM タイミングに依存せず確実）。
 
 ## 新機能の追加手順
 

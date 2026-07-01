@@ -25,7 +25,7 @@ export function registerSlashCommandCompletion(context: vscode.ExtensionContext)
                             item.label,
                             vscode.CompletionItemKind.Snippet
                         );
-                        completionItem.detail = item.detail;
+                        completionItem.detail = vscode.l10n.t(item.detail);
                         completionItem.insertText = new vscode.SnippetString(item.rawSnippet);
                         completionItem.range = lineRange;
                         completionItem.filterText = item.filterText;

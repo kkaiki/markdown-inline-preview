@@ -47,13 +47,6 @@ export function resolveDisableCompetingMarkdownFeatures(config: ConfigLike): boo
     return getAdvancedBooleanSetting(config, 'disableCompetingMarkdownFeatures', true);
 }
 
-export function resolveHideStrikethroughOnEditingLine(
-    config: ConfigLike,
-    line: number,
-    currentEditingLine: number
-): boolean {
-    return config.get<boolean>('hideStrikethroughOnEdit', true) && line === currentEditingLine;
-}
 
 export function resolveShowCheckboxCodeLensEnabled(config: ConfigLike): boolean {
     return config.get<boolean>('showCheckboxCodeLens', true);
@@ -71,7 +64,9 @@ export function resolveImageThumbnailEnabled(config: ConfigLike): boolean {
     return (
         resolvePreviewEnabled(config) &&
         config.get<boolean>('imagePreview.enabled', true) &&
-        config.get<boolean>('imagePreview.showThumbnail', true)
+        // 既定 false: Raw モードのインライン画像サムネイルは編集の邪魔になるため既定で隠す
+        // （ホバープレビューは imagePreview.enabled 側で引き続き利用できる）。
+        config.get<boolean>('imagePreview.showThumbnail', false)
     );
 }
 

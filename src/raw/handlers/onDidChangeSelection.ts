@@ -68,12 +68,12 @@ export function registerOnDidChangeSelection(
                     const line = editor.document.lineAt(position.line);
                     const text = line.text;
 
-                    const checkboxMatch = text.match(/^(\s*)-\s\[[\sx]?\]/i);
+                    // `- [x]` または `- [ ]` で始まる行のプレフィックス範囲内クリックでトグル。
+                    // 旧実装は `[x]` の 3 文字（`[`〜`]`）のみだったが、`-` や空白も含む
+                    // プレフィックス全体に広げることでチェックボックスをクリックしやすくした。
+                    const checkboxMatch = text.match(/^(\s*-\s\[[\sx]?\])/i);
                     if (deps.isCheckboxMouseToggleEnabled() && checkboxMatch) {
-                        const checkboxStart = text.indexOf('[');
-                        const checkboxEnd = text.indexOf(']');
-
-                        if (position.character >= checkboxStart && position.character <= checkboxEnd) {
+                        if (position.character < checkboxMatch[1].length) {
                             setTimeout(() => {
                                 void vscode.commands.executeCommand('markdownInline.clickCheckbox');
                             }, 10);

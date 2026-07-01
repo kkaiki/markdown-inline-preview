@@ -2,7 +2,7 @@
 
 Markdown を **Preview（WYSIWYG / 整形表示）** と **Raw（ソース編集）** で行き来できます。
 
-- ショートカット: `Cmd+Shift+M`（Windows/Linux は `Ctrl+Shift+M`）
+- ショートカット: `Cmd+Shift+.`（Windows/Linux は `Ctrl+Shift+.`）
 - エディタ右上のトグルアイコン
 - Preview 上部ツールバー右端の `Preview | Raw`
 

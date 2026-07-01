@@ -17,7 +17,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | 別名             | Raw / Inline / ソースモード                               |
 | エンジン         | VS Code `TextEditor` + Decoration                       |
 | 記法の表示       | **常にソースそのまま**（`##`, `*`* は隠さない） |
-| Preview への切替 | タイトルバー `Preview` / `Cmd+Shift+M`                |
+| Preview への切替 | タイトルバー `Preview` / `Cmd+Shift+.`                |
 | 向いている作業   | 精密な記法編集、Git diff、大規模置換                      |
 
 ### 設計原則
@@ -59,7 +59,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | インデント追加           | `Tab`                           | 2 スペース。番号付きは再採番        |
 | インデント削除           | `Shift+Tab`                     | 番号付きは再採番                    |
 | チェックボックストグル   | `Cmd+Enter`                     | `[ ]` ↔ `[x]`                  |
-| チェックボックスクリック | マウス                            | `[`〜`]` 範囲（設定で変更可）   |
+| チェックボックスクリック | マウス                            | `- [x]` プレフィックス全体（`-` から `]` まで）をクリックでトグル（設定で変更可） |
 | 番号の再採番             | `renumberLists`                 | 連番の修正                          |
 | 行移動                   | `moveLineUp` / `moveLineDown` | ブロック単位（キーバインド未割当）  |
 | 完了タスクの取り消し線   | 自動                              | チェック済み行の本文                |
@@ -106,7 +106,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | `Cmd+←` / `Home`   | セル内先頭 → セル左端 → 左セルの末尾（先頭セルなら行頭）                                                       |
 | `Cmd+→` / `End`    | セル内末尾 → セル右端 → 右セルの先頭（末尾セルなら行末）                                                       |
 | `Tab` / `Shift+Tab` | テーブル内では次/前セルへ（リスト外ではインデント）                                                              |
-| `Cmd+A`               | テーブル内は セル内容 → 行 → テーブル全体 → ページ全体（段階的）。コードブロック内は ブロック内 → ページ全体 |
+| `Cmd+A`               | まずカーソルのある行（ブロック）全体 → ページ全体（段階的）。テーブル内は セル内容 → 行 → テーブル全体 → ページ全体。コードブロック内は ブロック内 → ページ全体 |
 
 折り返し表示中も、上下移動は**元テキスト上のセル座標**を基準にする（見た目の継続行に吸われない）。
 
@@ -268,7 +268,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | 見出し変換 H1/H2/H3                   | `Alt+Cmd+1/2/3`       | `Alt+Ctrl+1/2/3`     |
 | リスト変換（ToDo/箇条書き/番号/本文） | `Alt+Cmd+4/5/6/0`     | `Alt+Ctrl+4/5/6/0`   |
 | スマート移動                          | `Cmd+←→`, `↑↓`  | `Home/End`, `↑↓` |
-| Preview へ切替                        | `Cmd+Shift+M`         | `Ctrl+Shift+M`       |
+| Preview へ切替                        | `Cmd+Shift+.`         | `Ctrl+Shift+.`       |
 
 `Cmd+Opt+<数字>`（Notion 風）のブロック変換体系は [preview-features.md](./preview-features.md#notion-風ブロック変換cmdopt数字) と共通。
 

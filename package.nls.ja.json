@@ -1,0 +1,10 @@
+{
+  "walkthrough.title": "iPreview をはじめる",
+  "walkthrough.description": "Notion 風の Markdown 編集 — Preview/Raw 切り替え、スラッシュメニュー、ショートカット",
+  "walkthrough.toggle.title": "Preview ⇔ Raw を切り替える",
+  "walkthrough.toggle.description": "Markdown を WYSIWYG の Preview と素のソース Raw で行き来できます。\n[Preview / Raw を切り替える](command:markdownInline.togglePreview)",
+  "walkthrough.slash.title": "スラッシュメニューで挿入",
+  "walkthrough.slash.description": "行頭で / を打つと、見出し・リスト・テーブルなどを素早く挿入できます。",
+  "walkthrough.shortcuts.title": "ショートカット",
+  "walkthrough.shortcuts.description": "見出し・チェックボックス・整形などのショートカットを覚えると一気に速くなります。"
+}

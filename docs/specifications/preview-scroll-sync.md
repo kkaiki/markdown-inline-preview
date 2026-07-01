@@ -43,8 +43,13 @@ Raw は「行番号」、Preview は「ピクセル」で位置を持つため�
 | `scrollRatioFromPixels(scrollTop, scrollHeight, clientHeight)` | Preview: px → 比率（0〜1 にクランプ） |
 | `lineFromScrollRatio(ratio, lineCount)` | Raw: 比率 → 行（0〜lineCount-1 にクランプ） |
 | `pixelsFromScrollRatio(ratio, scrollHeight, clientHeight)` | Preview: 比率 → px |
+| `contentScrollHeight(scrollHeight, scrollBeyondPadding)` | Preview: scroll-beyond 余白を除いた実コンテンツ高 |
 
 いずれも範囲外・NaN・分母 0 を安全に処理する。
+
+### scroll beyond last line と比率計算
+
+Preview は最終行を画面最上部まで送れるよう、コンテンツ下に「ビューポート高 − 1行」の余白を持つ（`--preview-scroll-beyond`）。この余白を `scrollHeight` にそのまま含めると、同じ本文位置でも比率が小さく出て**末尾付近で Raw⇄Preview がズレる**。そのため Preview 側の比率計算には必ず `contentScrollHeight(scrollHeight, 追加余白)` を渡し、**追加余白を除いた実コンテンツ高**で `scrollRatioFromPixels` / `pixelsFromScrollRatio` を呼ぶ。
 
 ---
 

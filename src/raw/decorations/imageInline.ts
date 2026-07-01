@@ -2,7 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-const IMAGE_LINE_PATTERN = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/;
+// 山括弧囲み `<...>`（スペース等を含む CommonMark 正式形）と裸パスの両方に対応。
+// グループ2=山括弧の中身、グループ3=裸パス。
+const IMAGE_LINE_PATTERN = /!\[([^\]]*)\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+"([^"]*)")?\s*\)/;
 
 function resolveImagePath(url: string, documentPath: string): string | undefined {
     const trimmed = url.trim();
@@ -33,7 +35,9 @@ export function updateImageInlineDecorations(
         if (!match) continue;
 
         const range = new vscode.Range(i, 0, i, lineText.length);
-        const imagePath = resolveImagePath(match[2], document.uri.fsPath);
+        // グループ2=山括弧の中身 / グループ3=裸パス のどちらか。
+        const url = match[2] ?? match[3] ?? '';
+        const imagePath = resolveImagePath(url, document.uri.fsPath);
 
         if (imagePath && fs.existsSync(imagePath)) {
             decorations.push({

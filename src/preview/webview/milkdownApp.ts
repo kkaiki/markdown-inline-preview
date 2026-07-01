@@ -1,54 +1,59 @@
 /**
  * WebView 側エントリポイント。esbuild で media/milkdown.bundle.js にバンドルされる。
  */
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx } from '@milkdown/kit/core';
-import { commonmark, remarkPreserveEmptyLinePlugin, insertImageCommand } from '@milkdown/kit/preset/commonmark';
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx, remarkStringifyOptionsCtx, serializerCtx } from '@milkdown/kit/core';
+import type { Node as ProseNode } from '@milkdown/prose/model';
+import { commonmark, insertImageCommand } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
+import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
-import { replaceAll } from '@milkdown/kit/utils';
 import { listItemBlockComponent, listItemBlockConfig } from '@milkdown/kit/component/list-item-block';
-import hljs from 'highlight.js/lib/common';
 import renderMathInElement from 'katex/contrib/auto-render';
 import mermaid from 'mermaid';
 
 import type { EditorView } from '@milkdown/prose/view';
 import { Selection } from '@milkdown/prose/state';
 import { overrideHardbreakSerializer } from './hardbreakSerializer';
+import { disableTextEscape } from './disableTextEscape';
 
 import type { HostToWebviewMessage, PreviewSettings, ScrollAnchorPayload } from './types';
 import { parseFrontmatterEntries } from '../../shared/markdown/frontmatter';
-import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities } from '../../shared/markdown/lineBreaks';
+import { tightenListSpacing, stripPlaceholderLineBreaks, stripListItemPlaceholderBr, normalizePreviewMarkdown } from '../../shared/markdown/lineBreaks';
 
-/**
- * Preview に出入りする Markdown の正規化:
- * - `<br />` プレースホルダ（空行・空セル）除去
- * - テーブルセル内 `<br>` → `&#10;`（hardbreak として編集できるように）
- * - リスト/段落の余分な空行詰め
- */
-function normalizeMarkdown(markdown: string): string {
-    return tightenParagraphSpacing(
-        tightenListSpacing(
-            convertTableCellBreaksToEntities(stripPlaceholderLineBreaks(markdown))
-        )
-    );
-}
+// Preview 本文と Git 差分の基準を同じ正規形に揃えるための共通正規化（shared に集約）。
+const normalizeMarkdown = normalizePreviewMarkdown;
 import {
     createScrollAnchor,
     headingMatchesScrollAnchor
 } from '../../shared/structure/scrollAnchor';
-import { scrollRatioFromPixels, pixelsFromScrollRatio } from '../../shared/preview/scrollSync';
+import { scrollRatioFromPixels, pixelsFromScrollRatio, contentScrollHeight } from '../../shared/preview/scrollSync';
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
-import { headingBackspacePlugin } from './headingBackspacePlugin';
+import { createMarkerBackspacePlugin } from './markerBackspace';
+import { createBlockPrefixEditPlugin, isBlockPrefixActive } from './blockPrefixEditPlugin';
+import { createLineNumberGutterPlugin } from './lineNumberGutterPlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createPreviewToolbarPlugin } from './previewToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
-import { createPreviewKeymapPlugin, handleSelectAll } from './previewKeymapPlugin';
+import { createTableSelectionFixPlugin } from './tableSelectionFix';
+import { createTableArrowKeymapPlugin } from './tableArrowKeymap';
+import { createPreviewKeymapPlugin, handleSelectAllCapture } from './previewKeymapPlugin';
 import { classifyPreviewShortcut } from '../../shared/preview/previewShortcuts';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
+import { createCodeHighlightPlugin } from './codeHighlightPlugin';
+import { createCodeBlockTripleClickPlugin } from './codeBlockTripleClick';
+import { createInlineMarkBackspacePlugin } from './inlineMarkBackspace';
+import { createCodeBlockBackspacePlugin } from './codeBlockBackspace';
+import { createCheckboxToggleKeymapPlugin } from './checkboxToggle';
 import { createPreviewDiffPlugin, setDiffBase } from './previewDiffPlugin';
 import { PreviewFindBar } from './previewFindBar';
+import { setLanguage, t } from './i18n';
+import { createImageCopyPlugin, writeDataUrlToClipboard } from './imageCopyPlugin';
+import { imageIsolationPlugin } from './imageIsolationPlugin';
+import { applyExternalContent } from './applyExternalContent';
+import { getPreviewCursorAnchor, applyPreviewCursorAnchor } from './cursorAnchor';
+import type { CursorAnchor } from '../../shared/preview/cursorAnchor';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -59,7 +64,13 @@ if (!root) {
     throw new Error('milkdown-root element not found');
 }
 
-const findBar = new PreviewFindBar(root);
+const getEditorView = (): EditorView | null => {
+    if (!editor) return null;
+    let view: EditorView | null = null;
+    editor.action((ctx) => { view = ctx.get(editorViewCtx); });
+    return view;
+};
+const findBar = new PreviewFindBar(root, getEditorView);
 document.addEventListener('keydown', (event) => {
     const shortcut = classifyPreviewShortcut(event);
 
@@ -71,7 +82,15 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    // Cmd/Ctrl+Shift+M: Raw（Markdown ソース）へ戻る。WebView 内には VS Code の
+    // Cmd+Opt+F（mac）/ Ctrl+H（Win・Linux）: 検索＋置換
+    if (shortcut?.kind === 'replace') {
+        event.preventDefault();
+        event.stopPropagation();
+        findBar.open(true);
+        return;
+    }
+
+    // Cmd/Ctrl+Shift+.: Raw（Markdown ソース）へ戻る。WebView 内には VS Code の
     // キーバインドが届かないため、ここで拾ってホストへトグルを依頼する。
     if (shortcut?.kind === 'toggleRaw') {
         event.preventDefault();
@@ -80,20 +99,19 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    // Cmd/Ctrl+A: テーブル/コードブロックの段階選択。
-    // capture フェーズで横取りして、ProseMirror 標準の全選択より先に処理する
-    // （プラグインの handleKeyDown は読み込み順により負けることがあるため）。
+    // Cmd/Ctrl+A: セル内容 → 行全体 → テーブル全体 → 文書全体 の段階選択。
+    // capture フェーズで横取りして選択変更まで行い、stopPropagation で ProseMirror の
+    // keydown 経路を止める。これには 2 つの理由がある:
+    //  1. ProseMirror 標準（ブラウザ/Electron の native「Select All」）より先に処理する。
+    //     プラグインの handleKeyDown は読み込み順により負けることがあり、その場合 native
+    //     の全選択が先に走って段階選択（セル/行/表）が無視されてしまう。
+    //  2. ここで処理したら同じ keydown を plugin の handleKeyDown へ流さない。両方走ると
+    //     1 回の押下で 2 段階進んでしまう（capture=セル内容 → plugin=行 …）。
+    // 段階選択ロジック自体は handleSelectAll に集約し、ここと plugin で共有する
+    // （plugin 経路はテストが直接 view.dom に keydown を送って検証する）。
     if (shortcut?.kind === 'selectAll') {
         if (!editor) return;
-        const handled = editor.action((ctx) => {
-            const view = ctx.get(editorViewCtx);
-            if (!view.hasFocus()) return false;
-            return handleSelectAll(view, ctx);
-        });
-        if (handled) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
+        editor.action((ctx) => handleSelectAllCapture(ctx.get(editorViewCtx), ctx, event));
     }
 }, true);
 
@@ -163,6 +181,63 @@ function debounce<T extends (...args: never[]) => void>(fn: T, wait: number): (.
     };
 }
 
+// ズーム（拡大/縮小）。基準フォントサイズに倍率を掛けて適用し、webview state に保存する
+// （その webview のリロードをまたいで維持される）。
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 3;
+const ZOOM_STEP = 0.1;
+
+function readSavedZoom(): number {
+    const state = vscodeApi.getState() as { zoom?: number } | undefined;
+    const z = state?.zoom;
+    return typeof z === 'number' && z >= ZOOM_MIN && z <= ZOOM_MAX ? z : 1;
+}
+
+let zoomFactor = readSavedZoom();
+
+function applyZoom(): void {
+    const base = currentSettings?.fontSize ?? 13;
+    document.documentElement.style.setProperty('--preview-font-size', `${(base * zoomFactor).toFixed(2)}px`);
+    const state = (vscodeApi.getState() as Record<string, unknown> | undefined) ?? {};
+    vscodeApi.setState({ ...state, zoom: zoomFactor });
+    // フォントサイズ（行高）が変わると必要な余白も変わるので再計算する。
+    updateScrollBeyondPadding();
+}
+
+// 「最終行より下へのスクロール余白」。常に有効。最終行を画面最上部まで送れるよう、
+// `ビューポート高 − 1行高` をコンテンツ下に確保する。従来の見た目の下余白 48px を
+// 基準に、それを超える分だけを「追加余白」としてスクロール同期の比率計算から除外する。
+const BASE_BOTTOM_PADDING = 48;
+let scrollBeyondExtraPx = 0;
+
+/** `.milkdown` の 1 行の高さ（px）。取得できなければフォントサイズ×1.6 で近似。 */
+function previewLineHeightPx(): number {
+    const el = root.querySelector('.milkdown');
+    if (el) {
+        const style = getComputedStyle(el);
+        const lh = parseFloat(style.lineHeight);
+        if (Number.isFinite(lh) && lh > 0) return lh;
+        const fs = parseFloat(style.fontSize);
+        if (Number.isFinite(fs) && fs > 0) return fs * 1.6;
+    }
+    return 24;
+}
+
+/** スクロール余白（padding-bottom）を「ビューポート高 − 1行」に更新する。 */
+function updateScrollBeyondPadding(): void {
+    const pad = Math.max(BASE_BOTTOM_PADDING, root.clientHeight - previewLineHeightPx());
+    scrollBeyondExtraPx = pad - BASE_BOTTOM_PADDING;
+    root.style.setProperty('--preview-scroll-beyond', `${pad}px`);
+}
+
+window.addEventListener('resize', debounce(updateScrollBeyondPadding, 100));
+
+function setZoom(next: number): number {
+    zoomFactor = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(next * 100) / 100));
+    applyZoom();
+    return Math.round(zoomFactor * 100);
+}
+
 function applySettingsToDom(settings: PreviewSettings): void {
     currentSettings = settings;
     document.body.classList.toggle('theme-light', settings.theme === 'light');
@@ -173,7 +248,7 @@ function applySettingsToDom(settings: PreviewSettings): void {
         '--preview-font-family',
         settings.fontFamily || PROPORTIONAL_FONT_STACK
     );
-    document.documentElement.style.setProperty('--preview-font-size', `${settings.fontSize}px`);
+    applyZoom();
     document.documentElement.style.setProperty(
         '--preview-max-width',
         settings.maxWidth > 0 ? `${settings.maxWidth}px` : 'none'
@@ -189,6 +264,9 @@ function applySettingsToDom(settings: PreviewSettings): void {
     if (!settings.enableSlashMenu) {
         slashMenuController?.hide();
     }
+
+    // 各ブロック左の行番号ガターの表示/非表示（CSS の body.show-line-numbers で制御）。
+    document.body.classList.toggle('show-line-numbers', settings.showLineNumbers);
 
     mermaid.initialize({
         startOnLoad: false,
@@ -218,31 +296,6 @@ function escapeHtml(text: string): string {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
-}
-
-function highlightCodeBlocks(): void {
-    // カーソルがあるコードブロックは hljs で DOM を書き換えない（ProseMirror が
-    // 管理する編集中の要素を書き換えるとカーソルが先頭へ飛ぶため）。それ以外の
-    // ブロックは色付けする。フォーカスが外れたら再ハイライトできるようにする。
-    const selection = document.getSelection();
-    const anchor = selection?.anchorNode ?? null;
-    const focusedPre = anchor
-        ? ((anchor instanceof Element ? anchor : anchor.parentElement)?.closest('pre') ?? null)
-        : null;
-
-    root.querySelectorAll('pre code').forEach(block => {
-        const el = block as HTMLElement;
-        const pre = el.parentElement;
-        if (el.classList.contains('language-mermaid')) return;
-        if (pre && pre === focusedPre) {
-            // 編集中のブロックは素のまま。外れたら再着色できるようマークを外す。
-            delete pre.dataset.highlighted;
-            return;
-        }
-        if (pre?.dataset.highlighted === 'yes') return;
-        hljs.highlightElement(el);
-        if (pre) pre.dataset.highlighted = 'yes';
-    });
 }
 
 async function renderMermaidBlocks(): Promise<void> {
@@ -279,7 +332,8 @@ function renderMath(): void {
 }
 
 async function enhanceRenderedContent(): Promise<void> {
-    highlightCodeBlocks();
+    // コードのシンタックスハイライトは codeHighlightPlugin（デコレーション）が担当する。
+    // ここでは KaTeX 数式と Mermaid 図の描画だけを行う。
     renderMath();
     await renderMermaidBlocks();
 }
@@ -332,7 +386,36 @@ function handleImageDataTransfer(data: DataTransfer | null): boolean {
 function insertImageSrc(src: string): void {
     if (!editor) return;
     editor.action((ctx) => {
-        ctx.get(commandsCtx).call(insertImageCommand.key, { src });
+        const view = ctx.get(editorViewCtx);
+        const { state } = view;
+        const { $from } = state.selection;
+        const parent = $from.parent;
+        const { paragraph } = state.schema.nodes;
+        const imageType = state.schema.nodes['image'];
+
+        // 画像ノードを生成できない場合はコマンドにフォールバック
+        if (!imageType || !paragraph) {
+            ctx.get(commandsCtx).call(insertImageCommand.key, { src });
+            return;
+        }
+
+        const imageNode = imageType.create({ src });
+
+        // 現在の段落にテキスト（画像以外の内容）が含まれるか確認
+        const parentHasText = parent.type === paragraph &&
+            Array.from({ length: parent.childCount }, (_, i) => parent.child(i))
+                .some(c => c.type.name !== 'image');
+
+        let tr = state.tr;
+        if (parentHasText) {
+            // テキストがある段落の後ろに画像専用の新段落を挿入
+            const afterPara = $from.after($from.depth);
+            tr = tr.insert(afterPara, paragraph.create(null, imageNode));
+        } else {
+            // 画像のみ or 空の段落ならカーソル位置に挿入
+            tr = tr.insert($from.pos, imageNode);
+        }
+        view.dispatch(tr);
     });
 }
 
@@ -344,7 +427,10 @@ function applyDiffBase(baseMarkdown: string | null): void {
         pendingDiffBase = baseMarkdown;
         return;
     }
-    editor.action((ctx) => setDiffBase(ctx, baseMarkdown));
+    // 基準（HEAD 本文）を本文ドキュメントと同じ正規形にしてから比較する。揃えないと
+    // Raw では無変更なのに Preview のガターだけ「変更（青）」に見える（表セルの `<br>` 等）。
+    const normalizedBase = baseMarkdown === null ? null : normalizeMarkdown(baseMarkdown);
+    editor.action((ctx) => setDiffBase(ctx, normalizedBase));
 }
 
 /** 選択テキストがある状態で URL を貼ると、その選択をリンクにする（テキストは保持）。 */
@@ -374,7 +460,11 @@ function setEditable(editable: boolean): void {
 
 function postChange(markdown: string): void {
     // ファイルに書く形（テーブルセル内改行は `<br>` のまま）。
-    const fileMarkdown = tightenParagraphSpacing(tightenListSpacing(markdown));
+    // 段落間の空行は詰めない（ユーザーが入れた空行を保持する）。リストだけ tight 化。
+    // remark-preserve-empty-line が空項目を <br /> として直列化するので除去する。
+    const fileMarkdown = stripListItemPlaceholderBr(
+        stripPlaceholderLineBreaks(tightenListSpacing(markdown))
+    );
     // 重複判定は取り込み時と同じ正規形（セル内改行は `&#10;`）で行う。こうしないと
     // ホストからのエコーバック（`<br>`）を正規化した結果と食い違い、無駄な再描画になる。
     const canonical = normalizeMarkdown(markdown);
@@ -384,19 +474,35 @@ function postChange(markdown: string): void {
     void enhanceRenderedContent();
 }
 
-// 空段落・空セルを `<br />` として保存する remark-preserve-empty-line を除外し、
-// 通常の空行で保存されるようにする（commonmark は [plugin, options] を含む配列）。
-const commonmarkWithoutEmptyLineBreaks = commonmark.filter(
-    (plugin) =>
-        plugin !== remarkPreserveEmptyLinePlugin.plugin &&
-        plugin !== remarkPreserveEmptyLinePlugin.options
-);
 
 async function createEditor(markdown: string, settings: PreviewSettings): Promise<void> {
     const initialMarkdown = normalizeMarkdown(markdown);
     lastSyncedMarkdown = initialMarkdown;
+    // ツールバー等を組む前に表示言語を反映する（t() の結果が確定するように）。
+    setLanguage(settings.language);
     setFocusSyntaxEnabled(settings.showFocusSyntax);
     setSlashMenuEnabled(settings.enableSlashMenu);
+
+    // 行番号ガター: トップレベルブロック 1 つを単独 Markdown 化して開始行を数えるための
+    // シリアライザ。editor 作成後にのみ呼ばれる（decorations 経由）。
+    const serializeBlock = (node: ProseNode): string => {
+        if (!editor) return node.textContent;
+        let out = node.textContent;
+        try {
+            editor.action((ctx) => {
+                const serialize = ctx.get(serializerCtx);
+                const view = ctx.get(editorViewCtx);
+                const wrapped = view.state.schema.topNodeType.create(null, node);
+                // postChange と同じ整形（リストの tight 化等）を通す。これをしないと
+                // シリアライザは loose リスト（項目間に空行）を出し、保存ファイルの行数と
+                // 食い違って行番号がズレる。
+                out = stripListItemPlaceholderBr(stripPlaceholderLineBreaks(tightenListSpacing(serialize(wrapped))));
+            });
+        } catch {
+            /* フォールバックは textContent のまま */
+        }
+        return out;
+    };
 
     const builder = Editor.make()
         .config((ctx) => {
@@ -428,25 +534,50 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 }
             }));
             ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
+                // blockPrefixEditPlugin 展開中はプレフィックスが二重直列化（`## ## Hello`）
+                // されるため、カーソルがブロックを抜けて折りたたみが完了するまで同期を抑制する。
+                if (isBlockPrefixActive()) return;
                 postChange(nextMarkdown);
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
+            // リスト記号を `*` ではなく `-` にする（チェックボックスを含む全箇条書き）
+            ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-' }));
             overrideHardbreakSerializer(ctx);
+            disableTextEscape(ctx);
         })
         // Keymap overrides must come before the presets so their handleKeyDown
         // runs ahead of the base/gfm keymaps (Cmd+A, Cmd+Opt+N, Enter-in-cell).
         .use(createPreviewKeymapPlugin())
+        .use(createCodeBlockTripleClickPlugin())
+        .use(createInlineMarkBackspacePlugin())
+        .use(createCodeBlockBackspacePlugin())
+        .use(createCheckboxToggleKeymapPlugin())
         .use(createTableCellEnterPlugin())
-        .use(commonmarkWithoutEmptyLineBreaks)
+        .use(createTableSelectionFixPlugin())
+        .use(createTableArrowKeymapPlugin())
+        .use(commonmark)
         .use(gfm)
         .use(history)
+        // 画像ノード選択時の Cmd+C / 右クリック「Copy Image」を処理する。
+        // clipboard プラグインより前に登録して、画像 NodeSelection では優先して処理する。
+        .use(createImageCopyPlugin({
+            postMessage: (msg) => vscodeApi.postMessage(msg)
+        }))
+        // 画像とテキストの混在を防ぐ。文書変更後に混在段落を自動分離する。
+        .use(imageIsolationPlugin)
+        // 貼り付け/コピーを Markdown ベースにする。これが無いと Preview への貼り付けが
+        // ProseMirror 既定（HTML/プレーンテキスト）任せになり、Raw と違って構造が崩れる。
+        .use(clipboard)
         .use(listener)
         .use(listItemBlockComponent)
         .use(createTableToolbarPlugin())
         .use(createCodeLanguagePlugin())
+        .use(createCodeHighlightPlugin())
         .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
-        .use(headingBackspacePlugin);
+        .use(createMarkerBackspacePlugin())
+        .use(createBlockPrefixEditPlugin())
+        .use(createLineNumberGutterPlugin({ serializeBlock }));
 
     if (settings.showToolbar) {
         const isMac = /mac/i.test(navigator.platform || navigator.userAgent || '');
@@ -455,7 +586,11 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 isMac,
                 showShortcuts: settings.toolbarShowShortcuts,
                 onExport: () => vscodeApi.postMessage({ type: 'exportRequest' }),
-                onToggleRaw: () => vscodeApi.postMessage({ type: 'toggleRaw' })
+                onToggleRaw: () => vscodeApi.postMessage({ type: 'toggleRaw' }),
+                onZoomIn: () => setZoom(zoomFactor + ZOOM_STEP),
+                onZoomOut: () => setZoom(zoomFactor - ZOOM_STEP),
+                onZoomReset: () => setZoom(1),
+                initialZoom: Math.round(zoomFactor * 100)
             })
         );
     }
@@ -465,6 +600,13 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     }
 
     editor = await builder.create();
+    // テスト専用シーム: 事前に window.__IPREVIEW_TEST_HOOK__ が定義されている場合のみ
+    // EditorView を渡す。本番（実 VS Code）では未定義なので何もしない。
+    // 実ブラウザ回帰テスト（test/browser）がドキュメントモデル/選択を読むために使う。
+    const testHook = (globalThis as unknown as { __IPREVIEW_TEST_HOOK__?: (view: unknown) => void }).__IPREVIEW_TEST_HOOK__;
+    if (typeof testHook === 'function') {
+        editor.action((ctx) => testHook(ctx.get(editorViewCtx)));
+    }
     slashMenuController?.bindEditor(editor);
 
     if (pendingDiffBase !== undefined) {
@@ -473,13 +615,15 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     }
 
     await enhanceRenderedContent();
+    // `.milkdown` が生成され実際の行高が取れるようになったので、スクロール余白を確定する。
+    updateScrollBeyondPadding();
 }
 
 function applyExternalMarkdown(markdown: string): void {
     const next = normalizeMarkdown(markdown);
     if (!editor || next === lastSyncedMarkdown) return;
     lastSyncedMarkdown = next;
-    editor.action(replaceAll(next));
+    editor.action((ctx) => applyExternalContent(ctx, next));
     void enhanceRenderedContent();
 }
 
@@ -518,16 +662,28 @@ function isHostMessage(data: unknown): data is HostToWebviewMessage {
 
 const reportScroll = debounce(() => {
     if (!scrollReportEnabled) return;
-    const ratio = scrollRatioFromPixels(root.scrollTop, root.scrollHeight, root.clientHeight);
+    const ratio = scrollRatioFromPixels(
+        root.scrollTop,
+        contentScrollHeight(root.scrollHeight, scrollBeyondExtraPx),
+        root.clientHeight
+    );
     const anchor = findVisibleAnchor();
     vscodeApi.postMessage({ type: 'scroll', ratio, anchor });
 }, 150);
 root.addEventListener('scroll', reportScroll);
 
-// カーソルがコードブロックから外れたときに、そのブロックを再着色する。
-// 既に着色済みのブロックはスキップされるため負荷は小さい。
-const rehighlightOnSelection = debounce(() => highlightCodeBlocks(), 120);
-document.addEventListener('selectionchange', rehighlightOnSelection);
+// カーソル位置を（Preview → Raw 用に）ホストへ報告する。選択が変わるたびに最新を送り、
+// ホストは lastKnownCursor として保持して Raw に戻すときに使う。
+const reportCursor = debounce(() => {
+    if (!editor) return;
+    let anchor: CursorAnchor | null = null;
+    editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        if (view.hasFocus()) anchor = getPreviewCursorAnchor(view);
+    });
+    if (anchor) vscodeApi.postMessage({ type: 'cursor', anchor });
+}, 150);
+document.addEventListener('selectionchange', reportCursor);
 
 function applyFadeIn(enabled: boolean): void {
     if (!enabled) return;
@@ -541,14 +697,19 @@ window.addEventListener('message', (event: MessageEvent) => {
     if (!isHostMessage(message)) return;
 
     if (message.type === 'init') {
+        setLanguage(message.settings.language);
         applySettingsToDom(message.settings);
         currentFrontmatter = message.frontmatter ?? null;
         renderFrontmatterPanel(currentFrontmatter);
         void createEditor(message.markdown, message.settings).then(() => {
-            const { settings, scrollAnchor, scrollRatio } = message;
+            const { settings, scrollAnchor, scrollRatio, cursorAnchor } = message;
             const applyRatio = (): void => {
                 if (typeof scrollRatio === 'number') {
-                    root.scrollTop = pixelsFromScrollRatio(scrollRatio, root.scrollHeight, root.clientHeight);
+                    root.scrollTop = pixelsFromScrollRatio(
+                        scrollRatio,
+                        contentScrollHeight(root.scrollHeight, scrollBeyondExtraPx),
+                        root.clientHeight
+                    );
                 }
             };
             if (settings.syncScroll && scrollAnchor) {
@@ -559,6 +720,12 @@ window.addEventListener('message', (event: MessageEvent) => {
             } else if (settings.syncScroll && typeof scrollRatio === 'number') {
                 requestAnimationFrame(applyRatio);
             }
+            // カーソル位置の引き継ぎ（Raw → Preview）。スクロールより後に当て、カーソルへ寄せる。
+            if (cursorAnchor && editor) {
+                requestAnimationFrame(() => {
+                    editor?.action((ctx) => applyPreviewCursorAnchor(ctx.get(editorViewCtx), cursorAnchor));
+                });
+            }
             applyFadeIn(settings.enableTransitions);
         }).catch((error: unknown) => {
             // エディタ生成に失敗しても真っ白にしない: 原因を表示し本文を素のテキストで出す
@@ -566,7 +733,7 @@ window.addEventListener('message', (event: MessageEvent) => {
             pre.style.whiteSpace = 'pre-wrap';
             pre.style.padding = '12px';
             pre.textContent =
-                `[Preview の初期化に失敗しました。Raw モードで編集してください]\n` +
+                `${t('[Failed to initialize Preview. Please edit in Raw mode.]')}\n` +
                 `${error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error)}\n\n` +
                 message.markdown;
             root.replaceChildren(pre);
@@ -582,6 +749,7 @@ window.addEventListener('message', (event: MessageEvent) => {
         return;
     }
     if (message.type === 'settings') {
+        setLanguage(message.settings.language);
         applySettingsToDom(message.settings);
         setEditable(message.settings.editable);
         renderFrontmatterPanel(currentFrontmatter);
@@ -589,6 +757,14 @@ window.addEventListener('message', (event: MessageEvent) => {
     }
     if (message.type === 'imageInserted') {
         insertImageSrc(message.src);
+        return;
+    }
+    if (message.type === 'imageCopied') {
+        // Host がファイルを読んで返した dataUrl をクリップボードに書き込む。
+        // null はファイル読み取り失敗（パス解決不能 / 権限なし等）→ 無視。
+        if (message.dataUrl) {
+            void writeDataUrlToClipboard(message.dataUrl);
+        }
         return;
     }
     if (message.type === 'baseMarkdown') {

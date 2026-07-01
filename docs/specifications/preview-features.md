@@ -1,7 +1,7 @@
 # Preview（WYSIWYG モード）仕様
 
-最終更新: 2026-06-21  
-バージョン: **1.8.5**
+最終更新: 2026-06-28  
+バージョン: **1.9.8**
 
 **Preview** = Milkdown ベースの **WYSIWYG モード**（Custom Text Editor）です。  
 レンダリング結果をそのまま編集し、変更は自動で `.md` ファイルに保存されます。
@@ -17,7 +17,7 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | 別名 | Preview / WYSIWYG モード |
 | エンジン | Milkdown（WebView） |
 | 記法の表示 | **レンダリング結果**（非フォーカス時）。フォーカス中ブロックでは `##`・`**` 等の記法マーカーを表示 |
-| Raw への切替 | タイトルバー `Raw` / `Cmd+Shift+M` |
+| Raw への切替 | タイトルバー `Raw` / `Cmd+Shift+.` |
 | 保存 | 編集後 約 200ms でファイルへ自動反映 |
 | 向いている作業 | 読みやすさ重視の執筆・推敲 |
 
@@ -50,22 +50,29 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 |------|------|
 | CommonMark | 見出し、段落、引用、コード、リンク等 |
 | GFM | テーブル、チェックボックス、取り消し線等 |
-| テーブル編集 | 標準テーブル（セルに通常のテキストカーソル、`Tab` でセル移動）。カーソルが表内にある間、表の左上にフロートツールバーを表示し「＋行 / ＋列 / 行を削除 / 列を削除 / 表を削除」を操作 |
+| テーブル編集 | 標準テーブル（セルに通常のテキストカーソル、`Tab` でセル移動）。カーソルが表内にある間、表の左上にフロートツールバーを表示し「＋行 / ＋列 / **↑行 / ↓行 / ←列 / →列（移動）** / 行を削除 / 列を削除 / 表を削除」を操作。行/列の移動は `moveTableRow` / `moveTableColumn`（**ヘッダ行は固定**し本文行だけ入れ替え）。**ドラッグで複数セルを選択**できる（prosemirror-tables の CellSelection）。選択セルはアクセント色のティント＋内側ボーダーではっきり表示。複数セル選択中は**セル内のネイティブなテキスト選択ハイライトを消す**（`.selectedCell ::selection { background: transparent }`）ので、オーバーレイの上に text 選択が重なって「全部選択されて汚い」状態にならない。**Shift+↑/↓ などキーボードで表境界をまたぐ範囲選択**も壊れない（`tableSelectionFix`：表の外→中をまたぐ選択を「表全体を含む」形に正規化。gfm の `normalizeSelection` より前に挿入）。**セル内で ↓/↑ は同じ列の真下/真上のセル**へ移る（`tableArrowKeymap`：gfm は Tab/Enter しか割り当てず ↓/↑ がブラウザ既定＝右のセルへ流れていたのを、prosemirror-tables の `nextCell` で列を保って移動。複数行セルの途中は `endOfTextblock` で既定のキャレット移動に委ねる）。**表の下の余白は 0**（`margin: 2.6em 0 0`。上はツールバー用） |
 | テーブル挿入 | `/table` は空セルのテーブルを挿入し、カーソルを先頭セルに置く（`Header 1` 等のダミーは入れない） |
 | 空行・空セル | 通常の空行／空セルとして保存（`<br />` プレースホルダは出力しない。既存ファイルの `<br />` は読み込み時に正規化） |
 | テーブル内改行 | セル内で `Enter` → セル内に改行（GFM では `<br>`）。テーブル下に行は作らない |
 | ソフトブレイク表示 | 単一改行（ソフトブレイク）を見た目の改行として表示。保存は `\n` のまま（非破壊） |
+| エスケープ無効化 | テキストノードの自動エスケープを源流（remark stringify の `text` ハンドラ）で無効化。Milkdown 既定では段落中の `[` 等が round-trip 安全のため一律 `\[` になり、Raw に戻すとソースが汚れる。本拡張では `[` `*` `_` `#` 等を**エスケープせず素のまま保存**する（`src/preview/webview/disableTextEscape.ts`）。トレードオフ: 素の `\|` がテーブルを壊す等の構文衝突は防がない（ユーザー自身が編集する .md 前提） |
 | リスト詰め（tight） | 連続するリスト項目の間の空行を除去し、tight なリストにして表示・保存（loose リストを残さない） |
-| 段落詰め | 普通の段落どうしの間の空行を除去して 1 行改行に詰める（表示・保存とも）。見出し・リスト・テーブル・引用・コードに隣接する空行は保持（誤爆防止） |
+| 段落間の空行を保持 | 段落どうしの間の空行（`A\n\nB`）は**詰めずに保持**する（2 段落として読み込み、Preview でも空行ぶんの余白＝`p` の下マージン 0.85em を見せる。保存ファイルにも空行を残す）。単一改行（`A\nB`）は同じ段落内のソフトブレイク。<br>※以前は空行を詰めていた（`tightenParagraphSpacing`）が、ユーザーが意図して入れた空行が表示・保存とも消えてしまうため廃止。リストの空行詰め（tight）は引き続き有効 |
 | WYSIWYG 編集 | レンダリング結果を直接編集 |
 | ファイル同期 | Markdown ソースとして保存 |
-| Raw → Preview 反映 | 約 100ms デバウンス |
-| チェックボックス | クリックでトグル → `- [x]` として保存 |
-| Git 差分ガター | Git HEAD（コミット済み）と比較し、ブロック左に 追加=緑 / 変更=青 のバー、削除位置に赤い線を表示（ブロック単位）。基準は開いた時点の HEAD。git 管理外/新規ファイルは非表示 |
+| 外部編集の反映 | Raw エディタからの編集に加え、**外部（AI・他ツール）が .md をディスク上で直接編集**した場合も WebView に反映する。Preview だけを開いていて `onDidChangeTextDocument` が発火しないケースに備え、ホストが `FileSystemWatcher` でファイル変更も拾い、最新のディスク内容を push する（自分の保存によるエコーは WebView 側の重複判定で無視）。約 100ms デバウンス |
+| スクロール余白（最終行送り） | 最終行を画面最上部まで送れるよう、コンテンツ下に「ビューポート高 − 1行」の余白を常に確保（scroll beyond last line 相当）。行高はフォントサイズ依存なので、設定変更・ズーム・リサイズで再計算（`--preview-scroll-beyond`）。この**追加余白はスクロール同期の比率計算から除外**するため Raw⇄Preview の位置がズレない（`contentScrollHeight`） |
+| チェックボックス | **クリックで常にトグル** → `- [x]` として保存。フォーカス中でも視覚的なチェックボックス（`label-wrapper`）は常に表示され、クリックで即座にトグルできる（`blockPrefixEditPlugin` によるプレフィックス展開はチェックボックス項目には適用しない）。`Cmd+Enter` でもトグル可。枠線は本文色から作るため（`--preview-checkbox-border`）テーマが薄くても見やすい。チェック済みは枠線スタイル（塗りつぶさず）＋本文色のチェックマーク。チェック済みの本文は少し暗く（`--preview-done-fg`）＋取り消し線（フォーカス中も維持） |
+| Git 差分ガター | Git HEAD（コミット済み）と比較し、ブロック左に 追加=緑 / 変更=青 のバー、削除位置に赤い線を表示（ブロック単位）。基準は開いた時点の HEAD。git 管理外/新規ファイルは非表示。**基準（HEAD 本文）も本文ドキュメントと同じ正規形（`normalizePreviewMarkdown`）に揃えてから比較する**ため、表セルの `<br>`（→ `&#10;`）等で Raw は無変更なのに Preview だけ青く見える誤検出は起きない |
 | Undo / Redo | VS Code 標準のテキスト履歴 |
-| フォーカス時記法表示 | カーソルがある行だけ、行頭マーカー（`## ` `- ` `1. ` `- [ ] ` `> `）と行内記法（`**` `*` `` ` `` `~~` `[..](..)`）を薄字で表示（`preview.showFocusSyntax`）。フォーカスが外れた行は隠れてレンダリング表示に戻る。行頭マーカーは CSS 生成内容で表示するためカーソル移動に影響しない（編集時の目印用） |
+| フォーカス時記法表示 | カーソルがある行だけ、行頭マーカー（`## ` `- ` `1. ` `> `）と行内記法（`**` `*` `` ` `` `~~` `[..](..)`）を薄字で表示（`preview.showFocusSyntax`）。フォーカスが外れた行は隠れてレンダリング表示に戻る。行頭マーカーの表示方法は 2 通りある: **展開モード**（後述「フォーカスで記法展開（Typora 風）」）と、フォールバック用の CSS 生成内容（`::before`）。<br>**行内記法マーカーの `<span>` は `contenteditable="false"`**（`createSyntaxMarkerElement`）にしてあり、これが無いとエディタの `contenteditable=true` を継承して矢印キーのキャレットがマーカー文字の中に入り込んで先へ進めなくなる。false にすることでキャレットはマーカーを飛ばして次の文書位置へ進める。<br>**マーカーをクリックするとカーソルがその位置へ移動する**（`handleDOMEvents.mousedown` でマーカー要素への `mousedown` を検出し `data-pm-pos` 属性の ProseMirror 位置へ `TextSelection` を dispatch）。これにより `` ` ``・`**`・`*`・`~~` 等のマーカー付近でクリックが迷子にならない。 |
+| フォーカスで記法展開（Typora 風） | カーソルがあるブロックの行頭マーカーを**実際のテキストとして展開**し、カーソルをマーカーの中まで移動・編集できるようにする（`blockPrefixEditPlugin`）。<br>・**見出し** (`heading`): `## ` を先頭に挿入。マーカーを編集（`# ` / `### ` 等）して抜けると、文字数に応じて `level` 属性が自動更新される。<br>・**箇条書き** (`list_item`): `- ` を挿入。<br>・**番号付きリスト** (`list_item` + `order_list`): `1. ` を挿入（番号は表示用のみ。保存は Milkdown が番号を管理）。<br>・**引用** (`blockquote`): `> ` を挿入。<br>**タスクリスト（チェックボックス）は展開しない**。展開すると `md-prefix-expanded` クラスにより視覚的チェックボックス（`label-wrapper`）が非表示になり、クリックによるトグルが動作しなくなるため。チェックボックスのトグルはクリック / `Cmd+Enter` で行う。<br>展開されたプレフィックスは `addToHistory: false` で挿入するため Undo 履歴を汚さない。抜けると自動 collapse（プレフィックス削除 + 属性更新）する。展開中は `focusSyntaxPlugin` の CSS `::before` ベースの行頭マーカーを非表示にして二重表示を防ぐ。リスト項目は `md-prefix-expanded` クラスで bullet の `label-wrapper` を CSS で隠す（実テキストと二重に見えないように）。展開中は `markdownUpdated` リスナーを抑制して `## ## Hello` のような二重プレフィックスが Raw に書き込まれないようにする（`milkdownApp.ts`）。`markerBackspace` は展開中にスキップし、ProseMirror 既定の文字削除に委ねる |
+| ペースト（Markdown 対応） | `@milkdown/plugin-clipboard` により、貼り付け／コピーを **Markdown ベース**で扱う。これが無いと ProseMirror 既定（HTML/プレーンテキスト）任せになり、Raw と違って貼り付けた内容の構造が崩れていた |
 | URL 貼り付けでリンク化 | テキストを選択して URL を貼ると、選択範囲をリンクにする（テキストは保持） |
-| 見出し Backspace 降格 | 見出し先頭で Backspace → 通常行へ（`#` は残して続けて削除可能） |
+| コードブロックのトリプルクリック | コードブロックは 1 つのテキストブロック（複数行が `\n` 区切り）なので、既定のトリプルクリックだと**ブロック全体**が選択される。これを横取りし、**クリックした行だけ**を選択する（`codeBlockTripleClick`） |
+| 行頭マーカーの段階的削除 | 行頭で Backspace すると、Raw のように**マーカーを 1 段階ずつ**外す（`markerBackspace`）。一度に全部消さない。<br>・見出し: `H2 → H1 → 段落`（`#` を 1 つずつ）<br>・チェックボックス: `- [ ] → 箇条書き → 段落`<br>・箇条書き/番号付き: `→ 段落`（リストから持ち上げ）。<br>行頭以外の Backspace は通常どおり。<br>**フォーカスで記法展開**（Typora 風）中は `markerBackspace` をスキップし、プレフィックス文字の直接削除（ProseMirror 既定の文字削除）に委ねる。これにより展開されたプレフィックスを 1 文字ずつ編集してから抜けると、属性（`level` 等）が自動更新される |
+| インライン記法の解除 | インライン記法（`` ` `` `**` `*` `~~` `[..](..)`）はマークなので、フォーカス中に見えるマーカーは装飾で消せなかった。カーソルがマーク範囲の**端**にあるとき、**Backspace（閉じ側）/ Delete（開き側）でそのマークを解除**できる（`inlineMarkBackspace`）。例: `` `code` `` の末尾で Backspace → コード装飾が外れる（文字は残る） |
+| コードブロックの解除 | コードブロックの**先頭で Backspace → 段落へ解除**（中身は残す。`codeBlockBackspace`）。見出し降格と同じ発想で「```」を消せるようにする。フォーカス中は言語ドロップダウン（`codeLanguagePlugin`）が右上に出る |
 
 ---
 
@@ -73,13 +80,14 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 
 | 機能 | 説明 | 設定キー |
 |------|------|----------|
-| シンタックスハイライト | highlight.js（主要言語）。**カーソルがあるコードブロックのみ**着色しない（編集中の DOM 書き換えでカーソルが飛ぶのを防ぐ）。他ブロックは着色し、フォーカスが外れたら再着色 | 常時 on |
+| シンタックスハイライト | highlight.js（主要言語）。**ProseMirror の inline decoration として**色を載せる（`codeHighlightPlugin`）。以前は `hljs.highlightElement` で `<pre><code>` の DOM を直接書き換えていたが、ProseMirror が「自分の作っていない変更」とみなして即座に元へ戻すため**色が付かなかった**。デコレーション方式なら消えず、編集中のブロックでもカーソルが飛ばない。色はテーマ追従（`media/hljs-github.css` は Light 固定なので、ダークでは `--hl-*` 変数で上書き） | 常時 on |
 | コードブロック作成 | 段落で ` ``` ` または ` ```bash ` と入力して `Enter`（またはスペース）でコードブロック化。言語も反映 | 自動 |
 | コードブロック言語選択 | カーソルがコードブロック内にある間、ブロック右上に言語ドロップダウン（`bash`/`js`/`python` 等）をフロート表示。選択で `language` 属性に保存 | 自動 |
 | KaTeX 数式 | `$...$`（インライン）、`$$...$$`（ブロック） | `preview.enableMath` |
 | Mermaid 図 | ` ```mermaid ` コードブロック | `preview.enableMermaid` |
 | 画像表示 | `![alt](./path)` を本文中に表示。ワークスペース相対パス解決 | 自動 |
 | 画像の貼り付け / ドロップ | クリップボード画像やファイルを Preview に貼る/ドロップすると、ドキュメント隣の `assets/` に保存し `![](assets/…)` を挿入 | 自動 |
+| **画像をコピー** | 画像ノードを選択して `Cmd/Ctrl+C`、または画像を**右クリック → "Copy Image"** で、パス文字列ではなく**画像データそのもの**をクリップボードにコピーする（`imageCopyPlugin`）。ワークスペース内のローカル画像は Extension Host がファイルを読んで `data:` URL に変換し、WebView の `navigator.clipboard.write()` で書き込む。`data:` 埋め込み画像（過去に貼り付けたもの）はホストを経由せず直接書き込む。テキスト選択を含む範囲選択は従来どおり Markdown テキストとしてコピー（`@milkdown/plugin-clipboard`） | 自動 |
 | Frontmatter | YAML を整形パネルで表示（本文は Milkdown） | `preview.showFrontmatter` |
 
 画像は Raw と異なり、行末サムネイルではなく**本文中にフル表示**されます。
@@ -114,8 +122,9 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 | フォント | ファミリー・サイズ（既定は CJK 対応の比例フォント。等幅だと ASCII と日本語で太さが不揃いに見えるため） | `preview.fontFamily`, `fontSize` |
 | 最大幅 | 本文の最大表示幅 | `preview.maxWidth` |
 | スクロール同期 | Raw ⇄ Preview 切替時に**画面最上部の位置**を双方向で引き継ぐ（見出しアンカー優先・比率フォールバック）。詳細は [preview-scroll-sync.md](./preview-scroll-sync.md) | `preview.syncScroll` |
+| カーソル位置の引き継ぎ | Raw ⇄ Preview 切替時に**テキストカーソルを同じ位置**へ復元し、その場で編集を続けられるようにする。両表現で共通計算できる「**トップレベルブロック index + ブロック内オフセット**」をアンカーにする（`src/shared/preview/cursorAnchor.ts`）。Raw 側はソースの空行区切りでブロック分割し行頭マーカー長を除いたオフセット、Preview 側は ProseMirror のトップノード index + textContent オフセット。プレーン段落・見出し・リストは正確、行内記法（`**`/`` ` `` 等）を挟む位置は近似。スクロール同期より優先（カーソルを画面内に見せる） | 常時 |
 | 切替アニメーション | Preview 表示時のフェードイン | `preview.enableTransitions` |
-| モード記憶 | 最後のモードを全 Markdown ファイル横断で記憶（**双方向**: Preview/Raw どちらに切り替えても、開く/アクティブにした Markdown ファイルへ同じモードを適用） | `preview.rememberMode` |
+| モード記憶 | 最後に使用したモードを記憶し、**新規に開く** Markdown ファイルにのみ適用（最後に Preview なら新規は Preview、最後に Raw なら新規は Raw）。**既に開いているファイルには強制しない**（別ファイルでモードを切り替えても、アクティブにしても、現在のモードを維持） | `preview.rememberMode` |
 | 既定モード | 初回オープン時 Raw or Preview | `preview.defaultMode` |
 
 ---
@@ -124,9 +133,13 @@ Inline Preview（Raw モード）は [inline-preview-features.md](./inline-previ
 
 | 操作 | 説明 |
 |------|------|
-| タイトルバー | Raw 中は `Preview`、Preview 中は `Raw` の 1 ボタン |
-| `Cmd+Shift+M` | Raw ↔ Preview トグル |
+| タイトルバー（上部固定） | **画面最上部に常時固定**のモード連動ボタン。Raw 中は `$(open-preview) Preview`（→ Preview）、Preview 中は `$(code) Raw`（→ Raw）を `editor/title` の navigation グループに出す。テキストエディタ内に「浮動固定ウィジェット」を置く API は無いため、上部固定はここで実現（CodeLens は本文と一緒にスクロールする）。`when`: Raw=`editorLangId == markdown`、Preview=`activeCustomEditorId == 'ipreview.preview'` |
+| `Cmd+Shift+.` | Raw ↔ Preview トグル |
 | 同一タブ切替 | 別タブを開かず `vscode.openWith` で切替 |
+
+Preview から Raw に戻すとき（`Cmd+Shift+.` / タイトルバー）は、**その Preview の `document.uri` を直接 Raw に切り替える**。`findPreviewUri` の推測には頼らない（複数の Preview を開いていると別ファイルへ飛ぶことがあったため）。推測が必要な経路（ステータスバー等）でも、対象が一意に決まらないときは何もしない（`pickPreviewUri`／`previewTabs.ts`、ユニットテストあり）。
+
+**フォーカスの保証**: 対象 URI が正しく解決されていても、複数ファイルを Preview 中に切替を行うと、VS Code のタブクローズ処理のタイミング次第でフォーカスが隣のタブ（別ファイルの Preview）へ移ってしまうことがある（`switchToRaw` が新しい Raw エディタを開いた後に古い Preview タブを閉じる際、閉じた瞬間にまだそのタブがアクティブ扱いだと、VS Code が「閉じたタブの右隣」を自動選択してしまうため）。**切替後は必ず対象ファイルの Raw エディタがアクティブになっていることを明示的に保証する**（結果を確認するだけで諦めない）。再現テスト: `test/extension.test.ts` の「9. 複数ファイル Preview/Raw トグル」（実 VS Code 拡張ホストが必要 — `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`。jsdom/Playwright では再現不可）。
 
 スクロール同期: 切替時、**画面最上部の可視行**を基準に、Raw 側の見出しスラッグと Preview の DOM を突き合わせて位置を引き継ぐ（見出しが無ければスクロール比率でフォールバック）。Raw→Preview / Preview→Raw の双方向で動作（`preview.syncScroll`）。設計の詳細は [preview-scroll-sync.md](./preview-scroll-sync.md)。
 
@@ -176,9 +189,23 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 
 | 機能 | Mac | Windows/Linux |
 |------|-----|---------------|
-| Raw ↔ Preview 切替 | `Cmd+Shift+M` | `Ctrl+Shift+M` |
-| 段階選択（セル/コードブロック） | `Cmd+A` | `Ctrl+A` |
+| Raw ↔ Preview 切替 | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+| 段階選択（行 → セル/コードブロック → 全文） | `Cmd+A` | `Ctrl+A` |
 | Preview 内検索 | `Cmd+F` | `Ctrl+F` |
+| Preview 内置換 | `Cmd+Opt+F` | `Ctrl+H` |
+| **行頭への 2 段階移動** | `Cmd+←` | `Ctrl+←` |
+
+#### `Cmd+←`（行頭への 2 段階移動）
+
+フォーカスで記法展開（Typora 風）が有効な状態（`blockPrefixEditPlugin` でプレフィックスが実テキストとして展開中）で、行頭プレフィックスをスキップした位置とブロック先頭を 2 段階で行き来する。
+
+| 現在のカーソル位置 | 1 回目の `Cmd+←` |
+|---|---|
+| プレフィックス後のコンテンツ内（`## ` より右） | プレフィックス直後（コンテンツ先頭）へ移動 |
+| コンテンツ先頭（プレフィックス直後） | ブロック先頭（`##` の直前）へ移動 |
+| ブロック先頭（`##` の直前） | ブラウザ既定（前ブロック末尾等）に委ねる |
+
+展開中でない場合はブラウザ / ProseMirror 既定の `Cmd+←`（ブロック先頭移動）に委ねる。
 
 ### Notion 風ブロック変換（`Cmd+Opt+<数字>`）
 
@@ -200,13 +227,43 @@ Windows/Linux は `Alt+Ctrl+<数字>`。
 
 ### `Cmd+A`（段階選択）
 
-- **テーブルセル内**: セルの中身 → 行全体 → 表全体 → ドキュメント全体（段階）。
-- **コードブロック内**: ブロック内容 → ドキュメント全体。
-- それ以外: 通常の全選択。
+押すたびに 1 段階ずつ選択範囲を広げる。各段階の選択種別は次のとおり。
 
-### `Cmd+F`（Preview 内検索）
+> **文書全体の段階は `AllSelection` を明示的に dispatch する。** 以前は `false` を返してブラウザ/Electron の native「Select All」に委ねていたが、webview では効かない・効いても**先頭行へ巻き戻る**等で不安定だった。明示選択にしたことで「2 回目で確実に文書全体」になり、ユニットテストでも検証できる。文書全体（`AllSelection`）まで来たら以降は `false`（何もしない）で、先頭行へ巻き戻らない。
+
+- **通常のテキストブロック**（段落・見出し・リスト項目など）:
+  1. カーソルのある「行（テキストブロック）」の中身を丸ごと（`$from.start()`〜`$from.end()` の `TextSelection`）
+  2. 既に行全体が選択済みなら **`AllSelection`（文書全体）** を選ぶ
+- **テーブルセル内**（押下回数）:
+  1. セルの中身（`TextSelection`）
+  2. 行全体（`CellSelection`・`isRowSelection()===true` / `isColSelection()===false`）
+  3. 表全体（`CellSelection`・行かつ列＝`isRowSelection() && isColSelection()`）
+  4. **`AllSelection`（文書全体）**
+- **コードブロック内**: 1. ブロック内容（`TextSelection`） → 2. **`AllSelection`（文書全体）**。
+- テキストブロック外（画像など）: `false`（既定に委ねる）。
+
+実装メモ（重要）:
+
+- `Cmd/Ctrl+A` は **`document` の capture フェーズ**（`milkdownApp.ts`）で横取りし、その場で
+  `handleSelectAll` を呼んで選択変更まで行う。処理したら `preventDefault` に加えて
+  **`stopPropagation` する**。理由は 2 つ:
+  1. ブラウザ/Electron の native「Select All」より先に処理するため。プラグインの
+     `handleKeyDown` は**読み込み順により負けることがあり**、その場合 native の全選択が先に
+     走って段階選択（セル/行/表）が無視される（＝「`Cmd+A` で全部選択されてしまう」バグ）。
+  2. capture で処理したら同じ keydown を plugin の `handleKeyDown` にも流さないため。両方走ると
+     1 回の押下で 2 段階進む（capture=セル内容 → plugin=行 …）。
+- 段階選択のロジック自体は `previewKeymapPlugin.ts` の `handleSelectAll` に集約し、capture
+  ハンドラと plugin の `handleKeyDown` の両方から共有する。plugin 経路は実運用では capture が
+  止めるため通常は走らないが、回帰テストが `view.dom` へ直接 keydown を送ってこのロジックを検証する。
+- 回帰テスト: `test/webview/previewKeymap.integration.test.ts` の「Cmd/Ctrl+A 段階選択」。
+  行（段階2）と表全体（段階3）を `isRowSelection()` / `isColSelection()` で厳密に区別し、
+  段階4は `false`（既定の全選択に委ねる）ことまで検証する。
+
+### `Cmd+F`（Preview 内検索）／`Cmd+Opt+F`・`Ctrl+H`（置換）
 
 WebView 内に検索バーを表示し、レンダリング結果のテキストを検索する。一致箇所を CSS Custom Highlight API でハイライト（DOM 非破壊）。`Enter`/`Shift+Enter` で次/前へ、`Esc` で閉じる。
+
+検索バー左端のシェブロン、または置換ショートカット（`Cmd+Opt+F` / `Ctrl+H`）で**置換行**を展開する。置換は DOM を直接いじらず、一致 DOM レンジを `EditorView.posAtDOM` で ProseMirror の位置に変換し、トランザクションで書き換える（ハイライトは非破壊のまま）。**Replace** は現在の一致 1 件を置換して次へ進み、**Replace All** は全一致を文末側から 1 トランザクションで置換する（位置ずれ防止）。置換入力で `Enter`＝現在を置換、`Cmd/Ctrl+Enter`＝全置換。Preview が読み取り専用（`view.editable=false`）のときは置換ボタンを無効化する。
 
 書式操作は `/` スラッシュメニューも使用可。詳細: [keyboard-shortcuts.md](../user-guide/keyboard-shortcuts.md)
 
@@ -248,7 +305,7 @@ WebView 内に検索バーを表示し、レンダリング結果のテキスト
 | ペーストの賢い変換 | URL ペースト → 選択をリンク化（実装済み ✅）。HTML → Markdown、コード片保持は今後 | 中 |
 | 画像のドラッグ&ドロップ / 貼り付け（実装済み） | クリップボード画像/ファイルを `assets/` に保存し `![](assets/…)` 挿入 | ✅ |
 | 画像リサイズ | ハンドルで幅指定（`![]( ){width=...}` 等の拡張） | 低 |
-| Markdown 直接ペースト | クリップボードの Markdown をパースして挿入 | 中 |
+| Markdown 直接ペースト（実装済み） | `@milkdown/plugin-clipboard` でクリップボードの Markdown をパースして挿入 | ✅ |
 | 取り消し・やり直しの粒度改善 | IME 確定・装飾単位での履歴 | 中 |
 
 ### テーブル
@@ -283,7 +340,7 @@ WebView 内に検索バーを表示し、レンダリング結果のテキスト
 
 | 項目 | 内容 | 優先 |
 |------|------|------|
-| Find（実装済み ✅）/ Replace | `Cmd+F` 検索は実装済み。置換は今後 | 中 |
+| Find / Replace（実装済み ✅） | `Cmd+F` 検索、`Cmd+Opt+F`・`Ctrl+H` 置換（Replace / Replace All） | 中 |
 | 保存状態インジケータ | 保存中/保存済みの可視化 | 中 |
 | コードブロック強化 | 言語ピッカー（実装済み ✅）。コピーボタン、行番号、編集中ハイライトは今後 | 中 |
 | 遅延ロード | Mermaid / KaTeX を必要時のみ読み込みバンドル削減 | 中 |
