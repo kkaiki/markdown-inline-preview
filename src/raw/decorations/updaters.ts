@@ -21,11 +21,6 @@ export function updateAllDecorations(editor: vscode.TextEditor): void {
     const ranges: vscode.Range[] = [];
 
     for (let i = 0; i < document.lineCount; i++) {
-        if (getRawDecorationDeps().shouldHideStrikethroughOnEditingLine(i)) {
-            getRawDecorationDeps().debugLog(`[updateAllDecorations] Skipping editing line ${i}`);
-            continue;
-        }
-
         const line = document.lineAt(i).text;
 
         const match = line.match(/^\s*-\s\[[xX]\]\s*/);

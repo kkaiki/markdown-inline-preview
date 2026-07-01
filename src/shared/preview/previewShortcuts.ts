@@ -56,7 +56,9 @@ export type PreviewShortcut =
     | { kind: 'notionBlock'; n: number; action: NotionBlockAction }
     | { kind: 'selectAll' }
     | { kind: 'find' }
+    | { kind: 'replace' }
     | { kind: 'toggleRaw' }
+    | { kind: 'lineStart' }
     | null;
 
 /** Mod キー（Mac の Cmd / Win・Linux の Ctrl）が押されているか。 */
@@ -76,16 +78,19 @@ export function classifyPreviewShortcut(e: KeyLike): PreviewShortcut {
 
     if (!isModPressed(e)) return null;
 
-    // Cmd/Ctrl+Shift+M: Raw（Markdown ソース）へ戻る。
+    // Cmd/Ctrl+Shift+.（ピリオド）: Raw（Markdown ソース）へ戻る。
     // package.json の togglePreview キーバインドと対になるが、WebView 内には
     // VS Code のキーバインドが届かないため、ここで拾ってホストへ通知する。
-    if (e.shiftKey && !e.altKey && (e.code === 'KeyM' || e.key === 'm' || e.key === 'M')) {
+    // Shift+Period は配列によって key が '>' になるため code で判定する。
+    if (e.shiftKey && !e.altKey && (e.code === 'Period' || e.key === '.' || e.key === '>')) {
         return { kind: 'toggleRaw' };
     }
 
     // Notion 風: Cmd/Ctrl+Opt+<数字>
     // Mac では Alt+数字が記号になるため key ではなく code（DigitN）で判定する。
     if (e.altKey && !e.shiftKey) {
+        // Cmd+Opt+F（mac の置換ショートカット）。VS Code の検索/置換に合わせる。
+        if (e.code === 'KeyF' || e.key === 'f') return { kind: 'replace' };
         const match = /^Digit(\d)$/.exec(e.code);
         if (match) {
             const n = Number(match[1]);
@@ -97,10 +102,14 @@ export function classifyPreviewShortcut(e: KeyLike): PreviewShortcut {
 
     // 修飾は Mod のみ（Alt/Shift なし）
     if (!e.altKey && !e.shiftKey) {
-        // Cmd/Ctrl+A: テーブル/コードブロックの段階選択
+        // Cmd/Ctrl+A: 行全体 → テーブル/コードブロック → 文書全体 の段階選択
         if (e.code === 'KeyA' || e.key === 'a') return { kind: 'selectAll' };
         // Cmd/Ctrl+F: Preview 内検索
         if (e.code === 'KeyF' || e.key === 'f') return { kind: 'find' };
+        // Ctrl+H（Win/Linux の置換ショートカット）。
+        if (e.code === 'KeyH' || e.key === 'h') return { kind: 'replace' };
+        // Cmd/Ctrl+←: プレフィックス展開中の 2 段階行頭移動
+        if (e.code === 'ArrowLeft' || e.key === 'ArrowLeft') return { kind: 'lineStart' };
     }
 
     return null;

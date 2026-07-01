@@ -1,5 +1,5 @@
 import assert from 'assert';
-import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities } from '../../src/shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities, normalizePreviewMarkdown } from '../../src/shared/markdown/lineBreaks';
 
 describe('stripPlaceholderLineBreaks', () => {
     it('turns a standalone <br /> line into an empty line', () => {
@@ -146,5 +146,34 @@ describe('tightenParagraphSpacing', () => {
 
     it('keeps blank line next to a blockquote', () => {
         assert.strictEqual(tightenParagraphSpacing('para\n\n> quote'), 'para\n\n> quote');
+    });
+});
+
+describe('normalizePreviewMarkdown（段落間の空行を保持する）', () => {
+    it('段落どうしの空行を保持する（詰めない）', () => {
+        assert.strictEqual(normalizePreviewMarkdown('A\n\nB'), 'A\n\nB');
+    });
+
+    it('複数の空行も保持する', () => {
+        assert.strictEqual(normalizePreviewMarkdown('A\n\n\n\nB'), 'A\n\n\n\nB');
+    });
+
+    it('単一改行（ソフトブレイク）はそのまま', () => {
+        assert.strictEqual(normalizePreviewMarkdown('A\nB'), 'A\nB');
+    });
+
+    it('リストの余分な空行は引き続き詰める（tight リスト）', () => {
+        assert.strictEqual(normalizePreviewMarkdown('- a\n\n- b'), '- a\n- b');
+    });
+
+    it('テーブルセル内の <br> は &#10; に変換する', () => {
+        assert.strictEqual(
+            normalizePreviewMarkdown('| a | b |\n| --- | --- |\n| x<br>z | y |\n'),
+            '| a | b |\n| --- | --- |\n| x&#10;z | y |\n'
+        );
+    });
+
+    it('<br /> プレースホルダは除去する', () => {
+        assert.strictEqual(normalizePreviewMarkdown('A\n<br />\n\nB'), 'A\n\n\nB');
     });
 });

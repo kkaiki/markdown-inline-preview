@@ -1,11 +1,44 @@
+## 1.9.9 - 2026-06-28
+
+- Fix: Toggling a file from Preview back to Raw could occasionally steal focus to a different file's Preview tab when several files were open at once — `switchToRaw` now focuses the target Raw editor *before* closing the stale Preview tab, so VS Code's "focus the neighboring tab after a close" behavior can no longer redirect focus to the wrong file.
+- Fix: Pressing Enter on a task list item in Preview mode no longer loses the checkbox syntax (`[ ]`) on the new empty item. The serializer was dropping `[ ]` for empty task items because `remark-preserve-empty-line` was excluded from the commonmark preset; re-enabling the plugin and stripping the resulting `<br />` placeholder in `postChange` and `normalizePreviewMarkdown` ensures the new item reaches the Raw editor as `- [ ] ` (with checkbox intact).
+
+## 1.9.4 - 2026-06-24
+
+- Fix: The caret no longer gets stuck on the focus-syntax markers (`**`, `` ` ``, etc.). The marker decorations are now `contenteditable="false"`, so arrow keys move past them instead of trapping the cursor inside the marker.
+- Fix: Pressing Down/Up inside a table cell now moves to the cell directly below/above (same column) instead of jumping to the cell on the right. Multi-line cells still move the caret line-by-line first.
+- Fix: Extending a selection with the keyboard (Shift+↑/↓ etc.) across a table boundary no longer breaks — the selection is normalized to include the whole table, matching mouse drag.
+- Change: Removed the extra space below tables in Preview (`table` bottom margin is now 0).
+- Add: The text cursor position is now carried over when toggling between Raw and Preview, so you land at the same place and can keep editing. (Mapped via top-level block index + in-block offset; exact for plain paragraphs/headings/lists, approximate around inline markup.)
+- Change: The Preview/Raw toggle in the editor title bar is now mode-aware and pinned at the top — Raw shows a "Preview" button, Preview shows a "Raw" button. (A floating in-editor widget isn't possible for a plain text editor, so the title bar is the fixed-at-top spot.)
+- Fix: Selecting multiple table cells no longer shows a messy native text-selection highlight on top of the cell overlay — only the clean cell highlight is shown.
+- Fix: Blank lines between paragraphs are now preserved in Preview (and in the saved file). Previously they were collapsed, so `A` and `B` separated by a blank line became a single tight block; now the blank line stays as a visible gap. (List spacing is still tightened.)
+- Change: Backspace at the start of a heading/checkbox/bullet now removes the marker **one step at a time**, like raw Markdown, instead of clearing it all at once: heading `H2 → H1 → paragraph`, checkbox `- [ ] → bullet → paragraph`, bullet `→ paragraph`.
+- Add: Reorder table rows/columns from the floating table toolbar (↑ Row / ↓ Row / ← Col / → Col). The header row stays fixed.
+- Fix: You can now un-format inline marks in Preview — at the edge of inline code/bold/italic/strikethrough/link, Backspace (closing side) / Delete (opening side) removes the mark (e.g. Backspace after `` `code` `` removes the code styling, keeping the text).
+- Fix: Backspace at the start of a code block now converts it back to a paragraph (un-"```"), keeping the contents.
+- Fix: Pressing `Cmd/Ctrl+A` twice in Preview now reliably selects the whole document. The "select all" stage now dispatches an explicit `AllSelection` instead of delegating to the browser's native Select All (which was unreliable in the webview and could jump to the top line).
+- Fix: Pasting into Preview no longer garbles the content. Markdown-aware clipboard handling (`@milkdown/plugin-clipboard`) is now enabled, so paste/copy round-trips as Markdown like Raw does.
+- Fix: Triple-clicking inside a code block now selects only the clicked line instead of the whole block.
+- Improve: Multi-cell table selection (drag across cells) is now clearly visible — the selected cells get an accent tint plus an inner border (previously the highlight was too faint to see).
+- Fix: Code blocks in Preview are now syntax-highlighted reliably (e.g. Python shows as Python). Highlighting is applied as ProseMirror decorations instead of mutating the editable DOM, which the editor used to revert — so colors no longer disappear. Token colors follow the theme (dark-mode palette added).
+- Add: Preview toolbar buttons for **Undo / Redo** (`Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`), **Quote** (`Cmd+Opt+9`), and **Code block** (`Cmd+Opt+8`), with hover shortcut hints.
+- Fix: External edits to the `.md` file (e.g. by an AI assistant or another tool) now reflect in the Preview WebView even when only Preview is open — a `FileSystemWatcher` picks up on-disk changes in addition to `onDidChangeTextDocument`.
+- Add: "Scroll beyond last line" in Preview — you can now scroll the last line all the way up to the top of the viewport. The extra bottom space is excluded from the Raw⇄Preview scroll-sync math so positions stay aligned.
+
 ## 1.9.2 - 2026-06-22
 
 - Add: "What's New" notification on update — links to the changelog / getting-started walkthrough so existing users see new features.
 - Add: Getting-started walkthrough (`contributes.walkthroughs`) — Preview/Raw toggle, slash menu, shortcuts.
 - Add: Preview top toolbar (heading / checkbox / numbered list / Export) with hover shortcut tooltips; right-aligned `Preview | Raw` toggle.
-- Add: Preview ⇔ Raw toggle works both ways via `Cmd/Ctrl+Shift+M` (also from inside Preview).
+- Add: Preview ⇔ Raw toggle works both ways via `Cmd/Ctrl+Shift+.` (also from inside Preview).
 - Add: Raw `Preview │ Raw` toggle shown above the first line (CodeLens), `preview.showToggleLineWidget`.
+- Change: In Preview, the first `Cmd/Ctrl+A` now selects the whole current line (block); press again to select the entire document.
 - Change: Larger, clearer heading size steps in Preview (H1–H6).
+- Fix: Returning from Preview to Raw could switch to a *different* file when multiple previews were open — the toggle now uses the originating preview's own document URI (and the fallback no longer guesses when ambiguous).
+- Fix: Git diff gutter in Preview no longer shows false "modified" (blue) bars for blocks that are unchanged in Raw — the HEAD base is now normalized the same way (`normalizePreviewMarkdown`) as the editor content (e.g. table-cell `<br>`).
+- Add: English / Japanese localization that follows the VS Code display language (`vscode.env.language`). Host strings use `vscode.l10n`, the Preview WebView uses a small dictionary, and the walkthrough uses `package.nls`. Slash-menu descriptions are localized in both Raw (completion) and Preview. Source language is English with a Japanese overlay (see `docs/specifications/i18n-localization.md`).
+- Change: Checkbox styling — clearer (higher-contrast) frame; checked items are dimmed with a strikethrough, and the strikethrough is removed while editing the focused line.
 - Chore: Marketplace metadata — keywords, categories, gallery banner.
 
 ## 1.8.5 - 2026-06-21

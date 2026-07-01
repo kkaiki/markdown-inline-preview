@@ -3,7 +3,8 @@ import {
     scrollRatioFromLine,
     scrollRatioFromPixels,
     lineFromScrollRatio,
-    pixelsFromScrollRatio
+    pixelsFromScrollRatio,
+    contentScrollHeight
 } from '../../src/shared/preview/scrollSync';
 
 describe('scrollSync: scrollRatioFromLine（行 → 比率）', () => {
@@ -65,6 +66,42 @@ describe('scrollSync: pixelsFromScrollRatio（比率 → px）', () => {
     });
     it('スクロール不能なら 0', () => {
         assert.strictEqual(pixelsFromScrollRatio(0.5, 300, 500), 0);
+    });
+});
+
+describe('scrollSync: contentScrollHeight（scroll-beyond 余白の除外）', () => {
+    it('余白分を差し引いた実コンテンツ高を返す', () => {
+        assert.strictEqual(contentScrollHeight(2000, 600), 1400);
+    });
+    it('余白 0 ならそのまま', () => {
+        assert.strictEqual(contentScrollHeight(2000, 0), 2000);
+    });
+    it('負値（余白が高さを超える）でも 0 未満にならない', () => {
+        assert.strictEqual(contentScrollHeight(500, 800), 0);
+        assert.strictEqual(contentScrollHeight(500, -100), 500);
+    });
+
+    it('実コンテンツ末尾は ratio≈1、さらに余白内へスクロールしても 1 にクランプ', () => {
+        // scrollHeight=2600（= 本文 1500 + ビュー 500 ぶんの余白 ... 単純化した代表値）
+        // beyond=900 を除くと実コンテンツ高は 1700、最大スクロール量は 1700-500=1200。
+        const scrollHeight = 2600;
+        const clientHeight = 500;
+        const beyond = 900;
+        const effective = contentScrollHeight(scrollHeight, beyond); // 1700
+        // 実コンテンツ末尾（scrollTop=1200）で ratio≈1
+        assert.strictEqual(scrollRatioFromPixels(1200, effective, clientHeight), 1);
+        // さらに余白内（scrollTop=2000）へスクロールしても 1 にクランプ
+        assert.strictEqual(scrollRatioFromPixels(2000, effective, clientHeight), 1);
+        // 中間（scrollTop=600）は本文基準の比率（余白を含めない）
+        assert.strictEqual(scrollRatioFromPixels(600, effective, clientHeight), 0.5);
+    });
+
+    it('余白を除外しないと末尾でも ratio<1 になってしまう（除外の必要性）', () => {
+        const scrollHeight = 2600;
+        const clientHeight = 500;
+        // 余白を含めたまま（誤った計算）だと、本文末尾 scrollTop=1200 でも 1 未満
+        const wrong = scrollRatioFromPixels(1200, scrollHeight, clientHeight);
+        assert.ok(wrong < 1, `余白込みだと末尾で ratio<1 になるはず: ${wrong}`);
     });
 });
 

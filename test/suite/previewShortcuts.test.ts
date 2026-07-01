@@ -138,6 +138,16 @@ describe('previewShortcuts: classifyPreviewShortcut - selectAll / find', () => {
             kind: 'find'
         });
     });
+    it('Cmd+Opt+F (Mac) -> replace', () => {
+        assert.deepStrictEqual(classifyPreviewShortcut(key({ code: 'KeyF', key: 'f', metaKey: true, altKey: true })), {
+            kind: 'replace'
+        });
+    });
+    it('Ctrl+H (Win/Linux) -> replace', () => {
+        assert.deepStrictEqual(classifyPreviewShortcut(key({ code: 'KeyH', key: 'h', ctrlKey: true })), {
+            kind: 'replace'
+        });
+    });
     it('Cmd+Opt+A は selectAll ではない（Alt 付き）', () => {
         assert.strictEqual(classifyPreviewShortcut(key({ code: 'KeyA', key: 'a', metaKey: true, altKey: true })), null);
     });
@@ -147,24 +157,24 @@ describe('previewShortcuts: classifyPreviewShortcut - selectAll / find', () => {
 });
 
 describe('previewShortcuts: classifyPreviewShortcut - toggleRaw', () => {
-    it('Cmd+Shift+M -> toggleRaw', () => {
+    it('Cmd+Shift+. -> toggleRaw', () => {
         assert.deepStrictEqual(
-            classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true, shiftKey: true })),
+            classifyPreviewShortcut(key({ code: 'Period', key: '.', metaKey: true, shiftKey: true })),
             { kind: 'toggleRaw' }
         );
     });
-    it('Ctrl+Shift+M -> toggleRaw', () => {
+    it('Ctrl+Shift+.（key が > の配列）-> toggleRaw', () => {
         assert.deepStrictEqual(
-            classifyPreviewShortcut(key({ code: 'KeyM', key: 'M', ctrlKey: true, shiftKey: true })),
+            classifyPreviewShortcut(key({ code: 'Period', key: '>', ctrlKey: true, shiftKey: true })),
             { kind: 'toggleRaw' }
         );
     });
-    it('Cmd+M（Shift なし）は無効', () => {
-        assert.strictEqual(classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true })), null);
+    it('Cmd+.（Shift なし）は無効', () => {
+        assert.strictEqual(classifyPreviewShortcut(key({ code: 'Period', key: '.', metaKey: true })), null);
     });
-    it('Cmd+Shift+Opt+M（Alt 付き）は toggleRaw ではない', () => {
+    it('Cmd+Shift+Opt+.（Alt 付き）は toggleRaw ではない', () => {
         assert.strictEqual(
-            classifyPreviewShortcut(key({ code: 'KeyM', key: 'm', metaKey: true, shiftKey: true, altKey: true })),
+            classifyPreviewShortcut(key({ code: 'Period', key: '.', metaKey: true, shiftKey: true, altKey: true })),
             null
         );
     });
@@ -179,6 +189,30 @@ describe('previewShortcuts: classifyPreviewShortcut - fenceEnter', () => {
     });
     it('Cmd+Enter は fenceEnter ではない', () => {
         assert.strictEqual(classifyPreviewShortcut(key({ key: 'Enter', metaKey: true })), null);
+    });
+});
+
+describe('previewShortcuts: classifyPreviewShortcut - lineStart', () => {
+    it('Cmd+← -> lineStart (code)', () => {
+        assert.deepStrictEqual(
+            classifyPreviewShortcut(key({ code: 'ArrowLeft', key: 'ArrowLeft', metaKey: true })),
+            { kind: 'lineStart' }
+        );
+    });
+    it('Ctrl+← -> lineStart (Windows)', () => {
+        assert.deepStrictEqual(
+            classifyPreviewShortcut(key({ code: 'ArrowLeft', key: 'ArrowLeft', ctrlKey: true })),
+            { kind: 'lineStart' }
+        );
+    });
+    it('Cmd+Shift+← は lineStart ではない（Shift 付き）', () => {
+        assert.strictEqual(
+            classifyPreviewShortcut(key({ code: 'ArrowLeft', key: 'ArrowLeft', metaKey: true, shiftKey: true })),
+            null
+        );
+    });
+    it('← 単体は lineStart ではない', () => {
+        assert.strictEqual(classifyPreviewShortcut(key({ code: 'ArrowLeft', key: 'ArrowLeft' })), null);
     });
 });
 

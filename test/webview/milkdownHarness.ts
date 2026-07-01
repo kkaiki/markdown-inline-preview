@@ -7,7 +7,7 @@
  */
 import './jsdomSetup';
 
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, serializerCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { TextSelection } from '@milkdown/prose/state';
@@ -26,6 +26,10 @@ export interface PreviewEditorHandle {
     topLevelTypes(): string[];
     /** 指定位置にカーソルを置く。 */
     setCursor(pos: number): void;
+    /** from..to の範囲を選択する。 */
+    setSelection(from: number, to: number): void;
+    /** 現在の doc を Markdown 直列化して返す。 */
+    serialize(): string;
     /** KeyboardEvent を view.dom に送り、ProseMirror の handleKeyDown 経路を通す。 */
     pressKey(init: KeyInit): { defaultPrevented: boolean };
     destroy(): void;
@@ -40,7 +44,9 @@ export interface KeyInit {
     shift?: boolean;
 }
 
-export async function createPreviewEditor(markdown: string): Promise<PreviewEditorHandle> {
+export async function createPreviewEditor(
+    markdown: string
+): Promise<PreviewEditorHandle> {
     const root = document.getElementById('root');
     if (!root) throw new Error('test root element not found');
     root.innerHTML = '';
@@ -76,6 +82,17 @@ export async function createPreviewEditor(markdown: string): Promise<PreviewEdit
         setCursor: (pos: number) => {
             const { state } = view;
             view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, pos)));
+        },
+        setSelection: (from: number, to: number) => {
+            const { state } = view;
+            view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, from, to)));
+        },
+        serialize: () => {
+            let md = '';
+            editor.action((c) => {
+                md = c.get(serializerCtx)(view.state.doc);
+            });
+            return md;
         },
         pressKey: (init: KeyInit) => {
             const event = new window.KeyboardEvent('keydown', {

@@ -8,7 +8,7 @@ import {
 import { filterSlashMenuItems } from '../../src/shared/slash/slashMenuItems';
 import { detectSlashMatch } from '../../src/shared/slash/slashMatch';
 import {
-    buildHeadingDowngradeText,
+    headingDowngradeLevel,
     isAtHeadingContentStart
 } from '../../src/shared/markdown/headingBackspace';
 import { getSlashLineBlockRange } from '../../src/shared/slash/applyPreviewSlash';
@@ -87,10 +87,13 @@ describe('detectSlashMatch', () => {
 });
 
 describe('headingBackspace', () => {
-    it('buildHeadingDowngradeText removes heading space by joining hash and content', () => {
-        assert.strictEqual(buildHeadingDowngradeText(1, ''), '#');
-        assert.strictEqual(buildHeadingDowngradeText(1, '2026-06-21_note'), '#2026-06-21_note');
-        assert.strictEqual(buildHeadingDowngradeText(2, 'Title'), '##Title');
+    it('headingDowngradeLevel は 1 段階ずつ下げ、H1 は段落(null)', () => {
+        assert.strictEqual(headingDowngradeLevel(3), 2);
+        assert.strictEqual(headingDowngradeLevel(2), 1);
+        assert.strictEqual(headingDowngradeLevel(1), null);
+        // 範囲外はクランプ
+        assert.strictEqual(headingDowngradeLevel(9), 5);
+        assert.strictEqual(headingDowngradeLevel(0), null);
     });
 
     it('isAtHeadingContentStart detects cursor at heading inline start', () => {

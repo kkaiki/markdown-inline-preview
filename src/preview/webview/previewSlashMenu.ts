@@ -8,6 +8,7 @@ import { $prose } from '@milkdown/utils';
 import { replaceRange, markdownToSlice } from '@milkdown/kit/utils';
 
 import { filterSlashMenuItems, type SlashMenuItemDef } from '../../shared/slash/slashMenuItems';
+import { t } from './i18n';
 import { detectSlashMatch, type SlashMatch } from '../../shared/slash/slashMatch';
 import { getSlashLineBlockRange } from '../../shared/slash/applyPreviewSlash';
 
@@ -123,7 +124,7 @@ export class PreviewSlashMenuController {
                 const selected = index === this.selectedIndex ? ' is-selected' : '';
                 return `<button type="button" class="slash-menu-item${selected}" data-slash-id="${item.id}" role="option" aria-selected="${index === this.selectedIndex}">
   <span class="slash-menu-label">/${item.label}</span>
-  <span class="slash-menu-detail">${escapeHtml(item.detail)}</span>
+  <span class="slash-menu-detail">${escapeHtml(t(item.detail))}</span>
 </button>`;
             })
             .join('');

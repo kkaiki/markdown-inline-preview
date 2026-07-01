@@ -55,3 +55,6 @@ coverage/
 
 # --- Private business/strategy notes (never commit to public repo) ---
 /private/
+
+# 実ブラウザテストのスクリーンショット（目視確認用の成果物）
+test-screenshots/

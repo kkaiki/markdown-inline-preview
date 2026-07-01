@@ -180,6 +180,21 @@ export async function smartEnterCommand(): Promise<void> {
         continuationTexts[i] = null;
     }
 
+    // カーソルが移動するべき新しい位置（行 offset, 文字数）を事前に計算する。
+    // editor.edit の insert() はカーソルを移動させないため、edit 完了後に明示的に設定する。
+    const newPositions: vscode.Position[] = selections.map((sel, i) => {
+        if (isSingleCursor && skipNewlineForSingle) return sel.active;
+        const cont = continuationTexts[i];
+        const originalLine = sel.active.line;
+
+        // preEdits はリスト項目のクリア（replace で空文字）が伴い、
+        // 同じ行で insert もしない（skipNewlineForSingle=true）ので対象外。
+        // 通常の継続入力では originalLine + 1 行目の continuation テキスト末尾へ。
+        const newLine = originalLine + 1;
+        const newChar = cont ? cont.length : 0;
+        return new vscode.Position(newLine, newChar);
+    });
+
     await editor.edit(eb => {
         for (const e of preEdits) {
             eb.replace(e.range, e.text);
@@ -200,7 +215,14 @@ export async function smartEnterCommand(): Promise<void> {
         }
     });
 
-    debugLog('[smartEnter] Edit complete, cursor should be at end of inserted text');
+    debugLog('[smartEnter] Edit complete, moving cursor to new position');
+
+    // カーソルを挿入されたテキストの末尾（新しい行）に明示移動する。
+    if (!(isSingleCursor && skipNewlineForSingle)) {
+        const newSelections = newPositions.map(p => new vscode.Selection(p, p));
+        editor.selections = newSelections;
+        editor.revealRange(new vscode.Range(newSelections[0].active, newSelections[0].active));
+    }
 
     try {
         for (const sel of selections) {

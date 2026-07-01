@@ -11,7 +11,7 @@ Markdown Inline Preview (`ipreview`) edits the same `.md` file in two modes:
 | What you see | Markdown source (`##`, `**`, `\|`) | Rendered output (editable) |
 | Best for | Precise syntax edits, Git diff, bulk replace | Reading and drafting |
 
-Switch with the title-bar button or **`Cmd+Shift+M`** / **`Ctrl+Shift+M`**.
+Switch with the title-bar button or **`Cmd+Shift+.`** / **`Ctrl+Shift+.`**.
 
 **日本語:** [README.ja.md](./README.ja.md)
 
@@ -52,7 +52,7 @@ Raw mode keeps full Markdown syntax visible and adds editing helpers on top.
 
 - **Auto-format** column widths (CJK-aware width calculation)
 - **Cell navigation** — `Cmd+←/→`, `Tab`, arrow keys
-- **Smart select all** — cell → row → table → document (`Cmd+A`)
+- **Smart select all** — line → document; in tables cell → row → table → document (`Cmd+A`)
 - **Inline wrap preview** — `↳` hint at line end + hover popup
 
 ### Headings, code & decorations
@@ -112,7 +112,7 @@ Preview opens the file in a Milkdown-based custom editor. Edits debounce to the 
 
 | Action | Mac | Windows/Linux |
 |--------|-----|---------------|
-| **Raw ↔ Preview** | `Cmd+Shift+M` | `Ctrl+Shift+M` |
+| **Raw ↔ Preview** | `Cmd+Shift+.` | `Ctrl+Shift+.` |
 | Toggle checkbox | `Cmd+Enter` | `Ctrl+Enter` |
 | List indent | `Tab` / `Shift+Tab` | same |
 | Convert to bullet / numbered / checkbox / plain | `Alt+Cmd+5/6/4/0` | `Alt+Ctrl+5/6/4/0` |

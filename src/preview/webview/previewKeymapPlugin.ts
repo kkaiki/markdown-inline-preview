@@ -1,7 +1,8 @@
 /**
  * Preview（Milkdown）向けのキーボードショートカット。
  *
- * - テーブルセル内の `Cmd/Ctrl+A`: セル内容 → テーブル全体 と段階選択（その先は既定の全選択）。
+ * - `Cmd/Ctrl+A`: まずカーソルのある「行（テキストブロック）」全体を選択し、もう一度押すと
+ *   既定の全選択（文書全体）へ。テーブルセル内はセル内容 → 行 → 表全体 と段階選択。
  * - Notion 風ブロック変換 `Cmd/Ctrl+Opt+<数字>`:
  *   0=本文, 1/2/3=見出し, 4=ToDo, 5=箇条書き, 6=番号付き, 8=コード, 9=引用。
  *
@@ -19,12 +20,13 @@ import {
 } from '@milkdown/kit/preset/commonmark';
 import { selectTableCommand } from '@milkdown/kit/preset/gfm';
 import { wrapInList, liftListItem } from '@milkdown/prose/schema-list';
-import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
+import { Plugin, PluginKey, TextSelection, AllSelection } from '@milkdown/prose/state';
 import { CellSelection } from '@milkdown/prose/tables';
 import type { ResolvedPos } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 import { classifyPreviewShortcut, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
+import { getExpandedBlock, setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
 
 function findDepth($pos: ResolvedPos, names: string[]): number {
     for (let depth = $pos.depth; depth > 0; depth--) {
@@ -46,19 +48,60 @@ function tableCellDepth($pos: ResolvedPos): number {
 }
 
 /**
+ * 現在の選択で `handleSelectAll` が「段階選択を行う（true を返す）」かどうかを判定する。
+ *
+ * 実際の選択変更は必ず ProseMirror の handleKeyDown 経路（＝PM のイベント処理内）で
+ * 行う必要がある。capture フェーズ（PM の外）で CellSelection を dispatch すると、
+ * 直後の selectionchange を domObserver が読み戻して行/表選択が即取り消されるため。
+ * capture 側はこの述語で「native の Select All を抑止すべきか」だけを判断する。
+ */
+export function previewSelectAllApplies(view: EditorView): boolean {
+    const { state } = view;
+    const sel = state.selection;
+
+    // 既に文書全体（AllSelection）まで来たら、以降は何もしない。
+    if (sel instanceof AllSelection) return false;
+    // セル選択（行/表）・コード・セル・テキストブロックのいずれの段階でも、
+    // handleSelectAll はまだ次の段階（最終は文書全体）へ進めるので true。
+    if (sel instanceof CellSelection) return true;
+
+    const $from = sel.$from;
+    if (findDepth($from, ['code_block']) > 0) return true;
+    if (tableCellDepth($from) >= 0) return true;
+    if ($from.parent.isTextblock) return true;
+    return false; // テキストブロック外（画像など）→ 既定に委ねる
+}
+
+
+/** 文書全体を選択する（AllSelection）。`scrollIntoView` はしない（先頭へ飛ばさない）。 */
+function selectWholeDoc(view: EditorView): boolean {
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)));
+    return true;
+}
+
+/**
  * Cmd+A 段階選択:
+ * - 通常のテキストブロック（段落・見出し・リスト項目など）: 行全体 → 文書全体。
  * - テーブルセル内: セルの中身 → 行全体 → 表全体 → 文書全体。
  * - コードブロック内: ブロック内容 → 文書全体。
- * - それ以外: false（既定の全選択に委ねる）。
+ * - テキストブロック外（画像など）: false（既定の全選択に委ねる）。
+ *
+ * 「文書全体」段階は **AllSelection を明示的に dispatch** する（以前は false を返して
+ * ブラウザ/Electron の native「Select All」に委ねていたが、webview では効かず・効いても
+ * 先頭行へ巻き戻る等で不安定だった）。これにより 2 回目で確実に文書全体になり、テストでも
+ * 検証できる。
  */
 export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     const { state } = view;
     const sel = state.selection;
 
+    // 既に文書全体（AllSelection）なら、これ以上広げない（先頭行へ巻き戻さない）。
+    if (sel instanceof AllSelection) return false;
+
     // 既にテーブルのセル選択（行 or 表）の場合の段階遷移
     if (sel instanceof CellSelection) {
         // 行選択（複数列の表で全列に跨る = 表全体）→ 文書全体へ
-        if (sel.isRowSelection() && sel.isColSelection()) return false;
+        if (sel.isRowSelection() && sel.isColSelection()) return selectWholeDoc(view);
         // 行選択 → 表全体
         ctx.get(commandsCtx).call(selectTableCommand.key);
         return true;
@@ -72,7 +115,7 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
         const codeContent = TextSelection.create(state.doc, $from.start(codeDepth), $from.end(codeDepth));
         const isCodeSelected =
             sel instanceof TextSelection && sel.from === codeContent.from && sel.to === codeContent.to;
-        if (isCodeSelected) return false; // 2 回目 → 既定の全選択
+        if (isCodeSelected) return selectWholeDoc(view); // 2 回目 → 文書全体
         view.dispatch(state.tr.setSelection(codeContent).scrollIntoView());
         return true;
     }
@@ -80,37 +123,101 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     // テーブルセル（tableRole で判定）。セルをクリックした場合は NodeSelection に
     // なり $from がセル階層を指すため、段落 depth に依存せずセル範囲から算出する。
     const cellDepth = tableCellDepth($from);
-    if (cellDepth < 0) return false; // セル外 → 既定の全選択
+    if (cellDepth >= 0) {
+        const cellContent = TextSelection.between(
+            state.doc.resolve($from.start(cellDepth)),
+            state.doc.resolve($from.end(cellDepth))
+        );
+        const isCellSelected =
+            sel instanceof TextSelection && sel.from === cellContent.from && sel.to === cellContent.to;
 
-    const cellContent = TextSelection.between(
-        state.doc.resolve($from.start(cellDepth)),
-        state.doc.resolve($from.end(cellDepth))
-    );
-    const isCellSelected =
-        sel instanceof TextSelection && sel.from === cellContent.from && sel.to === cellContent.to;
+        if (isCellSelected) {
+            // 2 回目: 行全体を選択（CellSelection の行選択）
+            const $cell = state.doc.resolve($from.before(cellDepth));
+            view.dispatch(state.tr.setSelection(CellSelection.rowSelection($cell)).scrollIntoView());
+            return true;
+        }
 
-    if (isCellSelected) {
-        // 2 回目: 行全体を選択（CellSelection の行選択）
-        const $cell = state.doc.resolve($from.before(cellDepth));
-        view.dispatch(state.tr.setSelection(CellSelection.rowSelection($cell)).scrollIntoView());
+        // 1 回目: セルの中身だけ
+        view.dispatch(state.tr.setSelection(cellContent).scrollIntoView());
         return true;
     }
 
-    // 1 回目: セルの中身だけ
-    view.dispatch(state.tr.setSelection(cellContent).scrollIntoView());
+    // 通常のテキストブロック（段落・見出し・リスト項目など）:
+    // 1 回目はカーソルのある「行（テキストブロック）」の中身を丸ごと選択。
+    // 2 回目（既に行全体が選択済み）は文書全体（AllSelection）にする。
+    if ($from.parent.isTextblock) {
+        // blockPrefixEditPlugin が展開中のとき、$from.start() はプレフィックス挿入後に
+        // プレフィックス末尾を指す場合がある。contentStart を使って明示的にプレフィックスを
+        // 含む範囲（## や - [ ] を含む）から選択する。
+        const expanded = getExpandedBlock();
+        const blockStart = expanded ? expanded.contentStart : $from.start();
+        const blockEnd = $from.end();
+
+        const isBlockSelected =
+            sel instanceof TextSelection && sel.from === blockStart && sel.to === blockEnd && blockStart < blockEnd;
+        if (isBlockSelected) return selectWholeDoc(view);
+
+        const lineContent = TextSelection.create(state.doc, blockStart, blockEnd);
+        view.dispatch(state.tr.setSelection(lineContent).scrollIntoView());
+        return true;
+    }
+
+    return false; // テキストブロック外 → 既定の全選択
+}
+
+/** `handleSelectAllCapture` が受け取るイベントの最小インターフェース（テスト容易化のため）。 */
+export interface SelectAllCaptureEvent {
+    preventDefault(): void;
+    stopPropagation(): void;
+}
+
+/**
+ * `document` の **capture フェーズ**（`milkdownApp.ts` の keydown リスナ）から呼ぶ
+ * Cmd/Ctrl+A ハンドラ。段階選択を実行できたら `preventDefault` + `stopPropagation` する。
+ *
+ * capture でここまで行うのは次の 2 つを同時に満たすため:
+ *  1. `preventDefault` で **ブラウザ/Electron の native「Select All」を抑止**する。これを
+ *     plugin の `handleKeyDown`（bubble 相当）に任せると、読み込み順により native が先に
+ *     走って段階選択が無視されることがある（＝「`Cmd+A` で全部選択されてしまう」バグ）。
+ *  2. `stopPropagation` で同じ keydown を **plugin の `handleKeyDown` へ流さない**。両方が
+ *     `handleSelectAll` を呼ぶと 1 回の押下で 2 段階進んでしまう（capture=セル内容 → plugin=行）。
+ *
+ * フォーカスが無い／段階選択が不要な段階（`handleSelectAll` が `false`）のときは何もしない
+ * （`false` を返し、native の全選択に委ねる）。
+ *
+ * @returns 抑止した（preventDefault/stopPropagation した）場合 true
+ */
+export function handleSelectAllCapture(
+    view: EditorView,
+    ctx: Ctx,
+    event: SelectAllCaptureEvent
+): boolean {
+    if (!view.hasFocus()) return false;
+    if (!handleSelectAll(view, ctx)) return false;
+    event.preventDefault();
+    event.stopPropagation();
     return true;
 }
 
 function makeTodo(view: EditorView, ctx: Ctx): void {
-    const commands = ctx.get(commandsCtx);
-    if (findDepth(view.state.selection.$from, ['list_item']) < 0) {
-        commands.call(wrapInBulletListCommand.key);
+    // 展開抑制: wrapInBulletList 後に blockPrefixEditPlugin が "- " を展開し、
+    // 続く setNodeAttribute(checked=false) で collapse が走って checked が null に
+    // 戻るのを防ぐ（Bug1）。
+    setBlockPrefixExpansionSuppressed(true);
+    try {
+        const commands = ctx.get(commandsCtx);
+        if (findDepth(view.state.selection.$from, ['list_item']) < 0) {
+            commands.call(wrapInBulletListCommand.key);
+        }
+        const { state } = view;
+        const depth = findDepth(state.selection.$from, ['list_item']);
+        if (depth < 0) return;
+        const pos = state.selection.$from.before(depth);
+        view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
+    } finally {
+        setBlockPrefixExpansionSuppressed(false);
     }
-    const { state } = view;
-    const depth = findDepth(state.selection.$from, ['list_item']);
-    if (depth < 0) return;
-    const pos = state.selection.$from.before(depth);
-    view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
 }
 
 /**
@@ -154,8 +261,10 @@ export function applyListType(view: EditorView, target: 'bullet' | 'ordered'): b
     const listNode = $from.node(listDepth);
 
     // 同種のリスト内 → 解除（段落へ戻す）。ツールバーのアクティブ表示と対になる。
+    // liftListItem 後は nodePos が無効になるため、先にプレフィックスを畳む（Bug3）。
     if (listNode.type === targetType) {
-        const lifted = liftListItem(listItemType)(state, view.dispatch, view);
+        collapseCurrentExpandedBlock(view);
+        const lifted = liftListItem(listItemType)(view.state, view.dispatch, view);
         view.focus();
         return lifted;
     }
@@ -177,14 +286,58 @@ export function applyListType(view: EditorView, target: 'bullet' | 'ordered'): b
     return true;
 }
 
+/** カーソルのあるテキストブロックが見出しなら、その level を返す（でなければ null）。 */
+function currentHeadingLevel(view: EditorView): number | null {
+    const { $from } = view.state.selection;
+    for (let depth = $from.depth; depth >= 0; depth--) {
+        const node = $from.node(depth);
+        if (node.type.name === 'heading') return node.attrs.level as number;
+    }
+    return null;
+}
+
+/**
+ * 段落へ戻す（Cmd/Ctrl+Opt+0）。見出し・コードブロックは turnIntoText で本文化するが、
+ * リスト項目の中にいる場合は先にリストを持ち上げて段落へ戻す（Notion の挙動に合わせる）。
+ */
+function turnIntoParagraph(view: EditorView, ctx: Ctx): boolean {
+    const listItemType = view.state.schema.nodes.list_item;
+    if (listItemType && findDepth(view.state.selection.$from, ['list_item']) >= 0) {
+        // ネストの分だけ、リスト外に出るまで項目を持ち上げる。
+        let guard = 0;
+        while (findDepth(view.state.selection.$from, ['list_item']) >= 0 && guard < 10) {
+            const lifted = liftListItem(listItemType)(view.state, view.dispatch, view);
+            if (!lifted) break;
+            guard++;
+        }
+        view.focus();
+        return true;
+    }
+    ctx.get(commandsCtx).call(turnIntoTextCommand.key);
+    return true;
+}
+
+/**
+ * 見出し化（Cmd/Ctrl+Opt+1〜3）。すでに同じレベルの見出しなら段落へ戻す（トグル）。
+ * Notion で同じ見出しショートカットをもう一度押すと本文に戻るのと同じ操作感。
+ */
+function applyHeading(view: EditorView, ctx: Ctx, level: number): boolean {
+    if (currentHeadingLevel(view) === level) {
+        ctx.get(commandsCtx).call(turnIntoTextCommand.key);
+        return true;
+    }
+    ctx.get(commandsCtx).call(wrapInHeadingCommand.key, level);
+    return true;
+}
+
 /** Notion 風ブロック変換。種別ごとに対応する Milkdown コマンドを実行する。 */
 function runNotionBlock(view: EditorView, ctx: Ctx, action: NotionBlockAction): boolean {
     const commands = ctx.get(commandsCtx);
     switch (action) {
-        case 'paragraph': commands.call(turnIntoTextCommand.key); return true;
-        case 'heading1': commands.call(wrapInHeadingCommand.key, 1); return true;
-        case 'heading2': commands.call(wrapInHeadingCommand.key, 2); return true;
-        case 'heading3': commands.call(wrapInHeadingCommand.key, 3); return true;
+        case 'paragraph': return turnIntoParagraph(view, ctx);
+        case 'heading1': return applyHeading(view, ctx, 1);
+        case 'heading2': return applyHeading(view, ctx, 2);
+        case 'heading3': return applyHeading(view, ctx, 3);
         case 'todo': makeTodo(view, ctx); return true;
         case 'bulletList': return applyListType(view, 'bullet');
         case 'orderedList': return applyListType(view, 'ordered');
@@ -253,6 +406,41 @@ function handleFenceEnter(view: EditorView): boolean {
     return true;
 }
 
+/**
+ * Cmd/Ctrl+← の 2 段階行頭移動。
+ *
+ * blockPrefixEditPlugin がプレフィックスを展開中のとき：
+ *   1. カーソルがコンテンツ内（プレフィックス後）→ プレフィックス直後（コンテンツ先頭）へ
+ *   2. カーソルがコンテンツ先頭         → ブロック先頭（プレフィックス前）へ
+ *   3. カーソルがブロック先頭           → return false（ブラウザ既定に委ねる）
+ *
+ * 展開中でなければ return false（ブラウザ既定の Cmd+← に委ねる）。
+ */
+function handleLineStart(view: EditorView): boolean {
+    const expanded = getExpandedBlock();
+    if (!expanded) return false;
+
+    const { state } = view;
+    const { $from, empty } = state.selection;
+    if (!empty) return false;
+
+    const { contentStart, prefix } = expanded;
+    const contentBodyStart = contentStart + prefix.length; // プレフィックス後のコンテンツ先頭
+
+    if ($from.pos > contentBodyStart) {
+        // コンテンツ内 → コンテンツ先頭へ
+        view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, contentBodyStart)));
+        return true;
+    }
+    if ($from.pos > contentStart) {
+        // プレフィックス内 or コンテンツ先頭 → ブロック先頭へ
+        view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, contentStart)));
+        return true;
+    }
+    // 既にブロック先頭 → ブラウザ既定に委ねる
+    return false;
+}
+
 export function createPreviewKeymapPlugin() {
     return $prose((ctx) => {
         return new Plugin({
@@ -286,6 +474,13 @@ export function createPreviewKeymapPlugin() {
                         case 'selectAll':
                             // Cmd/Ctrl+A: テーブルセル/コードブロックの段階選択
                             return handleSelectAll(view, ctx);
+                        case 'lineStart':
+                            // Cmd/Ctrl+←: プレフィックス展開中の 2 段階行頭移動
+                            if (handleLineStart(view)) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            return false;
                         default:
                             // find は milkdownApp の capture リスナが処理する
                             return false;

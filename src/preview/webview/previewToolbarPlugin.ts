@@ -16,9 +16,13 @@ import type { Ctx } from '@milkdown/ctx';
 import { setBlockType } from '@milkdown/prose/commands';
 import { wrapInList, liftListItem } from '@milkdown/prose/schema-list';
 import { commandsCtx } from '@milkdown/kit/core';
+import { createCodeBlockCommand, wrapInBlockquoteCommand } from '@milkdown/kit/preset/commonmark';
+import { undoCommand, redoCommand } from '@milkdown/kit/plugin/history';
 import { insertTableCommand } from '@milkdown/kit/preset/gfm';
 import { $prose } from '@milkdown/utils';
 import { applyListType } from './previewKeymapPlugin';
+import { setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
+import { t } from './i18n';
 
 /** 3×3 のテーブルを表すアイコン（ツールバーのボタン用）。 */
 const TABLE_ICON_SVG =
@@ -27,11 +31,32 @@ const TABLE_ICON_SVG =
     '<path d="M1.5 6.5H14.5M1.5 10H14.5M6 2.5V13.5M10 2.5V13.5" fill="none" stroke="currentColor" stroke-width="1.1"/>' +
     '</svg>';
 
+/** コードブロック `</>` を表すアイコン。 */
+const CODE_ICON_SVG =
+    '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
+    '<path d="M6 4.5L2.5 8L6 11.5M10 4.5L13.5 8L10 11.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+
+/** 引用（blockquote）を表すアイコン（左の縦バー＋本文行）。 */
+const QUOTE_ICON_SVG =
+    '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">' +
+    '<rect x="2.5" y="3.5" width="2" height="9" rx="1" fill="currentColor"/>' +
+    '<path d="M7 5.5H13.5M7 8H13.5M7 10.5H11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>' +
+    '</svg>';
+
 export interface PreviewToolbarOptions {
     isMac: boolean;
     showShortcuts: boolean;
     onExport: () => void;
     onToggleRaw: () => void;
+    /** 拡大。新しいズーム率（%）を返す。 */
+    onZoomIn: () => number;
+    /** 縮小。新しいズーム率（%）を返す。 */
+    onZoomOut: () => number;
+    /** 100% に戻す。新しいズーム率（%）を返す。 */
+    onZoomReset: () => number;
+    /** 初期ズーム率（%）。 */
+    initialZoom: number;
 }
 
 interface ToolbarItem {
@@ -45,6 +70,8 @@ interface ToolbarItem {
     run: (view: EditorView, ctx: Ctx) => void;
     /** 現在ブロックがこの項目に一致するか（アクティブ強調用） */
     isActive?: (state: EditorState) => boolean;
+    /** このボタンの後ろに区切り線を入れる。 */
+    separatorAfter?: boolean;
 }
 
 function findListItemDepth(state: EditorState, listItem: NodeType): number {
@@ -106,6 +133,45 @@ function insertTable(view: EditorView, ctx: Ctx): void {
     view.focus();
 }
 
+/** 現在ブロックをコードブロックにする（```）。 */
+function insertCodeBlock(view: EditorView, ctx: Ctx): void {
+    ctx.get(commandsCtx).call(createCodeBlockCommand.key);
+    view.focus();
+}
+
+/** 現在ブロックを引用（blockquote）で囲む。 */
+function toggleQuote(view: EditorView, ctx: Ctx): void {
+    ctx.get(commandsCtx).call(wrapInBlockquoteCommand.key);
+    view.focus();
+}
+
+/** 取り消し（Undo）。Cmd/Ctrl+Z と同じ。 */
+function undo(view: EditorView, ctx: Ctx): void {
+    ctx.get(commandsCtx).call(undoCommand.key);
+    view.focus();
+}
+
+/** やり直し（Redo）。Cmd/Ctrl+Shift+Z と同じ。 */
+function redo(view: EditorView, ctx: Ctx): void {
+    ctx.get(commandsCtx).call(redoCommand.key);
+    view.focus();
+}
+
+function codeBlockActive(state: EditorState): boolean {
+    const codeBlock = state.schema.nodes.code_block;
+    return !!codeBlock && state.selection.$from.parent.type === codeBlock;
+}
+
+function blockquoteActive(state: EditorState): boolean {
+    const blockquote = state.schema.nodes.blockquote;
+    if (!blockquote) return false;
+    const { $from } = state.selection;
+    for (let depth = $from.depth; depth > 0; depth--) {
+        if ($from.node(depth).type === blockquote) return true;
+    }
+    return false;
+}
+
 /** 現在行をチェックボックス（タスク項目）にする / 解除して何もない段落へ戻す。 */
 function toggleCheckbox(view: EditorView): void {
     const { schema } = view.state;
@@ -113,34 +179,42 @@ function toggleCheckbox(view: EditorView): void {
     const bulletList = schema.nodes.bullet_list;
     if (!listItem || !bulletList) return;
 
-    const depth = findListItemDepth(view.state, listItem);
-    if (depth >= 0) {
-        const li = view.state.selection.$from.node(depth);
-        if (li.attrs.checked !== null) {
-            // すでにチェックボックス → リストごと解除して「何もない」段落へ戻す。
-            liftListItem(listItem)(view.state, view.dispatch, view);
+    // 展開抑制: wrapInList 後の expand → setChecked 後の collapse →  checked=null 戻し
+    // のループを防ぐ。また liftListItem 前に既存プレフィックスを明示的に畳む（Bug1/Bug3）。
+    setBlockPrefixExpansionSuppressed(true);
+    try {
+        const depth = findListItemDepth(view.state, listItem);
+        if (depth >= 0) {
+            const li = view.state.selection.$from.node(depth);
+            if (li.attrs.checked !== null) {
+                // すでにチェックボックス → リストごと解除して「何もない」段落へ戻す。
+                collapseCurrentExpandedBlock(view);
+                liftListItem(listItem)(view.state, view.dispatch, view);
+                view.focus();
+                return;
+            }
+            // 通常のリスト項目（箇条書き等）→ チェックボックスにする。
+            setChecked(view, depth, false);
             view.focus();
             return;
         }
-        // 通常のリスト項目（箇条書き等）→ チェックボックスにする。
-        setChecked(view, depth, false);
-        view.focus();
-        return;
-    }
 
-    // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
-    demoteHeadingToParagraph(view);
-    if (!wrapInList(bulletList)(view.state, view.dispatch, view)) {
+        // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
+        demoteHeadingToParagraph(view);
+        if (!wrapInList(bulletList)(view.state, view.dispatch, view)) {
+            view.focus();
+            return;
+        }
+        const newDepth = findListItemDepth(view.state, listItem);
+        if (newDepth < 0) {
+            view.focus();
+            return;
+        }
+        setChecked(view, newDepth, false);
         view.focus();
-        return;
+    } finally {
+        setBlockPrefixExpansionSuppressed(false);
     }
-    const newDepth = findListItemDepth(view.state, listItem);
-    if (newDepth < 0) {
-        view.focus();
-        return;
-    }
-    setChecked(view, newDepth, false);
-    view.focus();
 }
 
 function headingActive(level: number) {
@@ -186,13 +260,17 @@ function bulletActive(state: EditorState): boolean {
 
 export function createPreviewToolbarPlugin(options: PreviewToolbarOptions) {
     const items: ToolbarItem[] = [
-        { id: 'h1', label: 'H1', title: '見出し 1', shortcutMac: '⌥⌘1', shortcutWin: 'Alt+Ctrl+1', run: (v) => toggleHeading(v, 1), isActive: headingActive(1) },
-        { id: 'h2', label: 'H2', title: '見出し 2', shortcutMac: '⌥⌘2', shortcutWin: 'Alt+Ctrl+2', run: (v) => toggleHeading(v, 2), isActive: headingActive(2) },
-        { id: 'h3', label: 'H3', title: '見出し 3', shortcutMac: '⌥⌘3', shortcutWin: 'Alt+Ctrl+3', run: (v) => toggleHeading(v, 3), isActive: headingActive(3) },
-        { id: 'checkbox', label: '☑', title: 'チェックボックス', shortcutMac: '⌥⌘4', shortcutWin: 'Alt+Ctrl+4', run: toggleCheckbox, isActive: checkboxActive },
-        { id: 'bullet', label: '•', title: '箇条書き', shortcutMac: '⌥⌘5', shortcutWin: 'Alt+Ctrl+5', run: toggleBulletList, isActive: bulletActive },
-        { id: 'numbered', label: '1.', title: '番号付きリスト', shortcutMac: '⌥⌘6', shortcutWin: 'Alt+Ctrl+6', run: toggleOrderedList, isActive: orderedActive },
-        { id: 'table', label: TABLE_ICON_SVG, labelIsHtml: true, title: 'テーブルを挿入', run: insertTable }
+        { id: 'undo', label: '↶', title: t('Undo'), shortcutMac: '⌘Z', shortcutWin: 'Ctrl+Z', run: undo },
+        { id: 'redo', label: '↷', title: t('Redo'), shortcutMac: '⌘⇧Z', shortcutWin: 'Ctrl+Shift+Z', run: redo, separatorAfter: true },
+        { id: 'h1', label: 'H1', title: t('Heading 1'), shortcutMac: '⌥⌘1', shortcutWin: 'Alt+Ctrl+1', run: (v) => toggleHeading(v, 1), isActive: headingActive(1) },
+        { id: 'h2', label: 'H2', title: t('Heading 2'), shortcutMac: '⌥⌘2', shortcutWin: 'Alt+Ctrl+2', run: (v) => toggleHeading(v, 2), isActive: headingActive(2) },
+        { id: 'h3', label: 'H3', title: t('Heading 3'), shortcutMac: '⌥⌘3', shortcutWin: 'Alt+Ctrl+3', run: (v) => toggleHeading(v, 3), isActive: headingActive(3) },
+        { id: 'checkbox', label: '☑', title: t('Checkbox'), shortcutMac: '⌥⌘4', shortcutWin: 'Alt+Ctrl+4', run: toggleCheckbox, isActive: checkboxActive },
+        { id: 'bullet', label: '•', title: t('Bullet list'), shortcutMac: '⌥⌘5', shortcutWin: 'Alt+Ctrl+5', run: toggleBulletList, isActive: bulletActive },
+        { id: 'numbered', label: '1.', title: t('Numbered list'), shortcutMac: '⌥⌘6', shortcutWin: 'Alt+Ctrl+6', run: toggleOrderedList, isActive: orderedActive },
+        { id: 'quote', label: QUOTE_ICON_SVG, labelIsHtml: true, title: t('Quote'), shortcutMac: '⌥⌘9', shortcutWin: 'Alt+Ctrl+9', run: toggleQuote, isActive: blockquoteActive },
+        { id: 'code', label: CODE_ICON_SVG, labelIsHtml: true, title: t('Code block'), shortcutMac: '⌥⌘8', shortcutWin: 'Alt+Ctrl+8', run: insertCodeBlock, isActive: codeBlockActive },
+        { id: 'table', label: TABLE_ICON_SVG, labelIsHtml: true, title: t('Insert table'), run: insertTable }
     ];
 
     return $prose((ctx) => {
@@ -238,6 +316,10 @@ export function createPreviewToolbarPlugin(options: PreviewToolbarOptions) {
             btn.addEventListener('mousedown', (e) => e.preventDefault());
         };
 
+        // 左スクロール領域: 書式ボタン（Undo/Redo / 見出し / リスト / 引用 / コード / テーブル）
+        const scrollSection = document.createElement('div');
+        scrollSection.className = 'preview-toolbar-scroll';
+
         for (const item of items) {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -252,25 +334,68 @@ export function createPreviewToolbarPlugin(options: PreviewToolbarOptions) {
             btn.addEventListener('click', () => {
                 if (lastView) item.run(lastView, ctx);
             });
-            bar.appendChild(btn);
+            scrollSection.appendChild(btn);
             buttonMap.set(item.id, btn);
+            if (item.separatorAfter) {
+                const sep = document.createElement('div');
+                sep.className = 'preview-toolbar-sep';
+                scrollSection.appendChild(sep);
+            }
         }
 
-        // 右端: Export（Pro 導線）
-        const spacer = document.createElement('div');
-        spacer.className = 'preview-toolbar-spacer';
-        bar.appendChild(spacer);
+        bar.appendChild(scrollSection);
+
+        // 右固定領域: Zoom / Export / Raw-Preview トグル
+        const fixedSection = document.createElement('div');
+        fixedSection.className = 'preview-toolbar-fixed';
+
+        // ズーム（拡大 / 縮小）: [−] [100%] [+]。% クリックで 100% に戻す。
+        const zoomGroup = document.createElement('div');
+        zoomGroup.className = 'preview-toolbar-zoom';
+
+        const zoomLabel = document.createElement('button');
+        zoomLabel.type = 'button';
+        zoomLabel.className = 'preview-toolbar-zoom-label';
+        const setZoomLabel = (percent: number): void => {
+            zoomLabel.textContent = `${percent}%`;
+        };
+        setZoomLabel(options.initialZoom);
+
+        const zoomOutBtn = document.createElement('button');
+        zoomOutBtn.type = 'button';
+        zoomOutBtn.className = 'preview-toolbar-btn';
+        zoomOutBtn.textContent = '−';
+        zoomOutBtn.setAttribute('aria-label', t('Zoom out'));
+        wireHover(zoomOutBtn, t('Zoom out'), options.isMac ? '⌘−' : 'Ctrl+−');
+        zoomOutBtn.addEventListener('click', () => setZoomLabel(options.onZoomOut()));
+
+        const zoomInBtn = document.createElement('button');
+        zoomInBtn.type = 'button';
+        zoomInBtn.className = 'preview-toolbar-btn';
+        zoomInBtn.textContent = '+';
+        zoomInBtn.setAttribute('aria-label', t('Zoom in'));
+        wireHover(zoomInBtn, t('Zoom in'), options.isMac ? '⌘+' : 'Ctrl++');
+        zoomInBtn.addEventListener('click', () => setZoomLabel(options.onZoomIn()));
+
+        zoomLabel.setAttribute('aria-label', t('Reset to 100%'));
+        wireHover(zoomLabel, t('Reset to 100%'), '');
+        zoomLabel.addEventListener('click', () => setZoomLabel(options.onZoomReset()));
+
+        zoomGroup.appendChild(zoomOutBtn);
+        zoomGroup.appendChild(zoomLabel);
+        zoomGroup.appendChild(zoomInBtn);
+        fixedSection.appendChild(zoomGroup);
 
         const exportBtn = document.createElement('button');
         exportBtn.type = 'button';
         exportBtn.className = 'preview-toolbar-btn preview-toolbar-export';
         exportBtn.textContent = 'Export';
-        exportBtn.setAttribute('aria-label', 'PDF / Marp で書き出す（Pro）');
-        wireHover(exportBtn, 'PDF / Marp で書き出す（Pro）', '');
+        exportBtn.setAttribute('aria-label', t('Export to PDF / Marp (Pro)'));
+        wireHover(exportBtn, t('Export to PDF / Marp (Pro)'), '');
         exportBtn.addEventListener('click', () => options.onExport());
-        bar.appendChild(exportBtn);
+        fixedSection.appendChild(exportBtn);
 
-        // 右端: Preview / Raw 切り替え（Raw モードの CodeLens と対）。
+        // Preview / Raw 切り替え（Raw モードの CodeLens と対）。
         // いまは Preview なので Preview 側をアクティブ表示、Raw クリックで切り替え。
         const toggleGroup = document.createElement('div');
         toggleGroup.className = 'preview-toolbar-toggle';
@@ -279,21 +404,23 @@ export function createPreviewToolbarPlugin(options: PreviewToolbarOptions) {
         previewSeg.type = 'button';
         previewSeg.className = 'preview-toolbar-seg active';
         previewSeg.textContent = 'Preview';
-        previewSeg.setAttribute('aria-label', '現在 Preview モードです');
+        previewSeg.setAttribute('aria-label', t('Currently in Preview mode'));
         previewSeg.addEventListener('mousedown', (e) => e.preventDefault());
 
         const rawSeg = document.createElement('button');
         rawSeg.type = 'button';
         rawSeg.className = 'preview-toolbar-seg';
         rawSeg.textContent = 'Raw';
-        rawSeg.setAttribute('aria-label', 'Raw（Markdown ソース）に切り替え');
-        const rawShortcut = options.isMac ? '⌘⇧M' : 'Ctrl+Shift+M';
-        wireHover(rawSeg, 'Raw（Markdown ソース）に切り替え', rawShortcut);
+        rawSeg.setAttribute('aria-label', t('Switch to Raw (Markdown source)'));
+        const rawShortcut = options.isMac ? '⌘⇧.' : 'Ctrl+Shift+.';
+        wireHover(rawSeg, t('Switch to Raw (Markdown source)'), rawShortcut);
         rawSeg.addEventListener('click', () => options.onToggleRaw());
 
         toggleGroup.appendChild(previewSeg);
         toggleGroup.appendChild(rawSeg);
-        bar.appendChild(toggleGroup);
+        fixedSection.appendChild(toggleGroup);
+
+        bar.appendChild(fixedSection);
 
         const updateActive = (state: EditorState): void => {
             for (const item of items) {

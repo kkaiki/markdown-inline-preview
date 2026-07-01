@@ -38,11 +38,11 @@ export function showWhatsNewIfUpdated(context: vscode.ExtensionContext): void {
     if (!previous) return;
     if (!isOlder(previous, current)) return;
 
-    const changelog = 'リリースノート';
-    const walkthrough = '使い方ガイド';
+    const changelog = vscode.l10n.t('Release notes');
+    const walkthrough = vscode.l10n.t('Getting started');
     void vscode.window
         .showInformationMessage(
-            `iPreview が v${current} に更新されました。新機能・変更点をご確認ください。`,
+            vscode.l10n.t("iPreview has been updated to v{0}. Check out what's new.", current),
             changelog,
             walkthrough
         )

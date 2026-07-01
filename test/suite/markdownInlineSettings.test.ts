@@ -1,8 +1,8 @@
 import * as assert from 'assert';
 import {
     resolveAutoTableFormattingEnabled,
-    resolveHideStrikethroughOnEditingLine,
-    resolvePreviewEnabled
+    resolvePreviewEnabled,
+    resolveImageThumbnailEnabled
 } from '../../src/core/markdownInlineSettings';
 import type { ConfigLike } from '../../src/core/config';
 
@@ -39,9 +39,32 @@ describe('markdownInlineSettings', () => {
         assert.strictEqual(resolveAutoTableFormattingEnabled(config, null), false);
     });
 
-    it('hides strikethrough only on the current editing line', () => {
-        const config = createConfig({ hideStrikethroughOnEdit: true });
-        assert.strictEqual(resolveHideStrikethroughOnEditingLine(config, 4, 4), true);
-        assert.strictEqual(resolveHideStrikethroughOnEditingLine(config, 3, 4), false);
+    // ── Raw インライン画像サムネイル（imagePreview.showThumbnail）──────────────
+    // 既定 off。サムネイルは編集の邪魔になるため既定では隠す（ホバープレビューは別設定で残る）。
+    describe('resolveImageThumbnailEnabled', () => {
+        it('既定では off（サムネイルを隠す）', () => {
+            assert.strictEqual(resolveImageThumbnailEnabled(createConfig({})), false);
+        });
+
+        it('showThumbnail=true を明示したときだけ on', () => {
+            const config = createConfig({ 'imagePreview.showThumbnail': true });
+            assert.strictEqual(resolveImageThumbnailEnabled(config), true);
+        });
+
+        it('imagePreview.enabled=false なら showThumbnail=true でも off', () => {
+            const config = createConfig({
+                'imagePreview.enabled': false,
+                'imagePreview.showThumbnail': true
+            });
+            assert.strictEqual(resolveImageThumbnailEnabled(config), false);
+        });
+
+        it('preview 機能自体が無効なら off', () => {
+            const config = createConfig({
+                'enablePreview': false,
+                'imagePreview.showThumbnail': true
+            });
+            assert.strictEqual(resolveImageThumbnailEnabled(config), false);
+        });
     });
 });

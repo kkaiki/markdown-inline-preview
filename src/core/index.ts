@@ -10,7 +10,6 @@ export {
     resolveCodeBlockDecorationsEnabled,
     resolveDisableCompetingMarkdownFeatures,
     resolveHeadingDecorationsEnabled,
-    resolveHideStrikethroughOnEditingLine,
     resolveHorizontalRuleDecorationsEnabled,
     resolveImageHoverPreviewEnabled,
     resolveImageThumbnailEnabled,

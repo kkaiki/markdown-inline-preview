@@ -1,14 +1,16 @@
 /**
  * Milkdown の commonmark preset は空段落・空セルを `<br />` として保存する
- * （remark-preserve-empty-line）。本拡張ではこの挙動を無効化しているが、
- * 過去に保存されたファイルには `<br />` プレースホルダが残るため、
- * Preview に読み込む際に通常の空行・空セルへ正規化する。
+ * （remark-preserve-empty-line）。空チェックボックス項目のシリアライズを正しく
+ * 保つためにこのプラグインを有効にしつつ、Raw エディタへ送る前に `<br />` を除去する。
  */
 
 // 空セルのみを内容とする `<br />`（前後はパイプ＋空白のみ）
 const EMPTY_CELL_BREAK = /(?<=\|)([ \t]*)<br\s*\/?>([ \t]*)(?=\|)/gi;
 // 行全体が `<br />` だけのプレースホルダ
 const STANDALONE_BREAK = /^[ \t]*<br\s*\/?>[ \t]*$/gim;
+// リスト項目行（箇条書き・番号付き）末尾の `<br />` プレースホルダ。
+// "* [ ] <br />" → "* [ ] " のようにチェックボックス構文を保ちつつ <br /> を除去する。
+const LIST_ITEM_TRAILING_BR = /^([ \t]*[-*+][ \t]+(?:\[[x ]\][ \t]*)?)<br\s*\/?>[ \t]*$/gm;
 
 /**
  * `<br />` プレースホルダ（空行・空セル）を通常の空行・空セルへ戻す。
@@ -18,6 +20,17 @@ export function stripPlaceholderLineBreaks(markdown: string): string {
     return markdown
         .replace(EMPTY_CELL_BREAK, '$1$2')
         .replace(STANDALONE_BREAK, '');
+}
+
+/**
+ * リスト項目行末尾の `<br />` プレースホルダを除去する。
+ *
+ * `remark-preserve-empty-line` は空の list_item を `* [ ] <br />` と直列化する。
+ * このまま Raw エディタへ送ると `<br />` がユーザーに見えてしまう。
+ * ここでは `* [ ] ` のようにチェックボックス構文だけを残して `<br />` を削る。
+ */
+export function stripListItemPlaceholderBr(markdown: string): string {
+    return markdown.replace(LIST_ITEM_TRAILING_BR, '$1');
 }
 
 // テーブル行（インデント可、`|` で始まり `|` で終わる行）。区切り行 `| --- |` も含むが
@@ -134,4 +147,26 @@ export function tightenParagraphSpacing(markdown: string): string {
     }
 
     return out.join('\n');
+}
+
+/**
+ * Preview（Milkdown）が読み込む Markdown の正規形。
+ * - `<br />` プレースホルダ（空行・空セル）除去
+ * - テーブルセル内 `<br>` → `&#10;`（hardbreak として編集できるように）
+ * - リストの余分な空行詰め（tight リスト化）
+ *
+ * **段落どうしの空行は詰めない**（保持する）。`A\n\nB` は 2 段落として読み込み、Preview でも
+ * 空行ぶんの余白を見せる。以前は `tightenParagraphSpacing` で詰めていたが、ユーザーが意図して
+ * 入れた空行が消えて（表示・保存とも）しまうため廃止した。
+ *
+ * Preview の本文ドキュメントと **Git 差分の基準（HEAD 本文）の両方**をこの同じ形に
+ * 揃えることが重要。揃えないと、Raw では無変更なのに Preview のガターだけ変更（青）に
+ * 見える（例: 表セルの `<br>` が基準側だけ素のまま → セル本文が食い違う）。
+ */
+export function normalizePreviewMarkdown(markdown: string): string {
+    return tightenListSpacing(
+        convertTableCellBreaksToEntities(
+            stripListItemPlaceholderBr(stripPlaceholderLineBreaks(markdown))
+        )
+    );
 }

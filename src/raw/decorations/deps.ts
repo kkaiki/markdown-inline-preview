@@ -6,7 +6,6 @@ export interface RawDecorationDeps {
     isImageThumbnailEnabled: () => boolean;
     isTableWrapHoverEnabled: () => boolean;
     getTableWrapMaxWidth: () => number;
-    shouldHideStrikethroughOnEditingLine: (line: number) => boolean;
     debugLog: (message: string, ...args: unknown[]) => void;
 }
 

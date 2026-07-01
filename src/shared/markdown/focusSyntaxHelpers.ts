@@ -25,8 +25,11 @@ export function getListItemPrefix($pos: ResolvedPos, listItemDepth: number): str
     const listItem = $pos.node(listItemDepth);
     if (listItem.type.name !== 'list_item') return null;
 
-    if (listItem.attrs.checked === true) return '- [x] ';
-    if (listItem.attrs.checked === false) return '- [ ] ';
+    // チェックボックス（タスク項目）はフォーカス時もマーカー（`- [x]`）を出さない。
+    // これで md-focus-list クラスが付かず、クリック可能なチェックボックス UI が隠れない
+    // （= フォーカス中でもクリックでトグルできる）。チェックボックスの解除は Backspace
+    // （markerBackspace）、チェック切替は クリック / Cmd+Enter で行う。
+    if (listItem.attrs.checked === true || listItem.attrs.checked === false) return null;
 
     const parent = $pos.node(listItemDepth - 1);
     if (parent.type.name === 'ordered_list') {
