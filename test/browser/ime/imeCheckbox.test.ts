@@ -84,6 +84,29 @@ describe('実ブラウザ: IME とチェックボックスの組み合わせ', f
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('チェックボックスの変換トリガーとなる末尾スペース自体が IME 確定で入力されても変換される', async function () {
+        if (!browser) { this.skip(); return; }
+        // preview-usage-flow-test-backlog.md §4.1 のギャップ: typedCheckboxConversion.test.ts
+        // の「日本語本文」ケースは h.type()（page.keyboard.type、1 文字ずつの実キーイベント）の
+        // 文字送りのみで、GFM の wrapInTaskListInputRule を実際に発火させる「]」直後のスペース
+        // 自体が IME の compositionend/insertText 経由で挿入された場合に同じ InputRule が
+        // 反応するかは未検証だった（ProseMirror の inputRules は compositionend 由来の一括挿入と
+        // 1 文字ずつの handleTextInput 経由の挿入とでコードパスが異なりうる）。
+        h = await openPreview(browser, '\n', undefined);
+        await h.focusEditor();
+        await h.type('- [x]');
+        // トリガーとなる末尾スペースを IME 確定として模す（imeCommit(' ') は
+        // compositionstart→insertText(' ') の順で発火し、通常キー入力とは別経路を通る）。
+        await imeCommit(h, ' ');
+        await h.type('タスク');
+        await h.moveToEnd();
+
+        const m = await h.model();
+        assert.ok(m.outline.includes('list_item(checked=true)[paragraph["タスク"]]'),
+            `IME 確定によるトリガースペース入力でチェックボックス変換が効かない: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('IME で見出しの本文を確定した直後に Enter しても、見出しが壊れず次は段落になる', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, '\n', undefined);

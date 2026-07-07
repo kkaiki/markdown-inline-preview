@@ -123,6 +123,20 @@ describe('実ブラウザ: 数式（KaTeX）レンダリング', function () {
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('"$ 100" のような $ 直後が空白の金額表記は数式化されない', async function () {
+        if (!browser) { this.skip(); return; }
+        // mathDecorationPlugin.ts の MATH_RE コメント「$ の直後が空白のもの（"$ 100" のような
+        // 金額表記）は数式とみなさない」の実描画確認（従来コメントのみでテストが無かったギャップ）。
+        h = await openPreview(browser, '価格は $ 100 です\n\nTAIL\n', 'TAIL', { enableMath: true });
+        await h.page.waitForTimeout(600);
+
+        const katexCount = await h.page.locator('#milkdown-root .katex').count();
+        assert.strictEqual(katexCount, 0, '"$ 100" が数式として描画された');
+        const m = await h.model();
+        assert.ok(m.text.includes('$ 100'), `金額表記のソースが壊れた: ${m.text}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('ハードブレイクを挟んで $$ が分割される（複数行にまたがる）場合は数式として描画されず、ソースのまま残る', async function () {
         if (!browser) { this.skip(); return; }
         // "  \n"（行末2スペース+改行）で hardbreak を作る。$$ 開始側と終了側が別のテキストノードに

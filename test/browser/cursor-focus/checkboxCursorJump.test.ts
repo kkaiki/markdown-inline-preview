@@ -157,6 +157,59 @@ describe('実ブラウザ: チェックボックス変換後のカーソル飛�
             assertCursorStaysOnTarget(await h.model(), '対象見出し');
             assert.deepStrictEqual(h.errors, []);
         });
+
+        // checkbox-cursor-jump-fix.md §5 が推奨する「入口 × 周辺リスト有無 × リスト種別」の
+        // 総当たりのうち、ショートカット系（上の describe）とは重ならない残りの組み合わせを補う。
+        it('下に既存の箇条書きがある場合、変換後もカーソルは対象行に留まる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, '対象行\n\n- 下の項目\n\nTAIL\n', '対象行', { showToolbar: true });
+            await h.placeCursorAfterText('対象行');
+            await clickCheckboxButton(h);
+            assertCursorStaysOnTarget(await h.model(), '対象行');
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('上下両方に既存リストがある場合、変換後もカーソルは対象行に留まる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, '- 上の項目\n\n対象行\n\n1. 下の項目\n\nTAIL\n', '対象行', { showToolbar: true });
+            await h.placeCursorAfterText('対象行');
+            await clickCheckboxButton(h);
+            assertCursorStaysOnTarget(await h.model(), '対象行');
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('対照群: 周辺に既存リストが無い場合も、変換後カーソルは対象行に留まる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, '前の段落\n\n対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+            await h.placeCursorAfterText('対象行');
+            await clickCheckboxButton(h);
+            assertCursorStaysOnTarget(await h.model(), '対象行');
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('上に既存の番号付きリストがある場合、変換後もカーソルは対象行に留まる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, '1. 既存項目\n\n対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+            await h.placeCursorAfterText('対象行');
+            await clickCheckboxButton(h);
+            assertCursorStaysOnTarget(await h.model(), '対象行');
+            assert.deepStrictEqual(h.errors, []);
+        });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ショートカット系にのみ存在していなかった「見出しから変換」をツールバー側と対称にする
+    // ─────────────────────────────────────────────────────────────────────────
+    describe('⌥⌘4 ショートカット（見出し起点）', () => {
+        it('見出しから変換する場合も、周辺に既存リストがあればカーソルは対象行に留まる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, '- 既存項目\n\n## 対象見出し\n\nTAIL\n', '対象見出し');
+            await h.placeCursorAfterText('対象見出し');
+            await h.press('Alt+Meta+4');
+            await h.page.waitForTimeout(300);
+            assertCursorStaysOnTarget(await h.model(), '対象見出し');
+            assert.deepStrictEqual(h.errors, []);
+        });
     });
 
     // ─────────────────────────────────────────────────────────────────────────

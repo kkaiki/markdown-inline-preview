@@ -294,6 +294,14 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         ];
         if (workspaceFolder) localResourceRoots.push(workspaceFolder.uri);
 
+        // schedulePush の setTimeout や getBaseBody の Promise 継続など、非同期処理の
+        // 完了時点では webviewPanel が既に破棄されていることがある（別の Preview/Raw
+        // 切替と競合するタイミング。sidebar-reopen-preview-duplicate-tab-fix.md と同種の
+        // レース）。破棄後に webviewPanel.webview へアクセスすると同期的に例外を投げ、
+        // .then() の成功コールバック内で発生するため未処理の Promise rejection になる。
+        // onDidDispose で true にし、非同期継続の先頭で必ずガードする。
+        let disposed = false;
+
         webviewPanel.webview.options = {
             enableScripts: true,
             localResourceRoots
@@ -309,6 +317,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         let pushTimer: ReturnType<typeof setTimeout> | undefined;
 
         const pushMarkdownToWebview = (markdown: string): void => {
+            if (disposed) return;
             const prepared = this.prepareForWebview(markdown, document, webviewPanel.webview);
             void webviewPanel.webview.postMessage({
                 type: 'update',
@@ -412,6 +421,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 });
                 // Git HEAD 本文（差分基準）は取得が非同期なので別メッセージで送る
                 void this.getBaseBody(document).then((baseMarkdown) => {
+                    if (disposed) return;
                     void webviewPanel.webview.postMessage({ type: 'baseMarkdown', baseMarkdown });
                 });
                 return;
@@ -458,6 +468,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         });
 
         webviewPanel.onDidDispose(() => {
+            disposed = true;
             changeSub.dispose();
             fileWatcher.dispose();
             themeSub.dispose();
