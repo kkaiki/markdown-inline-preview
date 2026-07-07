@@ -8,15 +8,15 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1070 件**
+**総テスト数: 1102 件**
 
-## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 69 件
+## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 88 件
 
 実行: `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`
 
 実際の VS Code を **1 回だけ起動し、その同じインスタンス内で** raw/preview 両方・全カテゴリのテストを連続実行する。コマンド・タブ・フォーカス・設定連携を検証する、最も実践に近い層。`raw/`＝Raw、`preview/`＝Preview、それぞれ配下を `lists-tables`/`navigation`/`tabs-editors` 等の症状カテゴリで分類。`MOCHA_GREP` で絞り込み可。
 
-### `test/extension/preview/external-sync.test.ts`（4 件）
+### `test/extension/preview/external-sync.test.ts`（5 件）
 
 > Preview モード（実 VS Code）の外部（ファイル）との内容同期を検証する。
 >
@@ -32,6 +32,7 @@
     - 12.1 Raw→Preview→Raw のラウンドトリップで内容が変わらず、dirty にもならない
     - 12.2 Preview 表示中に外部ツールがファイルを書き換えても、Preview タブは開いたまま維持される
     - 12.3 未保存（dirty）の Raw 編集がある状態で Preview→Raw と往復しても編集内容が失われない
+    - 12.3b 未保存（dirty）の Raw 編集がある状態で openPreview コマンド（togglePreview 以外の経路）から Preview 化しても編集内容が失われない
     - 12.6 未保存の新規（untitled）ファイルを Preview 化しても本文が失われない
 
 ### `test/extension/preview/settings.test.ts`（6 件）
@@ -54,7 +55,7 @@
     - 10.5 wrapTabs を true にすると workbench.editor.wrapTabs が true になる
     - 10.6 wrapTabs を false にすると workbench.editor.wrapTabs が false に戻る
 
-### `test/extension/preview/tabs-editors.test.ts`（7 件）
+### `test/extension/preview/tabs-editors.test.ts`（10 件）
 
 > Preview モード（実 VS Code）のタブ・フォーカス管理を検証する。
 >
@@ -70,12 +71,15 @@
     - 9.1 左のファイルをPreview→Rawに戻しても右のファイルへフォーカスが移動しない
     - 9.2 他ファイルが既にPreview中でも、CodeLens(openPreview)で今のRawファイルをPreviewにできる
     - 9.3 3ファイルすべてPreview中に真ん中のファイルだけRawへ戻しても、両隣のPreviewタブは維持される
+    - ~~9.4 複数の未保存（untitled）ファイルを開いて高速にRaw⇄Previewを往復すると、フォーカスが他ファイルへ漂流する（既知の制限・要:根本対応の検討）~~（skip）
   - **12. Preview 実利用フロー（実 VS Code でのタブ・保存・外部編集）**
     - 12.4 同じファイルへ openWith を2回実行しても Preview タブは1枚のまま増殖しない
     - 12.5 markdown 以外のファイルで togglePreview を実行してもエラーにならず、タブはテキストのまま
   - **13. サイドバー（Explorer）からの再オープンで Preview タブが重複しない**
     - 13.1 同じグループでPreview中のファイルをサイドバーから再度開いても、Rawタブが重複せずPreviewだけが残る
     - 13.2 別のビューカラム（右側）に同じファイルを開く場合はPreviewと統一されず両方開いたままになる
+    - 13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンすると、その時点ではRawタブの重複解消が見送られ、後でアクティブエディタが変化すると解消される
+    - 13.4 togglePreviewの実行中にサイドバー再オープンが重なっても例外にならず、最終的にPreviewタブ1枚に収束する
 
 ### `test/extension/raw/editing-core.test.ts`（3 件）
 
@@ -193,11 +197,13 @@
     - 7.1 autoFormatTables がオンなら行移動時に表を整形する
     - 7.2 autoFormatTables がオフなら行移動時に表を整形しない
 
-### `test/extension/raw/shortcuts.test.ts`（6 件）
+### `test/extension/raw/shortcuts.test.ts`（21 件）
 
 > Raw モード（実 VS Code）のスラッシュコマンドを検証する。
 >
-> 対象: `/heading N`・`/table`・`/table normalize on|off` の展開結果とカーソル位置。
+> 対象: `/heading N`・`/table`・`/table normalize on|off`・`/code`・`/quote`・`/divider`・
+> `/callout`・`/bullet`・`/numbered`・`/todo` の展開結果とカーソル位置、
+> `/h1`〜`/h6` 省略形展開、複数カーソル時のスキップ、フェンスコードブロック内での抑止。
 >
 > 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
 > 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
@@ -210,8 +216,23 @@
     - 8.4 /table normalize off で自動整形を抑止する
     - 8.5 /table normalize on で自動整形を有効化する
     - 8.7 無効な /heading は変換せずそのまま残る
+    - 8.8 /code でフェンスコードブロックを挿入し、カーソルは中の空行に置かれる
+    - 8.9 /code js は言語エイリアスを正規名（javascript）に展開する
+    - 8.10 /quote 本文 は引用行に変換される
+    - 8.11 本文無しの /quote は空の引用行になる
+    - 8.12 /divider は水平線 --- に変換される
+    - 8.13 /callout（種別省略）は note 用の絵文字プレフィックスになる
+    - 8.14 /callout warn はエイリアス経由で warning 用の絵文字になる
+    - 8.15 /bullet は箇条書きマーカーに変換される
+    - 8.16 /numbered は番号付きリストマーカーに変換される
+    - 8.17 /todo は未チェックのチェックボックスマーカーに変換される
+    - 8.18 /h2 の省略形は /heading 2 と同じく H2 に展開される
+    - 8.19 複数カーソルがある場合はスラッシュコマンドを展開しない
+    - 8.20 フェンスコードブロック内では /todo をそのままの文字列として残す
+    - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
+    - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 177 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 190 件
 
 実行: `npm run test:browser`
 
@@ -237,7 +258,7 @@
   - 通常の箇条書き（非チェックボックス）+ 前に段落でも飛ばない
   - 単独チェックボックス（前に行なし）で連続 Backspace しても飛ばない（回帰）
 
-### `test/browser/cursor-focus/checkboxCursorJump.test.ts`（11 件）
+### `test/browser/cursor-focus/checkboxCursorJump.test.ts`（16 件）
 
 > 実ブラウザ回帰テスト: チェックボックス変換後にカーソルが別ブロックへ飛ぶ不具合。
 >
@@ -273,6 +294,12 @@
     - 上に既存の箇条書きがある場合、変換後もカーソルは対象行に留まる
     - 上に既存のチェックボックスがある場合、変換後もカーソルは対象行に留まる
     - 下に既存の番号付きリストがある場合、変換後もカーソルは対象行に留まる
+    - 見出しから変換する場合も、周辺に既存リストがあればカーソルは対象行に留まる
+    - 下に既存の箇条書きがある場合、変換後もカーソルは対象行に留まる
+    - 上下両方に既存リストがある場合、変換後もカーソルは対象行に留まる
+    - 対照群: 周辺に既存リストが無い場合も、変換後カーソルは対象行に留まる
+    - 上に既存の番号付きリストがある場合、変換後もカーソルは対象行に留まる
+  - **⌥⌘4 ショートカット（見出し起点）**
     - 見出しから変換する場合も、周辺に既存リストがあればカーソルは対象行に留まる
   - 上に既存リストがあっても、対象行は checked=false の独立した list_item になる
 
@@ -563,7 +590,7 @@
   - 回帰確認: 見出しの collapse 後、保存 markdown に "## " が正しく（欠落・二重化せず）反映される
   - 回帰確認: 引用の collapse 後、保存 markdown に "> " が正しく反映される
 
-### `test/browser/ime/imeCheckbox.test.ts`（4 件）
+### `test/browser/ime/imeCheckbox.test.ts`（5 件）
 
 > 実ブラウザ・ユースケーステスト: 日本語 IME とチェックボックスの組み合わせ。
 >
@@ -582,6 +609,7 @@
   - チェックボックス項目の本文を IME 確定で入力しても、項目と保存 markdown が壊れない
   - IME 確定のあと半角の "] " を打ち足してもチェックボックスに変換される（確定→補完の流れ）
   - 全角の疑似マーカー（［ｘ］）はチェックボックスに誤変換されず、そのまま文字として残る
+  - チェックボックスの変換トリガーとなる末尾スペース自体が IME 確定で入力されても変換される
   - IME で見出しの本文を確定した直後に Enter しても、見出しが壊れず次は段落になる
 
 ### `test/browser/ime/imeEnterRace.test.ts`（2 件）
@@ -747,7 +775,7 @@
   - showToolbar: true のときも行番号が viewport 左端よりも右にある（クリップされない）
   - showLineNumbers: true のとき .milkdown に padding-left が付与されて行番号スペースが確保される
 
-### `test/browser/rendering/mathRendering.test.ts`（9 件）
+### `test/browser/rendering/mathRendering.test.ts`（10 件）
 
 > 実ブラウザ・仕様カバレッジテスト: 数式（KaTeX）レンダリング。
 >
@@ -770,6 +798,7 @@
   - 数式を含む行そのものを編集しても文書が壊れない
   - インラインコード内の $...$ は数式化されず、コードとしてそのまま表示される
   - コードブロック内の $...$ は数式化されず、コードとしてそのまま表示される
+  - "$ 100" のような $ 直後が空白の金額表記は数式化されない
   - ハードブレイクを挟んで $$ が分割される（複数行にまたがる）場合は数式として描画されず、ソースのまま残る
   - enableMath を設定メッセージで true → false → true と動的に切り替えると、都度すぐに反映される
 
@@ -836,9 +865,9 @@
   - テーブル
   - 複合ドキュメント
 
-### `test/browser/shortcuts/previewToolbar.test.ts`（10 件）
+### `test/browser/shortcuts/previewToolbar.test.ts`（16 件）
 
-> 実ブラウザ回帰テスト: Preview ツールバーのレイアウト仕様。
+> 実ブラウザ回帰テスト: Preview ツールバーのレイアウト仕様 + ボタンの実クリック効果。
 >
 > ## 仕様
 > - ツールバーは「スクロール可能な書式ボタン領域（左）」と「固定右端領域」に分かれる。
@@ -847,6 +876,9 @@
 > - Zoom / Export / Raw-Preview 切り替えは `.preview-toolbar-fixed` 内に固定表示し、
 >   スクロール対象外とする。
 > - `showLineNumbers: true` のときも行番号ガターはツールバーの影に隠れず表示される。
+> - ボタンをクリックすると実際にドキュメントが変わる（従来 DOM レイアウトのみ検証しており
+>   クリックの実効果は未検証だったギャップを埋める。preview-usage-flow-test-backlog.md §4.2）。
+> - `toolbarShowShortcuts` によりホバーツールチップのショートカットキー表示が切り替わる。
 >
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
@@ -861,6 +893,12 @@
   - viewport が 400px でも .preview-toolbar-fixed は visible 範囲内にある
   - showToolbar + showLineNumbers の両方が有効でも行番号が visible 範囲で表示される
   - showToolbar: true のとき .preview-toolbar-scroll 内が横スクロール可能（スクロール幅 > 表示幅で確認）
+  - H2 ボタンをクリックすると段落が見出し(H2)に変わる
+  - 箇条書きボタンをクリックすると段落が bullet_list に変わる
+  - 引用ボタンをクリックすると段落が blockquote に変わる
+  - Undo ボタンをクリックすると直前の変換が取り消される
+  - toolbarShowShortcuts: false のときホバーツールチップにショートカットキー表示が出ない
+  - toolbarShowShortcuts: true（既定）のときホバーツールチップにショートカットキーが表示される
 
 ### `test/browser/shortcuts/slashMenuDom.test.ts`（6 件）
 

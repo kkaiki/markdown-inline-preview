@@ -1,5 +1,5 @@
 /**
- * 実ブラウザ回帰テスト: Preview ツールバーのレイアウト仕様。
+ * 実ブラウザ回帰テスト: Preview ツールバーのレイアウト仕様 + ボタンの実クリック効果。
  *
  * ## 仕様
  * - ツールバーは「スクロール可能な書式ボタン領域（左）」と「固定右端領域」に分かれる。
@@ -8,6 +8,9 @@
  * - Zoom / Export / Raw-Preview 切り替えは `.preview-toolbar-fixed` 内に固定表示し、
  *   スクロール対象外とする。
  * - `showLineNumbers: true` のときも行番号ガターはツールバーの影に隠れず表示される。
+ * - ボタンをクリックすると実際にドキュメントが変わる（従来 DOM レイアウトのみ検証しており
+ *   クリックの実効果は未検証だったギャップを埋める。preview-usage-flow-test-backlog.md §4.2）。
+ * - `toolbarShowShortcuts` によりホバーツールチップのショートカットキー表示が切り替わる。
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */
@@ -233,6 +236,90 @@ describe('実ブラウザ: Preview ツールバー レイアウト', function ()
             };
         });
         assert.strictEqual(result.ok, true, result.reason);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    // ──────────────────────────────────────────────
+    // 3) ボタンをクリックすると実際にドキュメントが変わる
+    // （従来 DOM レイアウトのみ検証しており、クリックの実効果は未検証だったギャップ。
+    //   チェックボックスボタンは checkboxCursorJump.test.ts で別途カバー済みのため対象外）
+    // ──────────────────────────────────────────────
+    it('H2 ボタンをクリックすると段落が見出し(H2)に変わる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+        await h.placeCursorAfterText('対象行');
+        await h.page.click('button[aria-label="Heading 2"]');
+        await h.page.waitForTimeout(300);
+
+        const m = await h.model();
+        assert.ok(m.outline.includes('heading(2)[text("対象行")]') || /heading.*2.*対象行/.test(m.outline),
+            `H2 ボタンで見出しに変換されなかった: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('箇条書きボタンをクリックすると段落が bullet_list に変わる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+        await h.placeCursorAfterText('対象行');
+        await h.page.click('button[aria-label="Bullet list"]');
+        await h.page.waitForTimeout(300);
+
+        const m = await h.model();
+        assert.ok(m.outline.includes('bullet_list'), `箇条書きボタンでリストに変換されなかった: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('引用ボタンをクリックすると段落が blockquote に変わる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+        await h.placeCursorAfterText('対象行');
+        await h.page.click('button[aria-label="Quote"]');
+        await h.page.waitForTimeout(300);
+
+        const m = await h.model();
+        assert.ok(m.outline.includes('blockquote'), `引用ボタンで blockquote に変換されなかった: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('Undo ボタンをクリックすると直前の変換が取り消される', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '対象行\n\nTAIL\n', '対象行', { showToolbar: true });
+        await h.placeCursorAfterText('対象行');
+        await h.page.click('button[aria-label="Heading 1"]');
+        await h.page.waitForTimeout(300);
+        let m = await h.model();
+        assert.ok(m.outline.includes('heading'), `前提: H1 ボタンで見出しに変換されていない: ${m.outline}`);
+
+        await h.page.click('button[aria-label="Undo"]');
+        await h.page.waitForTimeout(300);
+        m = await h.model();
+        assert.ok(!m.outline.includes('heading'), `Undo ボタンで見出し変換が取り消されなかった: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('toolbarShowShortcuts: false のときホバーツールチップにショートカットキー表示が出ない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '# Title\n\nbody\n', 'body', { showToolbar: true, toolbarShowShortcuts: false });
+        await h.page.waitForTimeout(300);
+        await h.page.hover('button[aria-label="Heading 1"]');
+        await h.page.waitForTimeout(200);
+
+        const hasKeySpan = await h.page.locator('.preview-toolbar-tooltip .preview-toolbar-key').count();
+        assert.strictEqual(hasKeySpan, 0,
+            'toolbarShowShortcuts: false でもツールチップにショートカットキー表示が残っている');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('toolbarShowShortcuts: true（既定）のときホバーツールチップにショートカットキーが表示される', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '# Title\n\nbody\n', 'body', { showToolbar: true, toolbarShowShortcuts: true });
+        await h.page.waitForTimeout(300);
+        await h.page.hover('button[aria-label="Heading 1"]');
+        await h.page.waitForTimeout(200);
+
+        const hasKeySpan = await h.page.locator('.preview-toolbar-tooltip .preview-toolbar-key').count();
+        assert.strictEqual(hasKeySpan, 1,
+            'toolbarShowShortcuts: true なのにツールチップにショートカットキーが表示されない');
         assert.deepStrictEqual(h.errors, []);
     });
 });

@@ -157,6 +157,35 @@ suite('Preview: external-sync', () => {
                 `Preview 往復で未保存の編集が失われた: ${JSON.stringify(doc.getText())}`);
         });
 
+        test('12.3b 未保存（dirty）の Raw 編集がある状態で openPreview コマンド（togglePreview 以外の経路）から Preview 化しても編集内容が失われない', async function () {
+            this.timeout(20000);
+
+            // dirty-raw-edit-preview-switch-loss-fix.md の修正は switchToPreview 内の
+            // 共通ガードだが、togglePreview 経路（12.3）でしか回帰テストされていなかった。
+            // openPreview コマンド（CodeLens 等から呼ばれる別経路）でも同じ保護が効くことを確認する。
+            const { editor } = await openRealFile('# Dirty往復(openPreview)\n\n本文\n');
+            const uri = editor.document.uri;
+            await editor.edit(builder => builder.insert(new vscode.Position(2, 0), '未保存の追記行\n'));
+            assert.strictEqual(editor.document.isDirty, true, '前提: 編集が dirty になっていない');
+
+            await vscode.commands.executeCommand('markdownInline.openPreview');
+            await sleep(800);
+            assert.strictEqual(previewTabsForUri(uri).length, 1,
+                `前提条件: Preview に切り替わっていない（アクティブタブ: ${activeTabUri()?.toString()}）`);
+
+            await vscode.commands.executeCommand('markdownInline.openRaw');
+            let doc: vscode.TextDocument | undefined;
+            for (let i = 0; i < 10; i++) {
+                await sleep(400);
+                doc = vscode.window.activeTextEditor?.document;
+                if (doc?.uri.toString() === uri.toString()) break;
+            }
+            assert.strictEqual(doc?.uri.toString(), uri.toString(),
+                `Raw に戻っていない（アクティブタブ: ${activeTabUri()?.toString()}）`);
+            assert.ok(doc.getText().includes('未保存の追記行'),
+                `openPreview 経由の Preview 化で未保存の編集が失われた: ${JSON.stringify(doc.getText())}`);
+        });
+
         test('12.6 未保存の新規（untitled）ファイルを Preview 化しても本文が失われない', async function () {
             this.timeout(15000);
 

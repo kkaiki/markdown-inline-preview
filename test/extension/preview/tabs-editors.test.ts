@@ -199,6 +199,57 @@ suite('Preview: tabs-editors', () => {
                 fs.rmSync(tmpDir, { recursive: true, force: true });
             }
         });
+
+        // このテストは現状 skip している。untitled-preview-content-loss-fix.md の
+        // 「副作用として見つかった別件」で説明されている「複数 untitled ファイルを開いて
+        // 高速に Raw⇄Preview を往復すると WorkspaceEdit ベースの内容復元処理がタブ管理と
+        // 干渉してフォーカスが漂流する」不具合を実際に再現させてみたところ
+        // （preview-usage-flow-test-backlog.md §4.1 のギャップ潰しの一環）、1回目の
+        // 往復から確実に再現し（`vscode.workspace.applyEdit` が
+        // "has changed in the meantime" で無視される警告も伴う）、恒久的な既知の制限と
+        // 判明した。当時のチームも同じ理由で「実ファイルを使う」という回避策に倒しており
+        // （9.1 がその回避策）、今回もその判断を踏襲し深追いしない。恒常的に失敗する
+        // テストとして CI を赤くし続けないよう skip し、再現条件を記録するに留める。
+        test.skip('9.4 複数の未保存（untitled）ファイルを開いて高速にRaw⇄Previewを往復すると、フォーカスが他ファイルへ漂流する（既知の制限・要:根本対応の検討）', async function () {
+            this.timeout(30000);
+            const docA = await vscode.workspace.openTextDocument({ content: '# 未保存A\n\n本文A\n', language: 'markdown' });
+            await vscode.window.showTextDocument(docA, { preview: false });
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            const docB = await vscode.workspace.openTextDocument({ content: '# 未保存B\n\n本文B\n', language: 'markdown' });
+            await vscode.window.showTextDocument(docB, { preview: false });
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            for (let i = 0; i < 3; i++) {
+                await vscode.commands.executeCommand('vscode.openWith', docA.uri, PREVIEW_VIEW_TYPE, vscode.ViewColumn.Active);
+                await new Promise(resolve => setTimeout(resolve, 200));
+                assert.strictEqual(
+                    activeTabUri()?.toString(), docA.uri.toString(),
+                    `[iteration ${i}] 前提条件: AのPreviewタブがアクティブになっていません（アクティブタブ: ${activeTabUri()?.toString()}）`
+                );
+
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await new Promise(resolve => setTimeout(resolve, 400));
+
+                assert.strictEqual(
+                    activeTabUri()?.toString(), docA.uri.toString(),
+                    `[iteration ${i}] AをRawに戻したのに他ファイルへフォーカスが移動しました（アクティブタブ: ${activeTabUri()?.toString()}, B=${docB.uri.toString()}）`
+                );
+                assert.strictEqual(
+                    docA.getText(), '# 未保存A\n\n本文A\n',
+                    `[iteration ${i}] Aの本文が失われた: ${JSON.stringify(docA.getText())}`
+                );
+                assert.strictEqual(
+                    docB.getText(), '# 未保存B\n\n本文B\n',
+                    `[iteration ${i}] 無関係のBの本文が変化した: ${JSON.stringify(docB.getText())}`
+                );
+
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await new Promise(resolve => setTimeout(resolve, 400));
+            }
+        });
     });
 
     suite('12. Preview 実利用フロー（実 VS Code でのタブ・保存・外部編集）', () => {
@@ -398,6 +449,78 @@ suite('Preview: tabs-editors', () => {
             const hasPreview = tabs.some(t => t.input instanceof vscode.TabInputCustom && t.input.viewType === PREVIEW_VIEW_TYPE);
             const hasRaw = tabs.some(t => t.input instanceof vscode.TabInputText);
             assert.ok(hasPreview && hasRaw, '左にPreview・右にRawの2枚構成になっていない');
+        });
+
+        // sidebar-reopen-preview-duplicate-tab-fix.md が説明する2つの排他ガード
+        // （previewSettledAt の 500ms 猶予・inFlightSwitch）は、13.1/13.2 がどちらも
+        // sleep(600) で猶予窓を過ぎてから操作しているため実際には検証されていなかった
+        // （preview-usage-flow-test-backlog.md §4.1 のギャップ）。
+
+        test('13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンすると、その時点ではRawタブの重複解消が見送られ、後でアクティブエディタが変化すると解消される', async function () {
+            this.timeout(20000);
+
+            const uri = await createRealMdFile('dup3.md', '# 猶予窓レース\n');
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            // 意図的に previewSettledAt の猶予窓（500ms）が過ぎる前に再オープンする。
+            await sleep(150);
+            assert.strictEqual(allTabsForUri(uri).length, 1, '前提条件: Previewタブが1枚開いていない');
+
+            await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
+            await sleep(150); // 500ms 猶予窓の内側（合計 300ms 経過時点）
+            assert.strictEqual(
+                allTabsForUri(uri).length, 2,
+                '猶予窓内なのに即座に重複解消された（作られたばかりのPreviewタブがモード記憶の自動切替と競合しうる）'
+            );
+
+            // 猶予窓が過ぎた後、別ファイルへ切替→戻ることで onDidChangeActiveTextEditor を
+            // 再度発火させる（重複解消はこのイベント駆動のため、何もイベントが起きなければ
+            // 猶予窓を過ぎても自動では解消されない設計）。
+            const otherUri = await createRealMdFile('other3.md', '# 別ファイル\n');
+            await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(otherUri));
+            await sleep(500); // 合計 800ms 経過、猶予窓(500ms)を確実に超える
+            await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
+            await sleep(800);
+
+            const tabs = allTabsForUri(uri);
+            assert.strictEqual(tabs.length, 1,
+                `猶予窓を過ぎた後の再アクティブ化でRawタブの重複が解消されなかった（${tabs.length} 枚）`);
+            assert.ok(
+                tabs[0].input instanceof vscode.TabInputCustom && tabs[0].input.viewType === PREVIEW_VIEW_TYPE,
+                '重複解消後に残ったタブがPreviewになっていない'
+            );
+        });
+
+        test('13.4 togglePreviewの実行中にサイドバー再オープンが重なっても例外にならず、最終的にPreviewタブ1枚に収束する', async function () {
+            this.timeout(20000);
+
+            // inFlightSwitch ガードの本来の目的（switchToPreview/switchToRaw の処理中に
+            // 重複解消ロジックが同じタブへ横から openWith/close を行い競合する）を、
+            // 内部状態へのフックなしにブラックボックスで厳密に再現することはできないが、
+            // togglePreview と再オープンをシーケンシャルに待たず重ねて発火させることで、
+            // 過去に "Illegal argument: TextEditor" を起こした操作の重なりに近い状況を作る。
+            const uri = await createRealMdFile('dup4.md', '# in-flightレース\n');
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+
+            let caught: unknown = null;
+            try {
+                const togglePromise = vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(20); // switchToPreview 内部の await 前後を狙う程度の最小待機
+                const reopenPromise = vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
+                await Promise.all([togglePromise, reopenPromise]);
+            } catch (err) {
+                caught = err;
+            }
+            assert.strictEqual(caught, null, `togglePreviewと再オープンの重なりで例外が発生した: ${JSON.stringify(caught)}`);
+
+            // 過渡状態が解消されるまで十分待ち、最終的にPreviewタブ1枚に収束することを確認する。
+            await sleep(1500);
+            const tabs = allTabsForUri(uri);
+            assert.strictEqual(tabs.length, 1,
+                `操作が重なった後、最終的にタブが1枚に収束しなかった（${tabs.length} 枚）`);
         });
     });
 });
