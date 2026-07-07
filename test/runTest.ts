@@ -16,7 +16,9 @@ async function main() {
         await runTests({
             extensionDevelopmentPath,
             extensionTestsPath,
-            launchArgs: ['--disable-extensions'] // 他の拡張機能を無効化
+            launchArgs: ['--disable-extensions'], // 他の拡張機能を無効化
+            // MOCHA_GREP='12\.' のようにテスト名で絞り込める（suite/index.ts が読む）
+            extensionTestsEnv: process.env.MOCHA_GREP ? { MOCHA_GREP: process.env.MOCHA_GREP } : undefined
         });
     } catch (err) {
         process.stderr.write(`Failed to run tests: ${String(err)}\n`);

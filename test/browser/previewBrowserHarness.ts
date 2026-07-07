@@ -157,6 +157,14 @@ export interface PreviewHandle {
     moveToEnd(): Promise<void>;
     /** ホストへ送られた最新の change Markdown（無ければ null）。 */
     lastChangeMarkdown(): Promise<string | null>;
+    /**
+     * 現在のカーソル位置へ、markdown テキストの `paste` イベントを合成して発火させる
+     * （実クリップボード API は file:// では権限制約があるため使わず、
+     * `DataTransfer` + `ClipboardEvent` を直接組み立てて `view.dom` にディスパッチする）。
+     * `@milkdown/plugin-clipboard` の `handlePaste` は HTML が無ければ `text/plain` を
+     * markdown としてパースするため、実際のコピー&ペーストと同じコードパスを通る。
+     */
+    pasteMarkdownText(text: string): Promise<void>;
     /** スクリーンショットを test-screenshots/<name>.png に保存し、パスを返す（目視確認用）。 */
     screenshot(name: string): Promise<string>;
     /** 後始末。 */
@@ -171,7 +179,8 @@ export async function openPreview(
     browser: Browser,
     markdown: string,
     expectText?: string,
-    settingsOverride?: Partial<typeof DEFAULT_SETTINGS>
+    settingsOverride?: Partial<typeof DEFAULT_SETTINGS>,
+    frontmatter: string | null = null
 ): Promise<PreviewHandle> {
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     const errors: string[] = [];
@@ -179,8 +188,8 @@ export async function openPreview(
 
     await page.goto(fixtureUrl());
     await page.evaluate(
-        ({ md, settings }) => window.postMessage({ type: 'init', markdown: md, settings, frontmatter: null }, '*'),
-        { md: markdown, settings: { ...DEFAULT_SETTINGS, ...settingsOverride } }
+        ({ md, settings, fm }) => window.postMessage({ type: 'init', markdown: md, settings, frontmatter: fm }, '*'),
+        { md: markdown, settings: { ...DEFAULT_SETTINGS, ...settingsOverride }, fm: frontmatter }
     );
     if (expectText) {
         await page.waitForFunction(
@@ -325,6 +334,19 @@ export async function openPreview(
             });
             /* eslint-enable @typescript-eslint/no-explicit-any */
             await page.waitForTimeout(250);
+        },
+        async pasteMarkdownText(text: string) {
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            await page.evaluate((t) => {
+                const view = (window as any).__view;
+                view.focus();
+                const dt = new DataTransfer();
+                dt.setData('text/plain', t);
+                const evt = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+                view.dom.dispatchEvent(evt);
+            }, text);
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+            await page.waitForTimeout(150);
         },
         async lastChangeMarkdown() {
             /* eslint-disable @typescript-eslint/no-explicit-any */

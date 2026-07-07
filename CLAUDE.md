@@ -14,7 +14,7 @@
 
 > **絶対にやってはいけないこと**: 実装を先に書き、後からテストを書く。
 
-このワークフローの詳細版（テスト種別の選び方、VS Code 拡張ホスト統合テストの手順、タブ・フォーカス系バグの再現のコツなど）は skill `tdd-browser-preview` にまとめてある: `~/.claude/skills/tdd-browser-preview/SKILL.md`
+このワークフローの詳細版（テスト種別の選び方、VS Code 拡張ホスト統合テストの手順、タブ・フォーカス系バグの再現のコツ、バグ修正の具体的な手順、ブラウザテストの道具箱など）は skill `tdd-browser-preview` にまとめてある: `.claude/skills/tdd-browser-preview/SKILL.md`（プロジェクトローカル）
 
 ---
 
@@ -22,78 +22,80 @@
 
 | コマンド | 対象 | 特徴 |
 |---|---|---|
-| `npm run test:unit` | `test/suite/*.test.ts`, `test/webview/*.test.ts` | jsdom 上でのユニット・純関数テスト。高速（数秒）。 |
-| `npm run test:browser` | `test/browser/*.test.ts` | **実 Chromium** での統合テスト。UI バグの最終判定。 |
+| `npm run test:unit` | `test/suite/**/*.test.ts`, `test/webview/**/*.test.ts` | jsdom 上でのユニット・純関数テスト。高速（数秒）。 |
+| `npm run test:browser` | `test/browser/**/*.test.ts` | **実 Chromium** での統合テスト。UI バグの最終判定。 |
 | `npm run test:all` | 全テスト | CI 相当。 |
+| `npm run test` | `test/extension/**/*.test.ts` | **実 VS Code**（拡張ホスト）での統合テスト。コマンド・タブ・フォーカス・設定連携。**VS Code は 1 回だけ起動し、その同じインスタンス内で全ファイルを連続実行する**。`MOCHA_GREP='12\.'` で絞り込み可。 |
+
+### ディレクトリ構造（レイヤー × 症状カテゴリで分類）
+
+置き場所は2つの質問で決まる: **(1) レイヤー**（実行環境。下記4層。実行コマンド・速度が違うので混ぜられない）、
+**(2) カテゴリ**（症状/機能。全レイヤー共通の語彙だが、中身が無いカテゴリはそのレイヤーに作らない）。
+詳細な判定基準・全ファイルの移行マッピングは
+`docs/specifications/test-directory-design.md` を参照。
+
+```
+test/
+├── extension/              # 実 VS Code（1回起動で全部実行）
+│   ├── raw/                #   lists-tables / navigation / editing-core / shortcuts / settings / external-sync
+│   ├── preview/             #   tabs-editors / settings / external-sync
+│   └── helpers.ts          #   共通ヘルパー
+├── browser/                # 実 Chromium — すべて Preview（webview の実 DOM/キー入力）
+│   └── cursor-focus/ focus-expand/ shortcuts/ editing-core/ lists-tables/ external-sync/ rendering/ ime/ usage-flows/
+├── webview/                # jsdom + Milkdown 実エディタ — すべて Preview
+│   └── cursor-focus/ focus-expand/ shortcuts/ editing-core/ lists-tables/ external-sync/ rendering/
+└── suite/                  # jsdom 純関数
+    ├── preview/            #   cursor-focus / shortcuts / tabs-editors / external-sync / rendering
+    ├── raw/                #   navigation / lists-tables / rendering
+    ├── shared/             #   両モード共通（markdown・table・設定等。カテゴリ分割しない）
+    └── index.ts            #   実 VS Code テストの Mocha エントリ（テストではない）
+```
+
+カテゴリの判定基準（このテストが失敗したときユーザーが体感する症状）:
+
+| カテゴリ | 症状 |
+|---|---|
+| `cursor-focus` | カーソル・DOM フォーカスが意図しない場所へ移動する／選択が壊れる |
+| `focus-expand` | Typora 風のプレフィックス展開/収縮（`## `, `- `, `> `）が壊れる |
+| `shortcuts` | キーボードショートカット・スラッシュメニュー・ツールバーが効かない |
+| `editing-core` | Enter・Backspace・分割/結合・Undo/Redo・インライン書式・直列化が壊れる |
+| `lists-tables` | リスト・チェックボックス・テーブル固有の操作が壊れる |
+| `external-sync` | 外部（Raw/AI/Git）との内容同期が壊れる（反映されない・diff 誤判定・スクロール同期） |
+| `rendering` | 表示だけの問題（数式・Mermaid・画像・ハイライト・行番号・frontmatter・i18n） |
+| `ime` | 日本語 IME（composition）が絡むと壊れる |
+| `navigation`（Raw のみ） | カーソル移動・スマート選択・行移動が壊れる |
+| `tabs-editors`（実 VS Code のみ） | タブが増殖する・別ファイルへフォーカスが移る |
+| `settings` | 拡張設定が反映されない・VS Code 本体設定と連動しない |
+| `usage-flows` | 単一症状に分類できない複合シナリオ |
+
+分類に迷ったら「ユーザーが最初に気づく症状」を優先する（例: チェックボックス変換の
+「カーソル飛び」は `cursor-focus`、「変換ルール自体」は `lists-tables`）。
 
 ### どちらのテストを書くか
 
-- **純関数・ロジック** → `test/suite/` か `test/webview/`（jsdom）
-- **キー操作・カーソル位置・DOM レイアウト依存バグ** → `test/browser/`（Playwright + 実ブラウザ）
+- **純関数・ロジック** → `test/suite/{preview,raw,shared}/<category>/` か `test/webview/<category>/`（jsdom）
+- **キー操作・カーソル位置・DOM レイアウト依存バグ** → `test/browser/<category>/`（Playwright + 実ブラウザ）
 - **jsdom では再現できないバグ**（カーソル座標、`endOfTextblock`、`view.domAtPos` など）は必ず `test/browser/`
+- **VS Code のタブ・フォーカス・コマンド・設定連携** → `test/extension/raw/` または `test/extension/preview/` 配下の該当カテゴリ（実 VS Code。`npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js` で実行）
 
 ---
 
-## バグ修正の具体的な手順
+## テストカタログ（必須の運用ルール）
 
-### 1. 失敗テストを書く
-
-```typescript
-it('バグ名: 期待する動作の説明', async function () {
-    if (!browser) { this.skip(); return; }
-    h = await openPreview(browser, 'マークダウン内容\n', 'TAIL');
-
-    // バグを起こす操作
-    await h.placeCursorAfterText('対象テキスト');
-    await h.press('ArrowDown');
-
-    const m = await h.model();
-    assert.ok(
-        m.selParentText !== '期待外の値',
-        `バグ内容: selParentText="${m.selParentText}"`
-    );
-});
-```
-
-### 2. 失敗を確認してから実装を変える
+全テストのタイトルは `docs/specifications/preview-test-catalog.md` に**ユースケース一覧（生きた仕様書）**として自動集約される。
 
 ```bash
-npm run test:browser 2>&1 | grep -E "passing|failing|バグ名"
-# → 1 failing と表示されることを確認
+npm run docs:test-catalog   # カタログ md を再生成
 ```
 
-失敗が確認できたら実装を直す。
-
-### 3. 成功を確認する
-
-```bash
-npm run test:browser 2>&1 | grep -E "passing|failing"
-# → 全て passing になることを確認
-```
-
----
-
-## ブラウザテストの道具箱
-
-### PreviewHandle の主なメソッド
-
-```typescript
-h.placeCursorAfterText(text)  // テキスト末尾にカーソル
-h.selectText(text)             // テキストを選択状態にする
-h.press('ArrowDown')           // キー操作
-h.model()                      // 現在のモデル状態を取得
-  // → { outline, text, selFrom, selTo, selParentText }
-h.lastChangeMarkdown()         // ホストへ送信された最後の markdown
-```
-
-### バグ再現のヒント
-
-| バグの状況 | テストでの再現方法 |
-|---|---|
-| テキスト末尾以外にカーソル | `page.evaluate` で `TextSelection.create(doc, pos)` |
-| テキスト選択状態（ハイライト） | `h.selectText('テキスト')` |
-| 狭いビューポート | `h.page.setViewportSize({ width: 400, height: 700 })` |
-| カーソルがセルの先頭 | `descendants` でテキストノードの `pos + 1` を取得 |
+- **テストを追加・改名・削除したら、必ず `npm run docs:test-catalog` を実行して再生成し、コミットに含める。**
+- カタログは自動生成なので**手で編集しない**（編集しても次の生成で消える）。
+- カタログに反映されるのはテストのタイトルなので、**タイトルは「この操作をしたら、こう動く」という仕様文**として書く。
+  - 良い例: `チェック済み項目で Enter すると新しい項目は未チェックで始まる`
+  - 悪い例: `checkbox test 3`
+- ファイル冒頭の `/** ... */` コメントもカタログに説明として載る。新しいテストファイルには必ず「何を・なぜ・どの層で」検証するかを書く。
+- まだテスト化していないユースケースの候補は `docs/specifications/preview-usage-flow-test-backlog.md` に追記し、テスト化したらバックログから消してカタログ（＝実テスト）へ移す。
+- 仕様書（機能仕様・fix 仕様）を追加・変更したら `docs/specifications/spec-test-coverage.md` の対応表も更新する（どの仕様がどのテストで担保されるかを常に見えるようにする）。
 
 ---
 
