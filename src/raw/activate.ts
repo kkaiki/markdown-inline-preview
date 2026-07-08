@@ -26,6 +26,9 @@ import { showWhatsNewIfUpdated } from './whatsNew';
 import { registerImageHoverProvider } from './providers/imageHover';
 import { registerTableWrapHoverProvider } from './providers/tableWrapHover';
 import {
+    applyAlwaysOpenNewTabSetting,
+    applyDefaultWordWrapSetting,
+    applyWrapTabsSetting,
     applyMarkdownSettings,
     getMarkdownInlineConfig,
     isAutoTableFormattingEnabled,
@@ -56,6 +59,10 @@ export function activate(context: vscode.ExtensionContext): void {
     if (shouldDisableCompetingMarkdownFeatures()) {
         applyMarkdownSettings();
     }
+
+    applyAlwaysOpenNewTabSetting();
+    applyDefaultWordWrapSetting();
+    applyWrapTabsSetting();
 
     setRawDecorationDeps({
         isPreviewEnabled,
@@ -112,7 +119,10 @@ export function activate(context: vscode.ExtensionContext): void {
         isCheckboxMouseToggleEnabled,
         shouldDisableCompetingMarkdownFeatures,
         applyMarkdownSettings,
-        rebuildHeadingDecorations
+        rebuildHeadingDecorations,
+        applyAlwaysOpenNewTabSetting,
+        applyDefaultWordWrapSetting,
+        applyWrapTabsSetting
     });
 
     const editor = vscode.window.activeTextEditor;

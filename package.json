@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "1.9.9",
+  "version": "1.9.10",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -244,6 +244,11 @@
         "icon": "$(book)",
         "enablement": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview' || resourceLangId == markdown",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.toggleLineNumbers",
+        "title": "Toggle Line Numbers",
+        "category": "Markdown Inline Preview"
       }
     ],
     "customEditors": [
@@ -264,13 +269,8 @@
     "menus": {
       "editor/title": [
         {
-          "command": "markdownInline.openPreview",
-          "when": "editorLangId == markdown",
-          "group": "navigation@1"
-        },
-        {
-          "command": "markdownInline.openRaw",
-          "when": "activeCustomEditorId == 'ipreview.preview'",
+          "command": "markdownInline.togglePreview",
+          "when": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview'",
           "group": "navigation@1"
         }
       ]
@@ -578,8 +578,8 @@
         },
         "markdownInline.preview.showLineNumbers": {
           "type": "boolean",
-          "default": false,
-          "description": "Show the source Markdown line number at the left of each block in the Preview editor (alongside the Git diff gutter)"
+          "default": true,
+          "description": "Show the source Markdown line number at the left of each block in the Preview editor (alongside the Git diff gutter), matching the line numbers always visible in Raw mode"
         },
         "markdownInline.preview.defaultMode": {
           "type": "string",
@@ -594,6 +594,21 @@
           "type": "boolean",
           "default": true,
           "description": "Remember the last used mode (Preview/Raw) and apply it to all Markdown files. Switching one file to Preview makes newly opened files open in Preview too."
+        },
+        "markdownInline.preview.alwaysOpenNewTab": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always open files in a brand-new tab instead of reusing VS Code's single-click \"preview\" tab. This directly sets workbench.editor.enablePreview to false (a global VS Code setting, so it also affects non-Markdown files); disable this to restore VS Code's default tab-reuse behavior."
+        },
+        "markdownInline.preview.wordWrap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Word-wrap Markdown files by default instead of horizontal scrolling. This directly sets editor.wordWrap to \"on\" for the Markdown language (a [markdown]-scoped override, so it doesn't affect other languages)."
+        },
+        "markdownInline.preview.wrapTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "Wrap the editor tab bar onto multiple rows instead of horizontal scrolling when many tabs are open. This directly sets workbench.editor.wrapTabs (a global VS Code setting, so it also affects non-Markdown files)."
         },
         "markdownInline.preview.syncScroll": {
           "type": "boolean",
@@ -746,7 +761,7 @@
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
-    "@vscode/test-electron": "^2.3.0",
+    "@vscode/test-electron": "^2.5.2",
     "c8": "^10.1.3",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",

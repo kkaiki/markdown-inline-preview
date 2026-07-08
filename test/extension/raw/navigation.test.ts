@@ -1,15 +1,21 @@
 /**
  * Raw モード（実 VS Code）のカーソル移動・スマート選択を検証する。
  *
- * 対象: スマート Enter（リスト継続・空項目脱出）、Smart Select All（段階的選択拡大）、
- * テーブルセル内の上下移動（列位置維持）。
+ * 対象: スマート Enter（リスト継続・空項目脱出）、Smart Select All（段階的選択拡大。
+ * テーブル・コードフェンス双方）、テーブルセル内の上下移動（列位置維持）、文書端での
+ * smartMoveUp/Down フォールバック、Smart Select Left のテーブルセル境界を跨ぐ選択拡大。
+ *
+ * これらは従来 `test/suite/raw/navigation/` で `src/raw/commands/navigation.ts` の
+ * ロジックを複製した純関数としてのみ検証されており、実コマンド
+ * （`markdownInline.smartSelectLeft` 等）を実 VS Code で実行する経路が無かった
+ * （testing-rules.md ルール 2-1 の返済）。
  *
  * 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
  * 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
  */
 import assert from "assert";
 import * as vscode from "vscode";
-import { getAllTableCells } from "../../../src/utils/table";
+import { getAllTableCells, getTableCellInfo } from "../../../src/utils/table";
 import { createTestDocument, closeAllEditors, assertSelection } from "../helpers";
 
 suite('Raw: navigation', () => {
@@ -328,6 +334,172 @@ suite('Raw: navigation', () => {
             await new Promise(resolve => setTimeout(resolve, 300));
 
             assertSelection(editor, 0, expectedTarget, 0, expectedTarget, '空セルへの上移動後に入力余白が確保されていません');
+        });
+    });
+
+    suite('4.6 Smart Move Up/Down 文書端フォールバック', () => {
+
+        test('文書の1行目で smartMoveUp を実行しても既定の cursorUp に委譲され落ちない', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('1行目のテキスト\n2行目のテキスト');
+            editor.selection = new vscode.Selection(0, 3, 0, 3);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveUp');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 上に行が無いため VS Code 既定の cursorUp に委譲される（同一行に留まる）。
+            assert.strictEqual(editor.selection.active.line, 0, '1行目より上へ行ってしまった');
+        });
+
+        test('文書の最終行で smartMoveDown を実行しても既定の cursorDown に委譲され落ちない', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('1行目のテキスト\n2行目のテキスト');
+            const lastLine = editor.document.lineCount - 1;
+            editor.selection = new vscode.Selection(lastLine, 3, lastLine, 3);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveDown');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 下に行が無いため VS Code 既定の cursorDown に委譲される（最終行に留まる）。
+            assert.strictEqual(editor.selection.active.line, lastLine, '最終行より下へ行ってしまった');
+        });
+
+        test('テーブル最終行で smartMoveDown を実行しても文書末で落ちない', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const lastLine = editor.document.lineCount - 1;
+            editor.selection = new vscode.Selection(lastLine, 3, lastLine, 3);
+
+            await vscode.commands.executeCommand('markdownInline.smartMoveDown');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(editor.selection.active.line, lastLine, 'テーブル最終行より下へ行ってしまった（次行が無いのに移動した）');
+        });
+    });
+
+    suite('5. Smart Select Left（テーブルセル境界を跨ぐ選択拡大）', () => {
+
+        test('5.1 セル内容の途中から1回目: コンテンツ開始位置まで選択', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const rowText = editor.document.lineAt(1).text;
+            const cellInfo = getTableCellInfo(rowText, rowText.length - 1);
+            assert.ok(cellInfo && cellInfo.isTable, '前提: テーブルセル内と判定されていません');
+            const startChar = cellInfo.cellContentEnd - 1; // "baz" の途中
+
+            editor.selection = new vscode.Selection(1, startChar, 1, startChar);
+            await vscode.commands.executeCommand('markdownInline.smartSelectLeft');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, cellInfo.cellContentStart, 1, startChar, '1回目でコンテンツ開始位置まで選択されていません');
+        });
+
+        test('5.2 続けて2回目: セル左端まで選択が拡大する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const rowText = editor.document.lineAt(1).text;
+            const cellInfo = getTableCellInfo(rowText, rowText.length - 1);
+            assert.ok(cellInfo && cellInfo.isTable);
+            const startChar = cellInfo.cellContentEnd - 1;
+
+            editor.selection = new vscode.Selection(1, startChar, 1, startChar);
+            await vscode.commands.executeCommand('markdownInline.smartSelectLeft');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await vscode.commands.executeCommand('markdownInline.smartSelectLeft');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 1, cellInfo.cellStart, 1, startChar, '2回目でセル左端まで選択されていません');
+        });
+
+        test('5.3 さらに3回目: セル境界を跨いで前のセルの内容末尾まで選択が拡大する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const rowText = editor.document.lineAt(1).text;
+            const allCells = getAllTableCells(rowText);
+            assert.ok(allCells && allCells.length >= 2, '前提: 2セル以上のテーブル行');
+            const cellInfo = getTableCellInfo(rowText, rowText.length - 1);
+            assert.ok(cellInfo && cellInfo.isTable && cellInfo.cellIndex > 0, '前提: 2番目以降のセルにいる');
+            const startChar = cellInfo.cellContentEnd - 1;
+            const prevCell = allCells[cellInfo.cellIndex - 1];
+            const expectedTarget = prevCell.contentEnd > prevCell.contentStart ? prevCell.contentEnd : prevCell.contentStart;
+
+            editor.selection = new vscode.Selection(1, startChar, 1, startChar);
+            for (let i = 0; i < 3; i++) {
+                await vscode.commands.executeCommand('markdownInline.smartSelectLeft');
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            assertSelection(editor, 1, expectedTarget, 1, startChar, '3回目で前のセルの内容末尾までセル境界を跨いで選択されていません');
+        });
+
+        test('5.4 先頭セルで左端に達したら、行頭までセル境界を越えて選択が拡大する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('| Name | Value |\n| Foo | Bar baz |');
+            const rowText = editor.document.lineAt(1).text;
+            const allCells = getAllTableCells(rowText);
+            assert.ok(allCells && allCells.length >= 1);
+            const firstCell = allCells[0];
+            const startChar = firstCell.contentEnd; // 先頭セル（"Foo"）の内容末尾
+
+            editor.selection = new vscode.Selection(1, startChar, 1, startChar);
+            // 1回目: コンテンツ開始位置へ、2回目: セル左端(cellIndex===0)へ、
+            // 3回目: セル境界を越えて行頭(0)へ。
+            for (let i = 0; i < 3; i++) {
+                await vscode.commands.executeCommand('markdownInline.smartSelectLeft');
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            assertSelection(editor, 1, 0, 1, startChar, '先頭セルの左端からさらに実行しても行頭まで拡大されていません');
+        });
+    });
+
+    suite('6. コードフェンス内 Smart Select All の段階的選択', () => {
+
+        test('1回目: コードブロックの内容のみ選択される（フェンス行は含まない）', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument(
+                '前置きの段落\n```js\nconst a = 1;\nconst b = 2;\n```\n後書きの段落'
+            );
+            // フェンス内の行（2行目 "const a = 1;"）にカーソルを置く
+            editor.selection = new vscode.Selection(2, 3, 2, 3);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assertSelection(editor, 2, 0, 4, 0, 'コードブロック内容の選択範囲が正しくありません');
+            assert.strictEqual(
+                editor.document.getText(editor.selection),
+                'const a = 1;\nconst b = 2;\n',
+                'コードブロックの内容が正しく選択されていません'
+            );
+        });
+
+        test('2回目: 文書全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument(
+                '前置きの段落\n```js\nconst a = 1;\nconst b = 2;\n```\n後書きの段落'
+            );
+            editor.selection = new vscode.Selection(2, 3, 2, 3);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(
+                editor.document.getText(editor.selection),
+                editor.document.getText(),
+                'コードブロック内容選択後の2回目で文書全体が選択されていません'
+            );
         });
     });
 });

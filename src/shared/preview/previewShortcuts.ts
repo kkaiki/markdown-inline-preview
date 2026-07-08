@@ -59,6 +59,7 @@ export type PreviewShortcut =
     | { kind: 'replace' }
     | { kind: 'toggleRaw' }
     | { kind: 'lineStart' }
+    | { kind: 'codeBlockTab'; shift: boolean }
     | null;
 
 /** Mod キー（Mac の Cmd / Win・Linux の Ctrl）が押されているか。 */
@@ -74,6 +75,16 @@ export function classifyPreviewShortcut(e: KeyLike): PreviewShortcut {
     // Enter（修飾なし）: ``` / ```lang の段落をコードブロック化する候補
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         return { kind: 'fenceEnter' };
+    }
+
+    // Tab / Shift+Tab（Mod・Alt なし）: コードブロック内でのインデント/インデント解除。
+    // ブラウザは既定で Tab を「次のフォーカス可能要素へ移動」に使うため、ProseMirror が
+    // 何も割り当てていないコンテキスト（code_block 内）では、ブラウザのネイティブ Tab
+    // フォーカス移動が発動し、エディタの外（コードブロックの言語選択 <select> 等）へ
+    // フォーカスが飛んでしまう。Cmd/Ctrl/Alt+Tab は OS・ブラウザのウィンドウ/タブ切替
+    // なので除外する。
+    if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        return { kind: 'codeBlockTab', shift: e.shiftKey };
     }
 
     if (!isModPressed(e)) return null;

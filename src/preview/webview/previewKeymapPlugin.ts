@@ -13,7 +13,6 @@ import type { Ctx } from '@milkdown/ctx';
 import {
     turnIntoTextCommand,
     wrapInHeadingCommand,
-    wrapInBulletListCommand,
     createCodeBlockCommand,
     wrapInBlockquoteCommand,
     splitListItemCommand
@@ -21,6 +20,7 @@ import {
 import { selectTableCommand } from '@milkdown/kit/preset/gfm';
 import { wrapInList, liftListItem } from '@milkdown/prose/schema-list';
 import { Plugin, PluginKey, TextSelection, AllSelection } from '@milkdown/prose/state';
+import type { EditorState, Transaction } from '@milkdown/prose/state';
 import { CellSelection } from '@milkdown/prose/tables';
 import type { ResolvedPos } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
@@ -200,17 +200,47 @@ export function handleSelectAllCapture(
     return true;
 }
 
-function makeTodo(view: EditorView, ctx: Ctx): void {
+/**
+ * 対象行を `bullet_list > list_item` へ wrap し、続けて `checked` 属性を設定する。
+ *
+ * チェックボックス項目は Milkdown の `list-item-block` Web Component でレンダリング
+ * される。wrap（`checked` 未設定 = 素の `<li>`）と `checked` 設定（Web Component へ
+ * 再マウント）を **別々の `view.dispatch` に分けると**、その間に素の `<li>` として
+ * 一瞬レンダリングされる中間状態が生まれる。その状態から Web Component への再マウント
+ * で対象行の DOM サブツリーが丸ごと破棄されると、ブラウザのネイティブ selection が
+ * 行き場を失い、ドキュメント内の別のブロックへ selection が退避してしまうことがある
+ * （その selectionchange を ProseMirror がそのまま拾ってしまう＝カーソルが対象行から
+ * 別ブロックへ飛ぶ不具合。詳細: docs/specifications/checkbox-cursor-jump-fix.md）。
+ * wrap と `checked` 設定を **同じ transaction** にまとめて 1 回だけ dispatch すれば、
+ * 中間状態（素の `<li>` レンダリング）自体が発生しないため再現しない。
+ */
+export function wrapInBulletListAndSetChecked(state: EditorState, view: EditorView, checked: boolean): boolean {
+    const bulletType = state.schema.nodes.bullet_list;
+    if (!bulletType) return false;
+    let captured: Transaction | undefined;
+    const wrapped = wrapInList(bulletType)(state, (tr) => { captured = tr; }, view);
+    if (!wrapped || captured === undefined) return false;
+    const tr: Transaction = captured;
+    const afterWrap = state.apply(tr);
+    const depth = findDepth(afterWrap.selection.$from, ['list_item']);
+    if (depth < 0) return false;
+    const pos = afterWrap.selection.$from.before(depth);
+    tr.setNodeAttribute(pos, 'checked', checked);
+    view.dispatch(tr);
+    return true;
+}
+
+function makeTodo(view: EditorView): void {
     // 展開抑制: wrapInBulletList 後に blockPrefixEditPlugin が "- " を展開し、
     // 続く setNodeAttribute(checked=false) で collapse が走って checked が null に
     // 戻るのを防ぐ（Bug1）。
     setBlockPrefixExpansionSuppressed(true);
     try {
-        const commands = ctx.get(commandsCtx);
-        if (findDepth(view.state.selection.$from, ['list_item']) < 0) {
-            commands.call(wrapInBulletListCommand.key);
-        }
         const { state } = view;
+        if (findDepth(state.selection.$from, ['list_item']) < 0) {
+            wrapInBulletListAndSetChecked(state, view, false);
+            return;
+        }
         const depth = findDepth(state.selection.$from, ['list_item']);
         if (depth < 0) return;
         const pos = state.selection.$from.before(depth);
@@ -338,7 +368,7 @@ function runNotionBlock(view: EditorView, ctx: Ctx, action: NotionBlockAction): 
         case 'heading1': return applyHeading(view, ctx, 1);
         case 'heading2': return applyHeading(view, ctx, 2);
         case 'heading3': return applyHeading(view, ctx, 3);
-        case 'todo': makeTodo(view, ctx); return true;
+        case 'todo': makeTodo(view); return true;
         case 'bulletList': return applyListType(view, 'bullet');
         case 'orderedList': return applyListType(view, 'ordered');
         case 'codeBlock': commands.call(createCodeBlockCommand.key); return true;
@@ -403,6 +433,41 @@ function handleFenceEnter(view: EditorView): boolean {
     const tr = state.tr.replaceRangeWith(start, end, node);
     tr.setSelection(TextSelection.create(tr.doc, start + 1));
     view.dispatch(tr.scrollIntoView());
+    return true;
+}
+
+/**
+ * コードブロック内での Tab / Shift+Tab。
+ *
+ * ProseMirror 側は code_block に Tab を割り当てていないため、素通りするとブラウザ既定の
+ * 「次のフォーカス可能要素へ移動」（コードブロックの言語選択 <select> 等）が発動し、
+ * エディタからフォーカスが外れてしまう（コードを編集していると突然カーソルが消え、
+ * 他のブロックにいるように見える不具合の原因）。code_block 内でのみ、Tab はタブ文字の
+ * 挿入、Shift+Tab は行頭の空白/タブ1つ分の削除として扱う。
+ *
+ * code_block の外では false を返し、ブラウザ既定の挙動（フォーム要素間のフォーカス移動等）
+ * に委ねる。
+ */
+function handleCodeBlockTab(view: EditorView, shift: boolean): boolean {
+    const { state } = view;
+    const { $from, empty } = state.selection;
+    if (!empty) return false;
+    if (findDepth($from, ['code_block']) < 0) return false;
+
+    if (!shift) {
+        view.dispatch(state.tr.insertText('\t', $from.pos).scrollIntoView());
+        return true;
+    }
+
+    // Shift+Tab: 現在行の行頭にあるタブ1つ、または半角スペース最大4つを取り除く。
+    const lineStart = $from.pos - $from.parentOffset + $from.parent.textContent
+        .slice(0, $from.parentOffset)
+        .lastIndexOf('\n') + 1;
+    const textAfterLineStart = state.doc.textBetween(lineStart, $from.pos);
+    const dedentMatch = /^(\t|( {1,4}))/.exec(textAfterLineStart);
+    if (dedentMatch) {
+        view.dispatch(state.tr.delete(lineStart, lineStart + dedentMatch[0].length).scrollIntoView());
+    }
     return true;
 }
 
@@ -477,6 +542,15 @@ export function createPreviewKeymapPlugin() {
                         case 'lineStart':
                             // Cmd/Ctrl+←: プレフィックス展開中の 2 段階行頭移動
                             if (handleLineStart(view)) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            return false;
+                        case 'codeBlockTab':
+                            // Tab/Shift+Tab: コードブロック内でのインデント操作。
+                            // ブラウザ既定の Tab フォーカス移動を防ぐため、code_block 内
+                            // なら必ず preventDefault する（何もしない場合でも）。
+                            if (handleCodeBlockTab(view, shortcut.shift)) {
                                 event.preventDefault();
                                 return true;
                             }

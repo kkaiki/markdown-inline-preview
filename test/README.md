@@ -2,6 +2,9 @@
 
 ユニットテストと VS Code 統合テストのソースです。ビルド後は `out-test/` に出力されます。
 
+テストの**原則**（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク・
+新テスト追加チェックリスト）は [docs/testing-rules.md](../docs/testing-rules.md) が正。
+
 全テストのタイトル一覧（ユースケースカタログ）は
 [docs/specifications/preview-test-catalog.md](../docs/specifications/preview-test-catalog.md)
 （`npm run docs:test-catalog` で自動生成）、仕様との対応は

@@ -201,5 +201,51 @@ suite('Preview: external-sync', () => {
             assert.strictEqual(doc.getText(), '# タイトル\n\n本文\n',
                 `未保存ファイルを Preview 化した直後に本文が失われた: ${JSON.stringify(doc.getText())}`);
         });
+
+        // ユーザー報告（2026-07-08）: Preview で日本語 IME 変換を使い、句読点を挟みながら
+        // 1文をまとめて入力すると、冒頭の一部が二重に挿入される（「このアプリで」→
+        // 「このアプリでこのアプリで、...」）。test/browser（実 Chromium だが webview
+        // バンドル単体・実ファイル無し）では何パターン試しても再現しなかったため、実
+        // VS Code + 実ファイルでのみ起きうる「webview からの change メッセージ処理
+        // （ディスク read・WorkspaceEdit・save・fileWatcher エコー判定を含む）」の実タイミングを
+        // 疑い、webview 内部を経由せず同じ受信経路（enqueueWebviewChange →
+        // applyMarkdownFromWebview）を直接叩けるテスト専用コマンドを追加して検証する。
+        test('12.7 rapid な change（webview からの逐次本文送信を模す）連続後もファイル内容が壊れない（IME連続確定の疑いを検証）', async function () {
+            this.timeout(20000);
+
+            const { editor, filePath } = await openRealFile('\n');
+            const uri = editor.document.uri;
+
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await sleep(800);
+            assert.strictEqual(previewTabsForUri(uri).length, 1,
+                `前提: Preview タブが開いていない（アクティブタブ: ${activeTabUri()?.toString()}）`);
+
+            // 「このアプリで、Aという文章を編集しているとして、」を句読点を挟みながら
+            // IME で確定していく様子を、webview が送るであろう「その時点の全文」の
+            // 連続として模す（postChange は常に全文を送る設計のため）。
+            const steps = [
+                'このアプリで\n',
+                'このアプリで、\n',
+                'このアプリで、Aという文章を編集しているとして\n',
+                'このアプリで、Aという文章を編集しているとして、\n'
+            ];
+            for (const markdown of steps) {
+                const ok = await vscode.commands.executeCommand(
+                    'markdownInline.__test.injectWebviewChange', uri.toString(), markdown
+                );
+                assert.strictEqual(ok, true, 'テスト用フック（injectWebviewChange）が Preview の webview を見つけられなかった');
+                await sleep(150);
+            }
+
+            // 直列キュー・保存・fileWatcher エコーが落ち着くまで待つ。
+            await sleep(2000);
+
+            const expected = steps[steps.length - 1];
+            assert.strictEqual(editor.document.getText(), expected,
+                `document モデルの内容が壊れた（冒頭二重化/巻き戻りの疑い）: ${JSON.stringify(editor.document.getText())}`);
+            assert.strictEqual(fs.readFileSync(filePath, 'utf-8'), expected,
+                `ディスク上のファイル内容が壊れた（冒頭二重化/巻き戻りの疑い）: ${JSON.stringify(fs.readFileSync(filePath, 'utf-8'))}`);
+        });
     });
 });

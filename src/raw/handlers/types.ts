@@ -10,4 +10,7 @@ export interface RawHandlerDeps {
     shouldDisableCompetingMarkdownFeatures: () => boolean;
     applyMarkdownSettings: () => void;
     rebuildHeadingDecorations: () => void;
+    applyAlwaysOpenNewTabSetting: () => void;
+    applyDefaultWordWrapSetting: () => void;
+    applyWrapTabsSetting: () => void;
 }

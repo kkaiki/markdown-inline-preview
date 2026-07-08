@@ -76,6 +76,22 @@ function cursorInFirstListItem(view: EditorView): void {
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
 }
 
+/** N 番目（0-indexed）の list_item の段落の content start にカーソルを置く。 */
+function cursorInNthListItem(view: EditorView, index: number): void {
+    let i = 0;
+    let pos = -1;
+    view.state.doc.descendants((node, p) => {
+        if (pos >= 0) return false;
+        if (node.type.name === 'list_item') {
+            if (i === index) { pos = p + 2; return false; }
+            i++;
+        }
+        return true;
+    });
+    if (pos < 0) throw new Error(`list_item[${index}] not found`);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+}
+
 /** 最初の blockquote 内の段落の content start にカーソルを置く。 */
 function cursorInFirstBlockquote(view: EditorView): void {
     let pos = -1;
@@ -264,6 +280,29 @@ describe('blockPrefixEditPlugin: フォーカスでプレフィックス展開',
             const liText = h.view.state.doc.child(1).firstChild?.textContent ?? '';
             assert.strictEqual(liText, 'task', 'テキストが変化していない');
         });
+
+        it('markerBackspace のチェックボックス→箇条書き降格直後に "- " が実テキストとして漏れない（実バグ回帰・2026-07-08 発見/修正）', async () => {
+            // markerBackspace はチェックボックス項目の行頭 Backspace で checked を
+            // boolean → null（箇条書き化）に変える setNodeMarkup を発行する。この瞬間、
+            // カーソルはまだその項目内にあり、checked が boolean でなくなったことで
+            // getFocusedBlockInfo が「フォーカス中の普通の箇条書き」と判定できる状態に
+            // なる。setBlockPrefixExpansionSuppressed で囲んでいなければ、直後の
+            // view.update() が誤って "- " をプレフィックス展開として実テキストに挿入し、
+            // "- second" のように記法がテキストへ漏れ出してしまっていた。
+            h = await mkEditor('- [x] first\n- [ ] second\n');
+            cursorInNthListItem(h.view, 1); // "second" の先頭
+            const event = new window.KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
+            h.view.dom.dispatchEvent(event);
+
+            const secondItem = h.view.state.doc.child(0).child(1); // bullet_list.list_item[1]
+            const secondText = secondItem.firstChild?.textContent ?? '';
+            assert.strictEqual(secondText, 'second',
+                `降格後のテキストに "- " 等の記法が漏れてはいけない: ${JSON.stringify(secondText)}`);
+            assert.strictEqual(secondItem.attrs.checked, null,
+                '降格後は checked=null（普通の箇条書き）であるべき');
+            assert.strictEqual(getExpandedBlock(), null,
+                '降格直後にプレフィックス展開状態になってはいけない');
+        });
     });
 
     // ──────────────────────────────────────────
@@ -306,6 +345,64 @@ describe('blockPrefixEditPlugin: フォーカスでプレフィックス展開',
                 `挿入したプレフィックスがマークを継承した: ${JSON.stringify(prefixNode?.marks.map((m) => m.type.name))}`
             );
             assert.ok(prefixNode?.text?.startsWith('-'), `先頭がプレフィックスでない: ${prefixNode?.text}`);
+        });
+    });
+
+    // ──────────────────────────────────────────
+    // 番号付きリスト
+    // ──────────────────────────────────────────
+    describe('番号付きリスト', () => {
+        it('1. item にカーソルを入れると "1. " が先頭に現れる', async () => {
+            h = await mkEditor('Other\n\n1. item\n');
+            cursorInFirstListItem(h.view);
+
+            assert.ok(getExpandedBlock() !== null);
+            const liText = h.view.state.doc.child(1).firstChild?.textContent ?? '';
+            assert.ok(liText.startsWith('1. '), `テキスト: ${liText}`);
+        });
+
+        it('抜けると "1. " が消えてテキストだけ残る', async () => {
+            h = await mkEditor('Other\n\n1. item\n');
+            cursorInFirstListItem(h.view);
+            cursorInBlock(h.view, 0);
+
+            const liText = h.view.state.doc.child(1).firstChild?.textContent ?? '';
+            assert.strictEqual(liText, 'item', `テキスト: ${liText}`);
+        });
+
+        it('2番目の項目にカーソルを入れると項目自身の番号 "2. " が現れる（常に "1. " にならない）', async () => {
+            h = await mkEditor('Other\n\n1. first\n2. second\n');
+            cursorInNthListItem(h.view, 1); // 0-indexed → 2番目
+
+            assert.ok(getExpandedBlock() !== null);
+            const orderedList = h.view.state.doc.child(1);
+            const secondItemText = orderedList.child(1).firstChild?.textContent ?? '';
+            assert.ok(secondItemText.startsWith('2. '), `テキスト: ${secondItemText}`);
+        });
+
+        it('抜けても番号は変化しない（"2. " のまま維持される）', async () => {
+            h = await mkEditor('Other\n\n1. first\n2. second\n');
+            cursorInNthListItem(h.view, 1);
+            cursorInBlock(h.view, 0); // 折りたたみ
+
+            const orderedList = h.view.state.doc.child(1);
+            const secondItemText = orderedList.child(1).firstChild?.textContent ?? '';
+            assert.strictEqual(secondItemText, 'second', `テキスト: ${secondItemText}`);
+        });
+
+        it('リンクで始まる番号付き項目にフォーカスしても、挿入した番号プレフィックスがリンクのマークを継承しない', async () => {
+            h = await mkEditor('Other\n\n1. [1. Heading](#1-heading)\n');
+            cursorInFirstListItem(h.view);
+
+            const listItem = h.view.state.doc.child(1).firstChild;
+            const para = listItem?.firstChild;
+            const prefixNode = para?.firstChild;
+            assert.strictEqual(
+                prefixNode?.marks.length,
+                0,
+                `挿入したプレフィックスがマークを継承した: ${JSON.stringify(prefixNode?.marks.map((m) => m.type.name))}`
+            );
+            assert.ok(prefixNode?.text?.startsWith('1.'), `先頭がプレフィックスでない: ${prefixNode?.text}`);
         });
     });
 

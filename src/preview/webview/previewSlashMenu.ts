@@ -1,5 +1,6 @@
 import type { Editor } from '@milkdown/kit/core';
 import { editorViewCtx } from '@milkdown/kit/core';
+import { Slice } from '@milkdown/prose/model';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
@@ -150,9 +151,40 @@ export class PreviewSlashMenuController {
 
             if (isSlashOnlyLine) {
                 const { from, to } = getSlashLineBlockRange($from);
-                const slice = markdownToSlice(markdown)(ctx);
+                // `## ` や `- [ ] ` のような「本文が空のブロック」はそのままパースすると
+                // 空スライス（見出しごと消えて隣のブロックに入力が流れる）や literal な
+                // `[ ]` テキスト（空タスク項目は GFM としてパースされない）になる。
+                // 末尾スペースで終わる（＝本文を続けて書く）項目にはプレースホルダー文字を
+                // 足してパースし、置換後にその 1 文字を削除した位置へカーソルを置く。
+                // 詳細: docs/specifications/preview-slash-empty-block-fix.md
+                const PLACEHOLDER = '⁠'; // word joiner（本文に現れない不可視文字）
+                const needsPlaceholder = markdown.endsWith(' ');
+                const rawSlice = markdownToSlice(needsPlaceholder ? markdown + PLACEHOLDER : markdown)(ctx);
+                // markdownToSlice は open な Slice（openStart/openEnd > 0）を返すことがあり、
+                // そのまま replace するとブロックのラッパー（bullet_list 等）が剥がされて
+                // 中身のテキストだけが元の段落へ流し込まれてしまう。ここはトップレベル
+                // ブロックの置換なので、深さ 0 に閉じてブロックごと入れる。
+                const slice = new Slice(rawSlice.content, 0, 0);
                 let tr = state.tr.replace(from, to, slice);
-                if (item.id === 'table') {
+                if (needsPlaceholder) {
+                    let phPos = -1;
+                    tr.doc.nodesBetween(
+                        from,
+                        Math.min(from + slice.size + 2, tr.doc.content.size),
+                        (node, pos) => {
+                            if (phPos >= 0) return false;
+                            if (node.isText && typeof node.text === 'string' && node.text.includes(PLACEHOLDER)) {
+                                phPos = pos + node.text.indexOf(PLACEHOLDER);
+                                return false;
+                            }
+                            return true;
+                        }
+                    );
+                    if (phPos >= 0) {
+                        tr = tr.delete(phPos, phPos + 1);
+                        tr = tr.setSelection(TextSelection.create(tr.doc, phPos));
+                    }
+                } else if (item.id === 'table') {
                     const firstCellPos = findFirstTableCellPos(tr.doc, from);
                     if (firstCellPos !== null) {
                         tr = tr.setSelection(TextSelection.create(tr.doc, firstCellPos));

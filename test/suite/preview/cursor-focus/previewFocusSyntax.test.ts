@@ -1,7 +1,9 @@
 import * as assert from 'assert';
 
 import {
+    findFocusedBlockDepth,
     getBlockPrefix,
+    getCodeFenceMarkers,
     getHeadingPrefix,
     getInlineMarkMarker
 } from '../../../../src/shared/markdown/focusSyntaxHelpers';
@@ -43,6 +45,30 @@ describe('focusSyntaxHelpers', () => {
             index: () => 0
         };
         assert.strictEqual(getBlockPrefix($pos as never, 2), '- ');
+    });
+
+    it('getCodeFenceMarkers returns the open/close fence text for a code_block', () => {
+        const node = { type: { name: 'code_block' }, attrs: { language: 'js' } };
+        assert.deepStrictEqual(getCodeFenceMarkers(node as never), { open: '```js', close: '```' });
+    });
+
+    it('getCodeFenceMarkers omits the language when empty', () => {
+        const node = { type: { name: 'code_block' }, attrs: { language: '' } };
+        assert.deepStrictEqual(getCodeFenceMarkers(node as never), { open: '```', close: '```' });
+    });
+
+    it('getCodeFenceMarkers returns null for non-code_block nodes', () => {
+        const node = { type: { name: 'paragraph' }, attrs: {} };
+        assert.strictEqual(getCodeFenceMarkers(node as never), null);
+    });
+
+    it('findFocusedBlockDepth resolves a position inside a code_block', () => {
+        const nodesByDepth: Record<number, unknown> = {
+            0: { type: { name: 'doc' } },
+            1: { type: { name: 'code_block' }, attrs: { language: 'js' } }
+        };
+        const $pos = { depth: 1, node: (d: number) => nodesByDepth[d] };
+        assert.strictEqual(findFocusedBlockDepth($pos as never), 1);
     });
 });
 

@@ -26,6 +26,9 @@ import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/s
 import { rawToCursorAnchor, cursorAnchorToRaw, type CursorAnchor } from '../../shared/preview/cursorAnchor';
 import { pickPreviewUri, type PreviewTabInfo } from './previewTabs';
 import { decidePreviewToggle } from './toggleDecision';
+import { createSerialQueue } from './serialQueue';
+import { resolveExternalPush, resolveWebviewSaveDecision } from './externalEcho';
+import { resolveShowLineNumbers } from '../../core';
 
 const execFileAsync = promisify(execFile);
 
@@ -70,6 +73,46 @@ const lastKnownScrollAnchor = new Map<string, ScrollAnchorPayload>();
 // Preview→Raw は WebView から逐次受け取る lastKnownCursor を使う。
 const pendingOpenCursor = new Map<string, CursorAnchor>();
 const lastKnownCursor = new Map<string, CursorAnchor>();
+// Preview → Raw へ切り替える直前に、その Preview の webview 由来の直列化キュー
+// （enqueueWebviewChange）に積まれたまま未実行の書き込みを完了させるためのフラッシュ関数。
+// これを待たずに switchToRaw すると、直前の編集（タイプ直後にすぐトグルした場合など）の
+// 書き込みが完了する前に Preview の webview が破棄され、その編集が Raw に反映されずに
+// 失われることがある（詳細: docs/specifications/preview-to-raw-pending-edit-loss-fix.md）。
+const pendingWebviewFlush = new Map<string, () => Promise<void>>();
+// switchToPreview() / switchToRaw() が処理中の URI。どちらも意図的な切替の
+// 途中は、同じグループ内に Preview タブと Raw タブが一時的に並存する（openWith
+// 後、古いタブを closeStaleTabs で閉じるまでの間）。この期間に
+// collapseDuplicateRawTabsForOpenPreviews が同時に同じタブへ openWith/close を
+// 行うと、意図した切替先と競合したり VS Code 側のタブ操作と衝突したりする
+// （dirty な文書の Raw→Preview→Raw 往復で "Illegal argument: TextEditor" が
+// 発生する回帰が実際に起きた）ため、対象 URI をここに登録して除外する。
+// switchToPreview/switchToRaw は自分自身で古いタブの後始末を完結させるので、
+// この Set に入っている間は collapse 処理が横から手を出す必要が無い。
+const inFlightSwitch = new Set<string>();
+// Preview の webview（Custom Editor タブ）が resolveCustomTextEditor で作られた
+// 時刻。重複解消（collapseDuplicateRawTabForActiveEditor）は、この時刻から一定時間
+// 以上経った「安定して開いている」Preview タブに対してのみ発動する。モード記憶
+// 機能が新規ファイルを自動で Preview 化した直後に、それを打ち消す形で Raw が
+// 開かれるケース（ごく短時間のうちに Preview 化→Raw 強制が連続するケース）まで
+// 重複とみなして手を出すと、Raw への意図的な切替と衝突して無限にタブの
+// 開閉を繰り返してしまう。詳細: docs/specifications/sidebar-reopen-preview-duplicate-tab-fix.md
+const previewSettledAt = new Map<string, number>();
+const DUPLICATE_COLLAPSE_SETTLE_MS = 500;
+
+// テスト専用シーム: webview の中身（Milkdown/JS）は @vscode/test-electron のテストから
+// 駆動できない（実 DOM・実 IME に触れる手段が無い）ため、webview からの `change` メッセージ
+// 受信時と全く同じ経路（enqueueWebviewChange → applyMarkdownFromWebview。ディスク read・
+// WorkspaceEdit・save・fileWatcher エコー判定を含む実タイミング）を直接呼び出せるようにする。
+// 本番では未使用（`activatePreviewFeature` が `ExtensionMode.Test` の時だけコマンドとして
+// 公開する。src/preview/webview/milkdownApp.ts の `__IPREVIEW_TEST_HOOK__` と同じ発想）。
+const testChangeInjectors = new Map<string, (markdown: string) => Promise<void>>();
+
+export async function injectWebviewChangeForTesting(uri: vscode.Uri, markdown: string): Promise<boolean> {
+    const inject = testChangeInjectors.get(uri.toString());
+    if (!inject) return false;
+    await inject(markdown);
+    return true;
+}
 
 function getConfig<T>(key: string, fallback: T): T {
     return vscode.workspace.getConfiguration('markdownInline').get<T>(key, fallback);
@@ -116,7 +159,8 @@ function buildSettingsPayload(): PreviewSettings {
         enableSlashMenu: getConfig<boolean>('preview.enableSlashMenu', true),
         showToolbar: getConfig<boolean>('preview.showToolbar', true),
         toolbarShowShortcuts: getConfig<boolean>('preview.toolbarShowShortcuts', true),
-        showLineNumbers: getConfig<boolean>('preview.showLineNumbers', false),
+        // 既定 on（Raw の行番号との一貫性）。既定値は resolveShowLineNumbers 側に一元化する。
+        showLineNumbers: resolveShowLineNumbers(vscode.workspace.getConfiguration('markdownInline')),
         language: vscode.env.language
     };
 }
@@ -314,10 +358,27 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         // 自分のエコーを取りこぼす。内容ベースでも弾くことで、入力中に update が Webview へ
         // 戻って applyExternalContent が走り「フォーカスが飛ぶ／文字が重複する」のを防ぐ。
         let lastAppliedFromWebview: string | null = null;
+        // 直近に host が webview へ push した本文（外部変更の push・初回表示の init を問わない）。
+        // `document`（TextDocument モデル）は Preview だけを開いている場合に外部ディスク書き込みを
+        // auto-reload しないことがある（既知の制約）。保存判定をモデルの陳腐化だけで defer すると、
+        // webview がこの push を基準に組み立てた正当な保存要求まで永久に defer され、ユーザーが
+        // 外部編集の直後に入力した内容が保存されず消えてしまう実バグがあった。
+        // 詳細: docs/specifications/stale-document-model-save-defer-fix.md
+        let lastPushedToWebview: string | null = null;
         let pushTimer: ReturnType<typeof setTimeout> | undefined;
+        // Webview からの各 `change`（1 キー入力ごと）は、前の書き込みが完了してから
+        // 次を処理する。直列化しないと、高速入力時に後続の書き込みが古いドキュメント
+        // 内容を前提に差分を組み立ててしまい、ドキュメントが壊れてカーソルが飛ぶ
+        // （src/preview/host/serialQueue.ts 参照）。
+        const enqueueWebviewChange = createSerialQueue();
+        // 積まれている（が、まだ実行されていない）書き込みが全て完了するまで待つ。
+        // 空タスクを積んで、その完了を待つだけで「現時点までの全タスクの完了待ち」になる
+        // （createSerialQueue の FIFO 性を利用）。
+        pendingWebviewFlush.set(key, () => enqueueWebviewChange(async () => {}));
 
         const pushMarkdownToWebview = (markdown: string): void => {
             if (disposed) return;
+            lastPushedToWebview = markdown;
             const prepared = this.prepareForWebview(markdown, document, webviewPanel.webview);
             void webviewPanel.webview.postMessage({
                 type: 'update',
@@ -328,12 +389,13 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
 
         // 本文の取得元を遅延評価で受け取る。エディタ内編集は document.getText()、
         // 外部（AI・他ツール）のディスク編集は最新のディスク内容を読み直して反映する。
-        const schedulePush = (readMarkdown: () => string | Thenable<string>): void => {
+        // `null` を返した場合は push しない（自分のエコーだと判明した場合の取り消し用）。
+        const schedulePush = (readMarkdown: () => string | null | Thenable<string | null>): void => {
             if (pushTimer) clearTimeout(pushTimer);
             pushTimer = setTimeout(() => {
                 pushTimer = undefined;
                 void Promise.resolve(readMarkdown()).then(
-                    pushMarkdownToWebview,
+                    (markdown) => { if (markdown !== null) pushMarkdownToWebview(markdown); },
                     (err: unknown) => debugLog(`[preview] push failed: ${String(err)}`)
                 );
             }, 100);
@@ -347,7 +409,29 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         const applyMarkdownFromWebview = async (markdown: string): Promise<void> => {
             const restored = this.restoreFromWebview(markdown, document);
             if (document.getText() === restored) return;
+
+            // 保存直前にディスク実内容を確認する。document モデルは外部ツールによる
+            // ディスク直接書き込みを自動反映しないため、webview 由来の（外部変更を
+            // 知らない）内容で無条件に上書き保存すると、その割り込みを静かに消して
+            // しまう。ディスクが document / 自分の直近の書き込みのどちらとも食い違う
+            // なら、外部の変更が割り込んだとみなして今回は保存を見送り、その最新内容を
+            // webview へ push してマージを待つ。
+            // 詳細: docs/specifications/preview-external-write-race-fix.md
+            if (document.uri.scheme === 'file') {
+                let onDisk: string;
+                try {
+                    onDisk = await readDocumentFromDisk();
+                } catch {
+                    onDisk = document.getText();
+                }
+                if (resolveWebviewSaveDecision(onDisk, document.getText(), lastAppliedFromWebview, lastPushedToWebview) === 'defer') {
+                    schedulePush(() => resolveExternalPush(onDisk, lastAppliedFromWebview));
+                    return;
+                }
+            }
+
             lastAppliedFromWebview = restored;
+            lastPushedToWebview = restored;
             applyingRemoteEdit = true;
             try {
                 const fullRange = new vscode.Range(
@@ -363,19 +447,31 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             }
         };
 
+        // テスト専用シーム（このファイル冒頭の testChangeInjectors 参照）。
+        testChangeInjectors.set(key, (markdown: string) => enqueueWebviewChange(() => applyMarkdownFromWebview(markdown)));
+
         const changeSub = vscode.workspace.onDidChangeTextDocument(event => {
             if (event.document.uri.toString() !== key || applyingRemoteEdit) return;
             // applyEdit の後に遅れて届いた「自分のエコー」を内容ベースで弾く。
             // Webview には既に同じ本文があるので push する必要はない。Raw 側や外部ツールの
             // 本当の編集はこの内容と一致しないため、通常どおり Webview へ反映される。
-            if (document.getText() === lastAppliedFromWebview) return;
-            schedulePush(() => document.getText());
+            schedulePush(() => resolveExternalPush(document.getText(), lastAppliedFromWebview));
         });
 
         // 外部（AI・他ツール）が .md をディスク上で直接編集した場合、Preview だけを開いて
         // いる（Raw のテキストエディタが無い）と onDidChangeTextDocument が発火しないことが
         // あるため、ファイルウォッチャでも変更を拾って最新のディスク内容を反映する。
-        // 自分の保存によるエコーは WebView 側の重複判定（lastSyncedMarkdown）で無視される。
+        //
+        // `applyingRemoteEdit`（同期フラグ）だけでは自分の保存によるエコーを取りこぼす。
+        // FileSystemWatcher の発火は `onDidChangeTextDocument` よりさらに不安定なタイミング
+        // （OS のファイルシステムイベント経由）で遅れて届くことがあり、`applyingRemoteEdit` が
+        // 既に false に戻った後に届くと素通りしてしまう。素通りすると、直近の webview 側の
+        // カーソル位置（例: 表のセル内で入力を続けている途中）に対して**古い・短いディスク内容**
+        // が丸ごと push され、`applyExternalContent` の「新しい文書サイズへクランプ」によって
+        // カーソルが文書の末尾（体感としては「一番下」）へ飛んでしまう。詳細:
+        // docs/specifications/stale-external-push-cursor-jump-fix.md
+        // `changeSub` は同じ理由から既に内容ベースの比較（`lastAppliedFromWebview` との一致判定）
+        // を持っていたが、`onExternalFileChange` にはこの防御が無かった。同じ比較を追加する。
         const fileWatcher = vscode.workspace.createFileSystemWatcher(
             new vscode.RelativePattern(
                 vscode.Uri.file(path.dirname(document.uri.fsPath)),
@@ -384,7 +480,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         );
         const onExternalFileChange = (): void => {
             if (applyingRemoteEdit) return;
-            schedulePush(readDocumentFromDisk);
+            schedulePush(async () => resolveExternalPush(await readDocumentFromDisk(), lastAppliedFromWebview));
         };
         fileWatcher.onDidChange(onExternalFileChange);
         fileWatcher.onDidCreate(onExternalFileChange);
@@ -409,6 +505,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 pendingOpenScrollRatio.delete(key);
                 const cursorAnchor = pendingOpenCursor.get(key);
                 pendingOpenCursor.delete(key);
+                lastPushedToWebview = document.getText();
                 const prepared = this.prepareForWebview(document.getText(), document, webviewPanel.webview);
                 void webviewPanel.webview.postMessage({
                     type: 'init',
@@ -427,7 +524,8 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 return;
             }
             if (message.type === 'change' && typeof message.markdown === 'string') {
-                void applyMarkdownFromWebview(message.markdown);
+                const markdown = message.markdown;
+                void enqueueWebviewChange(() => applyMarkdownFromWebview(markdown));
                 return;
             }
             if (message.type === 'scroll' && typeof message.ratio === 'number') {
@@ -475,12 +573,16 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             configSub.dispose();
             messageSub.dispose();
             if (pushTimer) clearTimeout(pushTimer);
+            pendingWebviewFlush.delete(key);
+            testChangeInjectors.delete(key);
             this.imageUriMaps.delete(key);
             this.frontmatterMaps.delete(key);
             this.baseBodyCache.delete(key);
+            previewSettledAt.delete(key);
             syncEditorContext();
         });
 
+        previewSettledAt.set(key, Date.now());
         rememberMode(this.context, 'preview');
         debugLog(`[preview] Resolved Milkdown preview editor for ${key}`);
         syncEditorContext();
@@ -708,6 +810,15 @@ async function switchToPreview(
     editor?: vscode.TextEditor
 ): Promise<void> {
     const key = document.uri.toString();
+    // 未保存（dirty）のまま Preview へ切り替えると、テキストタブの差し替え／クローズの
+    // 過程で VS Code がモデルをディスク内容へリバートし、編集が丸ごと失われる。
+    // Preview モードは 1 キー入力ごとに保存する自動保存前提の設計なので、切替前にも
+    // 同じ思想で保存してから差し替える。untitled はディスク実体が無く（リバートによる
+    // 消失も起きない）、save() が「名前を付けて保存」ダイアログを開いてしまうため除外。
+    // 詳細: docs/specifications/dirty-raw-edit-preview-switch-loss-fix.md
+    if (document.isDirty && !document.isUntitled) {
+        await document.save();
+    }
     if (editor) {
         // カーソル位置を引き継ぐ（同じ場所で編集を続けられるように）。
         const pos = editor.selection.active;
@@ -725,10 +836,29 @@ async function switchToPreview(
         pendingOpenScrollRatio.set(key, computeScrollRatio(editor) ?? 0);
     }
     rememberMode(context, 'preview');
-    await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
-    // Re-query after openWith: it may have replaced the text tab in-place, which
-    // would make a pre-captured handle stale and throw on close.
-    await closeStaleTabs(findTabs(isTextTabForUri(document.uri)));
+    inFlightSwitch.add(key);
+    try {
+        await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
+        // Re-query after openWith: it may have replaced the text tab in-place, which
+        // would make a pre-captured handle stale and throw on close.
+        //
+        // untitled ドキュメントでは vscode.openWith がテキストタブを Custom Editor へ
+        // 置き換えず、同じ URI のタブが2枚（テキスト+Custom Editor）並存する。この状態で
+        // 古いテキストタブを閉じると、ディスク実体を持たない untitled の TextDocument の
+        // 内容がその場で失われる（VS Code 側の挙動、実 VS Code で確認済み）。
+        // 詳細: docs/specifications/untitled-preview-content-loss-fix.md
+        const untitledTextBeforeClose =
+            document.uri.scheme === 'untitled' ? document.getText() : null;
+        await closeStaleTabs(findTabs(isTextTabForUri(document.uri)));
+        if (untitledTextBeforeClose !== null && untitledTextBeforeClose.length > 0
+            && document.getText() === '') {
+            const edit = new vscode.WorkspaceEdit();
+            edit.insert(document.uri, new vscode.Position(0, 0), untitledTextBeforeClose);
+            await vscode.workspace.applyEdit(edit);
+        }
+    } finally {
+        inFlightSwitch.delete(key);
+    }
 }
 
 async function switchToRaw(
@@ -737,43 +867,109 @@ async function switchToRaw(
     viewColumn: vscode.ViewColumn | undefined
 ): Promise<void> {
     const key = uri.toString();
+    // webview 由来の直近の編集がまだ書き込みキューに残っていれば、Preview を破棄する前に
+    // 完了させる。これを待たずに openWith すると、直前の編集（タイプ直後にすぐ Raw へ
+    // 切り替えた場合など）が Raw 側に反映されないまま失われることがある。
+    await pendingWebviewFlush.get(key)?.();
     const anchor = lastKnownScrollAnchor.get(key);
     const ratio = lastKnownScrollRatio.get(key);
     const cursor = lastKnownCursor.get(key);
     rememberMode(context, 'raw');
-    await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
+    inFlightSwitch.add(key);
+    try {
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
 
-    // 古い Preview タブを閉じる前に、対象ファイルの Raw エディタへ明示的にフォーカスを固定する。
-    // openWith 後もまだ古い Preview タブが「アクティブ」のままだと、後続の closeStaleTabs が
-    // それ（＝アクティブなタブ）を閉じることになり、VS Code の既定動作（閉じたタブの隣を
-    // 自動選択）が発動して、複数ファイルを Preview 中に切替えた別ファイルへフォーカスが
-    // 漂流することがある。先にフォーカスを移しておけば、閉じるのは非アクティブなタブに
-    // なるため、この自動選択は発生しない。
-    const doc = await vscode.workspace.openTextDocument(uri);
-    const editor = await vscode.window.showTextDocument(doc, { viewColumn, preserveFocus: false });
+        // 古い Preview タブを閉じる前に、対象ファイルの Raw エディタへ明示的にフォーカスを固定する。
+        // openWith 後もまだ古い Preview タブが「アクティブ」のままだと、後続の closeStaleTabs が
+        // それ（＝アクティブなタブ）を閉じることになり、VS Code の既定動作（閉じたタブの隣を
+        // 自動選択）が発動して、複数ファイルを Preview 中に切替えた別ファイルへフォーカスが
+        // 漂流することがある。先にフォーカスを移しておけば、閉じるのは非アクティブなタブに
+        // なるため、この自動選択は発生しない。
+        const doc = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(doc, { viewColumn, preserveFocus: false });
 
-    // Re-query after openWith (see switchToPreview): avoids closing a stale handle.
-    await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
+        // Re-query after openWith (see switchToPreview): avoids closing a stale handle.
+        await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
 
-    // カーソル位置の引き継ぎ（Preview → Raw）。同じ場所で編集を続けられるように、
-    // カーソルを置いてその行を見せる（スクロール同期より優先）。
-    if (cursor) {
-        const { line, character } = cursorAnchorToRaw(editor.document.getText(), cursor);
-        const safeLine = Math.min(Math.max(line, 0), editor.document.lineCount - 1);
-        const safeCol = Math.min(Math.max(character, 0), editor.document.lineAt(safeLine).text.length);
-        const p = new vscode.Position(safeLine, safeCol);
-        editor.selection = new vscode.Selection(p, p);
-        editor.revealRange(new vscode.Range(p, p), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-        return;
+        // カーソル位置の引き継ぎ（Preview → Raw）。同じ場所で編集を続けられるように、
+        // カーソルを置いてその行を見せる（スクロール同期より優先）。
+        if (cursor) {
+            const { line, character } = cursorAnchorToRaw(editor.document.getText(), cursor);
+            const safeLine = Math.min(Math.max(line, 0), editor.document.lineCount - 1);
+            const safeCol = Math.min(Math.max(character, 0), editor.document.lineAt(safeLine).text.length);
+            const p = new vscode.Position(safeLine, safeCol);
+            editor.selection = new vscode.Selection(p, p);
+            editor.revealRange(new vscode.Range(p, p), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+            return;
+        }
+
+        if (!getConfig<boolean>('preview.syncScroll', true)) return;
+        if (anchor) {
+            revealAnchor(editor, anchor);
+            return;
+        }
+        if (ratio !== undefined) {
+            revealRatio(editor, ratio);
+        }
+    } finally {
+        inFlightSwitch.delete(key);
     }
+}
 
-    if (!getConfig<boolean>('preview.syncScroll', true)) return;
-    if (anchor) {
-        revealAnchor(editor, anchor);
-        return;
-    }
-    if (ratio !== undefined) {
-        revealRatio(editor, ratio);
+// 「既に Preview で開いているファイルが、同じエディタグループに Raw タブとして
+// 再度開かれた」状態を検知し、その Raw タブを閉じて Preview 側だけを残す。
+// customEditor が priority: "option" のため、サイドバー（Explorer）から既に
+// Preview 中のファイルを再度開くと既定の Raw エディタが同じグループに追加されて
+// しまう不具合の対策。詳細: docs/specifications/sidebar-reopen-preview-duplicate-tab-fix.md
+//
+// `vscode.window.onDidChangeActiveTextEditor`（Raw エディタがアクティブになった
+// 瞬間）だけをトリガーにする。すべてのタブ変更（`tabGroups.onDidChangeTabs`）を
+// 対象にすると、モード記憶機能が新規ファイルを自動で Preview 化する処理や、
+// それを打ち消すテストヘルパーの openWith 呼び出しなど、無関係な Raw⇄Preview の
+// 過渡状態にまで反応してしまい、他の切替処理と競合する（実際に dirty な文書の
+// Raw→Preview→Raw 往復テストで "Illegal argument: TextEditor" という回帰が
+// 発生した）。「Raw エディタがアクティブになった」というイベントに絞ることで、
+// 対象を実際にユーザー操作（や外部からの再オープン）で新しい Raw タブが表に
+// 出てきた瞬間だけに限定できる。
+//
+// グループ単位でしか閉じないため、別のエディタグループ（例: 右側）に明示的に
+// 開いた Raw タブは対象外＝意図的な「左 Preview・右 Raw」の 2 画面構成は崩さない。
+// inFlightSwitch に登録中の URI は、switchToPreview/switchToRaw が意図的に
+// 切替中（Preview タブと Raw タブが一時的に並存する）なので対象から除外する
+// （自分自身のタブ後始末と競合させないため）。
+async function collapseDuplicateRawTabForActiveEditor(editor: vscode.TextEditor): Promise<void> {
+    const key = editor.document.uri.toString();
+    if (inFlightSwitch.has(key)) return;
+
+    const group = vscode.window.tabGroups.all.find(g => g.viewColumn === editor.viewColumn);
+    if (!group) return;
+
+    const hasPreviewTab = group.tabs.some(tab => isPreviewTab(tab)?.toString() === key);
+    if (!hasPreviewTab) return;
+
+    // Preview タブが最近（モード記憶による自動切替などで）作られたばかりの場合は
+    // 対象外にする。安定して開いている Preview に対してだけ、サイドバー等からの
+    // 再オープンによる重複を解消する。
+    const settledAt = previewSettledAt.get(key);
+    if (settledAt === undefined || Date.now() - settledAt < DUPLICATE_COLLAPSE_SETTLE_MS) return;
+
+    const staleRawTabs = group.tabs.filter(tab =>
+        tab.input instanceof vscode.TabInputText && tab.input.uri.toString() === key
+    );
+    if (staleRawTabs.length === 0) return;
+
+    try {
+        // 閉じる前に Preview タブへフォーカスを確定させる（アクティブなタブを
+        // 先に閉じると VS Code の自動選択で無関係なタブへ飛ぶことがあるため）。
+        await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, VIEW_TYPE, group.viewColumn);
+        await closeStaleTabs(staleRawTabs);
+    } catch {
+        // 対象ファイルが別の非同期処理（テストの後始末等）で既に閉じられた／
+        // 削除された直後に発火することがある。重複解消は「できれば直す」補助的な
+        // 処理であり、失敗しても致命的ではないので closeStaleTabs 同様に例外は
+        // 無視する（未処理の Promise rejection として無関係なタイミングで
+        // 表面化するのを防ぐため）。
+        debugLog('[preview] collapseDuplicateRawTabForActiveEditor failed, ignoring');
     }
 }
 
@@ -786,6 +982,18 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
     context.subscriptions.push(modeStatusBarItem);
 
     syncEditorContext();
+
+    // テスト専用コマンド（このファイル冒頭の testChangeInjectors 参照）。
+    // `@vscode/test-electron` 実行時のみ `context.extensionMode` が `Test` になるため、
+    // 通常のユーザーインストールでは絶対に登録されない。
+    if (context.extensionMode === vscode.ExtensionMode.Test) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand(
+                'markdownInline.__test.injectWebviewChange',
+                (uriString: string, markdown: string) => injectWebviewChangeForTesting(vscode.Uri.parse(uriString), markdown)
+            )
+        );
+    }
 
     // 「このセッションで既に開いた（=モードを尊重すべき既存の）Markdown ファイル」の URI。
     // 拡張機能の起動時点で開いていたタブと、その後アクティブになったファイルを記録する。
@@ -822,8 +1030,11 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
         }),
 
         vscode.commands.registerCommand('markdownInline.openPreview', async () => {
-            if (findPreviewUri()) return;
-
+            // 「今アクティブな Raw Markdown エディタを Preview にする」動作。他ファイルの
+            // Preview が別グループに既に開いていても、それに引きずられて何もしない、という
+            // ことがあってはならない（switchToPreview は document.uri を直接指定するため、
+            // 他ファイルの Preview 状態を気にする必要が無い。togglePreview の toPreview
+            // 分岐と同じ判断基準に揃える）。
             const editor = vscode.window.activeTextEditor;
             if (!editor || editor.document.languageId !== 'markdown') return;
 
@@ -837,6 +1048,15 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
             await switchToRaw(context, previewUri, vscode.ViewColumn.Active);
             syncEditorContext();
+        }),
+
+        vscode.commands.registerCommand('markdownInline.toggleLineNumbers', async () => {
+            // 設定 UI をキー ID で検索するより、コマンドパレットから一発で切り替えたい
+            // という要望に応えるための専用トグル。effective value（既定込み）を反転して
+            // 書き戻す。アクティブなエディタの有無やモードには依存しない。
+            const config = vscode.workspace.getConfiguration('markdownInline');
+            const next = !resolveShowLineNumbers(config);
+            await config.update('preview.showLineNumbers', next, vscode.ConfigurationTarget.Global);
         }),
 
         vscode.commands.registerCommand('markdownInline.togglePreview', async () => {
@@ -861,7 +1081,13 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             const key = editor.document.uri.toString();
             // 既存（このセッションで既に開いていた）ファイルにはモードを強制しない。
             // 初めて見る URI＝新規オープンのときだけ、記憶した最後のモードを適用する。
-            if (seenMarkdownUris.has(key)) return;
+            if (seenMarkdownUris.has(key)) {
+                // 既存ファイルが Raw エディタとしてアクティブになった場合、同じ
+                // グループに既に Preview タブが開いていれば重複とみなして解消する
+                // （サイドバーからの再オープンなどで発生する）。
+                void collapseDuplicateRawTabForActiveEditor(editor);
+                return;
+            }
             seenMarkdownUris.add(key);
             const remembered = getRememberedMode(context);
             const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');

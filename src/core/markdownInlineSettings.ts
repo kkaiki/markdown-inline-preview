@@ -73,3 +73,22 @@ export function resolveImageThumbnailEnabled(config: ConfigLike): boolean {
 export function resolveTableWrapMaxWidth(config: ConfigLike): number {
     return config.get<number>('table.inlineWrap.maxWidth', 24);
 }
+
+export function resolveAlwaysOpenNewTab(config: ConfigLike): boolean {
+    return config.get<boolean>('preview.alwaysOpenNewTab', true);
+}
+
+export function resolveDefaultWordWrap(config: ConfigLike): boolean {
+    return config.get<boolean>('preview.wordWrap', true);
+}
+
+export function resolveWrapTabs(config: ConfigLike): boolean {
+    return config.get<boolean>('preview.wrapTabs', true);
+}
+
+// 既定 on。Raw モードでは VS Code 本体の行番号が常に左に見えるため、Preview に
+// 切り替えた瞬間に行番号が消えると「機能が消えた」ように見える。既定で表示して
+// Raw との見た目の一貫性を保つ（不要なら設定で off にできる）。
+export function resolveShowLineNumbers(config: ConfigLike): boolean {
+    return config.get<boolean>('preview.showLineNumbers', true);
+}

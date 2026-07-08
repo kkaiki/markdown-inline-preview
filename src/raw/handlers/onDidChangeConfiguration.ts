@@ -27,6 +27,18 @@ export function registerOnDidChangeConfiguration(
                 deps.applyMarkdownSettings();
             }
 
+            if (event.affectsConfiguration('markdownInline.preview.alwaysOpenNewTab')) {
+                deps.applyAlwaysOpenNewTabSetting();
+            }
+
+            if (event.affectsConfiguration('markdownInline.preview.wordWrap')) {
+                deps.applyDefaultWordWrapSetting();
+            }
+
+            if (event.affectsConfiguration('markdownInline.preview.wrapTabs')) {
+                deps.applyWrapTabsSetting();
+            }
+
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor && activeEditor.document.languageId === 'markdown') {
                 deps.updateAllDecorations(activeEditor);

@@ -15,6 +15,24 @@ function selectionsEqual(a: vscode.Selection, b: vscode.Selection): boolean {
         a.end.character === b.end.character;
 }
 
+/**
+ * 文書全体を明示的に選択する。
+ *
+ * `editor.action.selectAll`（VS Code 既定の Select All）に委譲すると、実 VS Code
+ * ウィンドウがフォーカスを持たない環境（自動テスト実行時など）では無反応になることが
+ * あり、テーブル/コードブロック全体選択後の 4 回目の Cmd+A が文書全体まで進まない
+ * ことがあった。他の段階（セル/行/表）と同じく明示的に Selection を組み立てて確実に
+ * 効かせる。
+ */
+function selectWholeDocument(editor: vscode.TextEditor): void {
+    const lastLine = editor.document.lineCount - 1;
+    const lastLineLength = editor.document.lineAt(lastLine).text.length;
+    editor.selection = new vscode.Selection(
+        new vscode.Position(0, 0),
+        new vscode.Position(lastLine, lastLineLength)
+    );
+}
+
 interface NavigationHandlers {
     getTableCellInfo: (lineText: string, cursorChar: number) => TableCellInfo | null;
     getAllTableCells: (lineText: string) => CellBoundary[] | null;
@@ -362,7 +380,7 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
             const isTableSelected = selectionsEqual(curSel, tableSelection);
 
             if (isTableSelected) {
-                vscode.commands.executeCommand('editor.action.selectAll');
+                selectWholeDocument(editor);
             } else if (isRowSelected) {
                 editor.selection = tableSelection;
             } else if (isCellContentSelected) {
@@ -394,7 +412,7 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
                         const sameAsDesired = selectionsEqual(editor.selection, desired);
 
                         if (sameAsDesired) {
-                            vscode.commands.executeCommand('editor.action.selectAll');
+                            selectWholeDocument(editor);
                         } else {
                             editor.selection = desired;
                         }
@@ -408,7 +426,7 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
             }
         }
 
-        vscode.commands.executeCommand('editor.action.selectAll');
+        selectWholeDocument(editor);
     };
 }
 
