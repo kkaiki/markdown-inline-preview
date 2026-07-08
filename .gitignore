@@ -58,3 +58,10 @@ coverage/
 
 # 実ブラウザテストのスクリーンショット（目視確認用の成果物）
 test-screenshots/
+
+# --- Terraform ---
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfplan
+terraform/.terraform.tfstate.lock.info
