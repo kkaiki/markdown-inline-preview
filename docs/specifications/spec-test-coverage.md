@@ -19,6 +19,7 @@
 | `inline-preview-features.md` | `test/webview/focus-expand/blockPrefixEdit.integration.test.ts`、`test/browser/focus-expand/*`、`test/webview/cursor-focus/*` | 見出し/箇条書き/blockquote は網羅。タスクリスト項目・番号付きリストの focus-expand は一部未検証（backlog §4.2 参照） |
 | `preview-toolbar.md` | `test/browser/shortcuts/previewToolbar.test.ts`（レイアウト + クリック実効果 + ツールチップ） | レイアウトとクリック効果（H1-H3/箇条書き/引用/Undo）まで検証済み（2026-07-07 追加）。チェックボックスボタンは `test/browser/cursor-focus/checkboxCursorJump.test.ts` が別途担当 |
 | `i18n-localization.md` | `test/suite/preview/rendering/webviewI18n.test.ts` | 文字列テーブルの存在・キー網羅を検証 |
+| `mermaid-node-label-inline-edit.md` | `test/suite/preview/rendering/mermaidNodeLabelEdit.test.ts`（純関数）、`test/browser/rendering/mermaidNodeLabelEdit.test.ts`（ダブルクリック→確定→ソース反映、Escapeキャンセル） | 新規実装・テスト済み（2026-07-08）。プレビュー上でのノードラベル編集（新機能）。座標のドラッグ編集は Mermaid 構文上不可能なため対象外 |
 | `preview-scroll-sync.md` | `test/suite/preview/external-sync/scrollAnchor.test.ts`、`test/suite/preview/external-sync/scrollSync.test.ts` | 純関数レベルで検証済み |
 
 ## fix 仕様書（バグ修正・回帰防止）

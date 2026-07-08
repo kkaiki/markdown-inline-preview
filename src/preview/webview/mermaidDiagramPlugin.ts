@@ -22,9 +22,11 @@
  */
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
+import type { EditorView } from '@milkdown/prose/view';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 import mermaid from 'mermaid';
+import { attachMermaidNodeLabelEditing } from './mermaidNodeLabelEditor';
 
 let enabled = true;
 
@@ -52,12 +54,11 @@ function applyContent(div: HTMLElement, source: string): void {
     }
 }
 
-function widgetFactory(source: string): () => HTMLElement {
-    return () => {
+function widgetFactory(source: string): (view: EditorView, getPos: () => number | undefined) => HTMLElement {
+    return (view, getPos) => {
         const div = document.createElement('div');
         div.className = 'mermaid-diagram';
         div.contentEditable = 'false';
-        div.setAttribute('aria-hidden', 'true');
         let set = liveElements.get(source);
         if (!set) {
             set = new Set();
@@ -65,6 +66,7 @@ function widgetFactory(source: string): () => HTMLElement {
         }
         set.add(div);
         applyContent(div, source);
+        attachMermaidNodeLabelEditing(div, view, getPos);
         return div;
     };
 }

@@ -8,7 +8,7 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1160 件**
+**総テスト数: 1170 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 104 件
 
@@ -280,7 +280,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 202 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 206 件
 
 実行: `npm run test:browser`
 
@@ -936,6 +936,26 @@
   - "$ 100" のような $ 直後が空白の金額表記は数式化されない
   - ハードブレイクを挟んで $$ が分割される（複数行にまたがる）場合は数式として描画されず、ソースのまま残る
   - enableMath を設定メッセージで true → false → true と動的に切り替えると、都度すぐに反映される
+
+### `test/browser/rendering/mermaidNodeLabelEdit.test.ts`（4 件）
+
+> 実ブラウザ回帰テスト: Preview 上の Mermaid 図を「見たまま」編集する。
+>
+> Mermaid の標準構文にはノードの座標（レイアウト）を保存する仕組みが無く、レイアウトは
+> 常に Mermaid が自動計算するため、「図をドラッグして自由配置する」編集はソースへ
+> 反映しようがない。そのため対応範囲を「ノードラベルのダブルクリック編集」に絞る:
+> SVG 上のノードをダブルクリックするとインライン入力欄が現れ、確定すると
+> ソースの ```mermaid コードブロック中の対応ノードのラベル文字列だけが書き換わり、
+> 図も新しいラベルで再描画される。純粋な文字列置換ロジックは
+> `src/preview/webview/mermaidNodeLabelEdit.ts`（`updateMermaidNodeLabel`）が担う。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: Preview の Mermaid ノードラベルのダブルクリック編集**
+  - 図のノードをダブルクリックすると、現在のラベルが入った入力欄が開く
+  - ラベルを書き換えて Enter で確定すると、ソースへ反映され図も新しいラベルで再描画される
+  - Escape でキャンセルすると、ソースも図も変更されない
+  - ラベルの無いベアノード（ID がそのままラベル）も編集して角括弧ラベルを付与できる
 
 ### `test/browser/rendering/mermaidRendering.test.ts`（2 件）
 
@@ -1709,7 +1729,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 631 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 637 件
 
 実行: `npm run test:unit`
 
@@ -1868,6 +1888,22 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **markdownAssets**
   - rewrites relative image paths and restores them
   - leaves absolute URLs unchanged
+
+### `test/suite/preview/rendering/mermaidNodeLabelEdit.test.ts`（6 件）
+
+> `updateMermaidNodeLabel`（純関数）: Mermaid ソーステキスト中の、指定ノード ID の
+> ラベル文字列だけを書き換える。Preview 上で図のノードラベルをダブルクリック編集
+> したときに、ソースの ```mermaid コードブロックへ反映するために使う。
+> 図のレイアウト（座標）は Mermaid が自動計算するため保存できない・しない。
+> 対応するのは「ラベル文字列の書き換え」のみ（ノード/エッジの追加・削除・付け替えは対象外）。
+
+- **updateMermaidNodeLabel**
+  - ラベルの無い（ID がそのままラベルになっている）ノードに角括弧ラベルを付与する
+  - 既存の角括弧ラベルを新しいテキストに置き換える（形状は維持）
+  - 丸括弧（角丸）ノードの形状を維持したままラベルを置き換える
+  - 波括弧（ひし形）ノードの形状を維持したままラベルを置き換える
+  - 同じ ID が複数箇所に出現しても最初の宣言（形状/ラベルを持つ箇所）だけを書き換える
+  - 存在しないノード ID を指定した場合はソースをそのまま返す
 
 ### `test/suite/preview/rendering/webviewI18n.test.ts`（8 件）
 
