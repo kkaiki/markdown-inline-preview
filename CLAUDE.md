@@ -20,6 +20,10 @@
 
 ## テスト体系
 
+> **原則は [docs/testing-rules.md](docs/testing-rules.md)（テストの掟）が正**。
+> レイヤーの信頼度序列（実 VS Code が主軸・下位レイヤーは代替にならない）、
+> 偽装カバレッジの禁止、アンチフレーク規則、新テスト追加チェックリストはそちらを参照。
+
 | コマンド | 対象 | 特徴 |
 |---|---|---|
 | `npm run test:unit` | `test/suite/**/*.test.ts`, `test/webview/**/*.test.ts` | jsdom 上でのユニット・純関数テスト。高速（数秒）。 |
@@ -38,7 +42,7 @@
 test/
 ├── extension/              # 実 VS Code（1回起動で全部実行）
 │   ├── raw/                #   lists-tables / navigation / editing-core / shortcuts / settings / external-sync
-│   ├── preview/             #   tabs-editors / settings / external-sync
+│   ├── preview/             #   tabs-editors / settings / external-sync / lists-tables
 │   └── helpers.ts          #   共通ヘルパー
 ├── browser/                # 実 Chromium — すべて Preview（webview の実 DOM/キー入力）
 │   └── cursor-focus/ focus-expand/ shortcuts/ editing-core/ lists-tables/ external-sync/ rendering/ ime/ usage-flows/

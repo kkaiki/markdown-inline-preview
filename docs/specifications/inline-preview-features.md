@@ -60,7 +60,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | インデント削除           | `Shift+Tab`                     | 番号付きは再採番                    |
 | チェックボックストグル   | `Cmd+Enter`                     | `[ ]` ↔ `[x]`                  |
 | チェックボックスクリック | マウス                            | `- [x]` プレフィックス全体（`-` から `]` まで）をクリックでトグル（設定で変更可） |
-| 番号の再採番             | `renumberLists`                 | 連番の修正                          |
+| 番号の再採番             | `renumberLists`                 | 連番の修正。空行が1つだけの場合、それがネスト行（インデントあり）どうしを区切っているときは同じリストの続きとみなして跨いで再採番する。トップレベルの項目どうしを区切る空行は別のリストの境界とみなして止める。2つ以上連続する空行はネストの有無によらず常に止める |
 | 行移動                   | `moveLineUp` / `moveLineDown` | ブロック単位（キーバインド未割当）  |
 | 完了タスクの取り消し線   | 自動                              | チェック済み行の本文                |
 | CodeLens                 | 行上                              | Check / Uncheck（設定で on/off）    |
@@ -94,7 +94,7 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | 自動整形     | テーブル行から離脱時          | `advanced.autoFormatTables` が `true` のときのみ（**既定: off**） |
 | 日本語幅計算 | 設定                          | `table.widthCalculation: smart` で全角/半角を考慮                         |
 
-`/table normalize on|off` でワークスペース設定 `autoFormatTables` を永続切替可能。`normilize` は typo エイリアス。
+`/table normalize on|off` でワークスペース設定 `autoFormatTables` を永続切替可能。`normilize` は typo エイリアス。ワークスペース（フォルダ）を開いていない単一ファイル編集時は `ConfigurationTarget.Workspace` への書き込みが例外を投げるため、その場合はユーザー設定（Global）へフォールバックする。永続化に失敗しても、その場で効かせる `rawRuntime.slashTableNormalizeOverride` の設定は妨げない（`applySlashCommand.ts`）。
 
 **補足:** `smartEnter` と行移動では、行に `|` が含まれると設定に関係なく整形が走る場合があります。
 
@@ -214,6 +214,8 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 | `markdownInline.moveLineUp` / `Down`                                      | 行ブロック移動             |
 
 `formatTable` はコマンドパレットから実行（タイトルバーの整形アイコンは廃止）。テーブル行から離れる際の自動整形（`advanced.autoFormatTables`）もあわせて利用できる。
+
+`smartSelectAll` の最終段階（セル/コードブロック全体選択済みの状態からの文書全体選択）は、VS Code 既定の `editor.action.selectAll` に委譲せず、明示的に `Selection(0,0 〜 最終行末)` を組み立てて設定する（`selectWholeDocument`、`navigation.ts`）。`editor.action.selectAll` は実ウィンドウがフォーカスを持たない環境（自動テスト実行時など）で無反応になることがあり、他の段階（セル/行/表）と同じ「明示的に Selection を組み立てる」方式に揃えた。
 
 ---
 

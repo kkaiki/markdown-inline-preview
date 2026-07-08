@@ -57,4 +57,33 @@ describe('resolveWebviewSaveDecision', () => {
             'defer'
         );
     });
+
+    it('直近に webview へ push した内容（lastPushedToWebview）とディスクが一致するなら、document モデルが陳腐化していても適用してよい（apply）', () => {
+        // 外部ツールが書き換えた内容を webview へ push した直後、VS Code の TextDocument
+        // モデル（document.getText()）は auto-reload に頼っており、Preview だけを開いている
+        // 場合はすぐには追従しないことがある（既知の制約。stale-external-push-cursor-jump-fix.md
+        // 系のドキュメント参照）。document モデルの陳腐化を「外部ツールが割り込んだ」と誤認して
+        // defer し続けると、webview がその push を基準に組み立てた（＝正当な）その後の保存要求
+        // まで永久に defer され、ユーザーがその後 Preview で入力した内容が保存されずに消える
+        // 実バグがあった。host 側が「直近に webview へ push した内容」を追跡し、ディスクが
+        // それと一致していれば document モデルの陳腐化を無視して適用してよい。
+        assert.strictEqual(
+            resolveWebviewSaveDecision('external content\n', 'stale document model\n', null, 'external content\n'),
+            'apply'
+        );
+    });
+
+    it('lastPushedToWebview が無い（何も push していない）なら、document モデルとの食い違いは今まで通り defer する', () => {
+        assert.strictEqual(
+            resolveWebviewSaveDecision('externally changed\n', 'original\n', null, null),
+            'defer'
+        );
+    });
+
+    it('lastPushedToWebview とも食い違うディスク内容は、新たな外部割り込みとみなし defer する', () => {
+        assert.strictEqual(
+            resolveWebviewSaveDecision('yet another external edit\n', 'stale document model\n', null, 'external content\n'),
+            'defer'
+        );
+    });
 });

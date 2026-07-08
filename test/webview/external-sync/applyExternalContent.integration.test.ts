@@ -58,4 +58,36 @@ describe('webview統合: applyExternalContent（外部編集の反映）', () =>
         assert.strictEqual(applied, true);
         assert.ok(!h.view.state.doc.textContent.includes('something'), '空置換が反映されていない');
     });
+
+    describe('hadFocus: 更新前後でフォーカス状態を保つ', () => {
+        it('差分置換パス: フォーカスがある状態での外部更新後もフォーカスが保たれる', async () => {
+            h = await createPreviewEditor('line one\n\nline two\n');
+            h.view.focus();
+            assert.strictEqual(h.view.hasFocus(), true, '前提: フォーカスがある状態');
+            apply(h, 'line one\n\nline two changed\n');
+            assert.strictEqual(h.view.hasFocus(), true, '外部更新後にフォーカスが失われた');
+        });
+
+        it('差分置換パス: フォーカスが無い状態での外部更新はフォーカスを奪わない', async () => {
+            h = await createPreviewEditor('line one\n\nline two\n');
+            assert.strictEqual(h.view.hasFocus(), false, '前提: フォーカスが無い状態');
+            apply(h, 'line one\n\nline two changed\n');
+            assert.strictEqual(h.view.hasFocus(), false, 'フォーカスが無かったのに更新後に奪われた');
+        });
+
+        it('全置換フォールバックパス（空文書）: フォーカスがある状態では更新後もフォーカスが保たれる', async () => {
+            h = await createPreviewEditor('something\n');
+            h.view.focus();
+            assert.strictEqual(h.view.hasFocus(), true, '前提: フォーカスがある状態');
+            apply(h, '\n');
+            assert.strictEqual(h.view.hasFocus(), true, '空置換後にフォーカスが失われた');
+        });
+
+        it('全置換フォールバックパス（空文書）: フォーカスが無い状態では更新後もフォーカスを奪わない', async () => {
+            h = await createPreviewEditor('something\n');
+            assert.strictEqual(h.view.hasFocus(), false, '前提: フォーカスが無い状態');
+            apply(h, '\n');
+            assert.strictEqual(h.view.hasFocus(), false, 'フォーカスが無かったのに空置換後に奪われた');
+        });
+    });
 });

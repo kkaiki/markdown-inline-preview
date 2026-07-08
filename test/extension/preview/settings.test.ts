@@ -10,7 +10,7 @@
  */
 import assert from "assert";
 import * as vscode from "vscode";
-import { closeAllEditors, updateMarkdownInlineSetting } from "../helpers";
+import { closeAllEditors, createTestDocument, updateMarkdownInlineSetting } from "../helpers";
 
 suite('Preview: settings', () => {
 
@@ -99,6 +99,57 @@ suite('Preview: settings', () => {
 
             const wrapTabs = getRawGlobal('workbench.editor', 'wrapTabs');
             assert.strictEqual(wrapTabs, false, 'wrapTabs=false のとき workbench.editor.wrapTabs が false に戻っていません');
+        });
+    });
+
+    // コマンドパレットから `markdownInline.preview.showLineNumbers` を素早く切り替えたい
+    // という要望（設定 UI で毎回検索するのが手間）に応え、コマンドパレットに現れる
+    // 専用トグルコマンドを追加した。設定 UI の検索とは別に、コマンド名（日本語/英語とも
+    // 「行番号」「line numbers」でヒットする）から直接呼べる。
+    suite('11. 行番号表示のコマンドパレット・トグル', () => {
+
+        teardown(async () => {
+            await updateMarkdownInlineSetting('preview.showLineNumbers', undefined);
+        });
+
+        function getShowLineNumbers(): unknown {
+            return vscode.workspace.getConfiguration('markdownInline').get('preview.showLineNumbers');
+        }
+
+        test('11.1 markdownInline.toggleLineNumbers はコマンドパレットに登録されている', async function () {
+            this.timeout(8000);
+
+            // 拡張は onLanguage:markdown で遅延アクティベートされる。他スイートより先に
+            // 単体で実行されると未アクティベートで getCommands に載らないことがあるため、
+            // まず Markdown 文書を開いてアクティベーションを確定させてから確認する。
+            await createTestDocument('# doc');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const commands = await vscode.commands.getCommands(true);
+            assert.ok(
+                commands.includes('markdownInline.toggleLineNumbers'),
+                'markdownInline.toggleLineNumbers コマンドが登録されていません'
+            );
+        });
+
+        test('11.2 既定値(true)から実行すると showLineNumbers が false になる', async function () {
+            this.timeout(8000);
+
+            await updateMarkdownInlineSetting('preview.showLineNumbers', true);
+            await vscode.commands.executeCommand('markdownInline.toggleLineNumbers');
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            assert.strictEqual(getShowLineNumbers(), false, '実行後に showLineNumbers が false になっていません');
+        });
+
+        test('11.3 false から実行すると showLineNumbers が true に戻る', async function () {
+            this.timeout(8000);
+
+            await updateMarkdownInlineSetting('preview.showLineNumbers', false);
+            await vscode.commands.executeCommand('markdownInline.toggleLineNumbers');
+            await new Promise(resolve => setTimeout(resolve, 250));
+
+            assert.strictEqual(getShowLineNumbers(), true, '実行後に showLineNumbers が true に戻っていません');
         });
     });
 });

@@ -9,7 +9,6 @@ import { history } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 import { listItemBlockComponent, listItemBlockConfig } from '@milkdown/kit/component/list-item-block';
-import renderMathInElement from 'katex/contrib/auto-render';
 import mermaid from 'mermaid';
 
 import type { EditorView } from '@milkdown/prose/view';
@@ -30,18 +29,23 @@ import {
 import { scrollRatioFromPixels, pixelsFromScrollRatio, contentScrollHeight } from '../../shared/preview/scrollSync';
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { createMarkerBackspacePlugin } from './markerBackspace';
-import { createBlockPrefixEditPlugin, isBlockPrefixActive } from './blockPrefixEditPlugin';
+import { createBlockPrefixEditPlugin, isBlockPrefixActive, setOnCollapseSync } from './blockPrefixEditPlugin';
 import { createLineNumberGutterPlugin } from './lineNumberGutterPlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createPreviewToolbarPlugin } from './previewToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
+import { createClipboardPlainTextPlugin } from './clipboardPlainTextPlugin';
+import { createListMarkerDragFixPlugin } from './listMarkerDragFixPlugin';
 import { createTableSelectionFixPlugin } from './tableSelectionFix';
 import { createTableArrowKeymapPlugin } from './tableArrowKeymap';
 import { createPreviewKeymapPlugin, handleSelectAllCapture } from './previewKeymapPlugin';
 import { classifyPreviewShortcut } from '../../shared/preview/previewShortcuts';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
 import { createCodeHighlightPlugin } from './codeHighlightPlugin';
+import { createMermaidDiagramPlugin, setMermaidEnabled } from './mermaidDiagramPlugin';
+import { createMathDecorationPlugin, setMathEnabled } from './mathDecorationPlugin';
+import { createImeEnterGuardPlugin } from './imeEnterGuard';
 import { createCodeBlockTripleClickPlugin } from './codeBlockTripleClick';
 import { createInlineMarkBackspacePlugin } from './inlineMarkBackspace';
 import { createCodeBlockBackspacePlugin } from './codeBlockBackspace';
@@ -261,6 +265,8 @@ function applySettingsToDom(settings: PreviewSettings): void {
 
     setFocusSyntaxEnabled(settings.showFocusSyntax);
     setSlashMenuEnabled(settings.enableSlashMenu);
+    setMermaidEnabled(settings.enableMermaid);
+    setMathEnabled(settings.enableMath);
     if (!settings.enableSlashMenu) {
         slashMenuController?.hide();
     }
@@ -298,45 +304,10 @@ function escapeHtml(text: string): string {
         .replace(/"/g, '&quot;');
 }
 
-async function renderMermaidBlocks(): Promise<void> {
-    if (!currentSettings?.enableMermaid) return;
-    const blocks = root.querySelectorAll('pre code.language-mermaid');
-    for (const block of blocks) {
-        const pre = block.parentElement;
-        if (!pre || pre.dataset.mermaidRendered === 'yes') continue;
-        const code = block.textContent?.trim() ?? '';
-        if (!code) continue;
-        try {
-            const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
-            const { svg } = await mermaid.render(id, code);
-            const container = document.createElement('div');
-            container.className = 'mermaid-diagram';
-            container.innerHTML = svg;
-            pre.replaceWith(container);
-            container.dataset.mermaidRendered = 'yes';
-        } catch {
-            pre.dataset.mermaidRendered = 'error';
-        }
-    }
-}
-
-function renderMath(): void {
-    if (!currentSettings?.enableMath) return;
-    renderMathInElement(root, {
-        delimiters: [
-            { left: '$$', right: '$$', display: true },
-            { left: '$', right: '$', display: false }
-        ],
-        throwOnError: false
-    });
-}
-
-async function enhanceRenderedContent(): Promise<void> {
-    // コードのシンタックスハイライトは codeHighlightPlugin（デコレーション）が担当する。
-    // ここでは KaTeX 数式と Mermaid 図の描画だけを行う。
-    renderMath();
-    await renderMermaidBlocks();
-}
+// コードのシンタックスハイライト・Mermaid 図・KaTeX 数式は、すべてデコレーション
+// プラグイン（codeHighlightPlugin / mermaidDiagramPlugin / mathDecorationPlugin）が
+// 描画する。DOM を直接書き換える後処理は ProseMirror の MutationObserver に
+// 巻き戻されるため存在しない。
 
 function handlePreviewLinkClick(event: Event): boolean {
     const target = event.target;
@@ -471,7 +442,6 @@ function postChange(markdown: string): void {
     if (canonical === lastSyncedMarkdown) return;
     lastSyncedMarkdown = canonical;
     vscodeApi.postMessage({ type: 'change', markdown: fileMarkdown });
-    void enhanceRenderedContent();
 }
 
 
@@ -547,6 +517,9 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         })
         // Keymap overrides must come before the presets so their handleKeyDown
         // runs ahead of the base/gfm keymaps (Cmd+A, Cmd+Opt+N, Enter-in-cell).
+        // imeEnterGuard は IME 確定 Enter を他の Enter ハンドラより先に握りつぶす
+        // 必要があるため、最初に登録する。
+        .use(createImeEnterGuardPlugin())
         .use(createPreviewKeymapPlugin())
         .use(createCodeBlockTripleClickPlugin())
         .use(createInlineMarkBackspacePlugin())
@@ -565,14 +538,20 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         }))
         // 画像とテキストの混在を防ぐ。文書変更後に混在段落を自動分離する。
         .use(imageIsolationPlugin)
+        // コピー時、表セルの改行を保存用 markdown の `<br>` のまま漏らさず、実際の
+        // 改行として渡す。clipboard プラグインより前に登録し、someProp の先勝ちで上書きする。
+        .use(createClipboardPlainTextPlugin())
         // 貼り付け/コピーを Markdown ベースにする。これが無いと Preview への貼り付けが
         // ProseMirror 既定（HTML/プレーンテキスト）任せになり、Raw と違って構造が崩れる。
         .use(clipboard)
         .use(listener)
         .use(listItemBlockComponent)
+        .use(createListMarkerDragFixPlugin())
         .use(createTableToolbarPlugin())
         .use(createCodeLanguagePlugin())
         .use(createCodeHighlightPlugin())
+        .use(createMermaidDiagramPlugin())
+        .use(createMathDecorationPlugin())
         .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
         .use(createMarkerBackspacePlugin())
@@ -600,6 +579,19 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     }
 
     editor = await builder.create();
+    // blockPrefixEditPlugin の collapse（addToHistory: false）は Milkdown の
+    // markdownUpdated リスナーから完全に見えない（同リスナーは addToHistory:false の
+    // transaction を無視するため）。collapse のたびに現在の doc を明示的に再シリアライズ
+    // して postChange することで、リスナー側の取りこぼしに依存せず常に最新内容を
+    // ホストへ届ける（詳細: docs/specifications/collapse-markdown-sync-fix.md）。
+    setOnCollapseSync(() => {
+        if (!editor) return;
+        editor.action((ctx) => {
+            const serialize = ctx.get(serializerCtx);
+            const view = ctx.get(editorViewCtx);
+            postChange(serialize(view.state.doc));
+        });
+    });
     // テスト専用シーム: 事前に window.__IPREVIEW_TEST_HOOK__ が定義されている場合のみ
     // EditorView を渡す。本番（実 VS Code）では未定義なので何もしない。
     // 実ブラウザ回帰テスト（test/browser）がドキュメントモデル/選択を読むために使う。
@@ -614,7 +606,6 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         pendingDiffBase = undefined;
     }
 
-    await enhanceRenderedContent();
     // `.milkdown` が生成され実際の行高が取れるようになったので、スクロール余白を確定する。
     updateScrollBeyondPadding();
 }
@@ -624,7 +615,6 @@ function applyExternalMarkdown(markdown: string): void {
     if (!editor || next === lastSyncedMarkdown) return;
     lastSyncedMarkdown = next;
     editor.action((ctx) => applyExternalContent(ctx, next));
-    void enhanceRenderedContent();
 }
 
 /** アンカー見出しまでスクロール。一致する見出しが無ければ false（呼び出し側が比率で代替）。 */

@@ -1,6 +1,6 @@
 # Preview: 実利用フローに基づくテスト拡充バックログ
 
-最終更新: 2026-07-07
+最終更新: 2026-07-08（外部書き換え直後の入力消失バグ発見・修正を追記）
 
 これまでの修正（`checkbox-cursor-jump-fix.md` / `stale-external-push-cursor-jump-fix.md` /
 `preview-to-raw-pending-edit-loss-fix.md` / `typed-checkbox-conversion-fix.md` /
@@ -110,6 +110,17 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   判明済み。実デスクトップ環境でも同じかはこのテストハーネスだけでは確認できず、
   自動テストでこれ以上切り分けることはできない（実環境での手動確認が必要、対応保留）。
 
+  → **2026-07-08: この制約を Preview 側に当てはめて調査した結果、隣接する実バグを発見・
+  修正した**（`stale-document-model-save-defer-fix.md`）。「Preview は `readDocumentFromDisk()`
+  で直接ディスクを読むためこの問題の影響を受けない」という従来の認識は**push（host→webview）
+  方向のみ**正しく、**save（webview→host）方向の判定 `resolveWebviewSaveDecision` は
+  `document.getText()` の陳腐化を「外部の新たな割り込み」と誤認**していた。外部書き換え直後に
+  ユーザーが Preview で入力を続けると、その保存が defer され続け、host が古いディスク内容を
+  再 push することで**入力した内容が画面上から消える**（一度陥ると `document` が VS Code
+  自身の力で自動リロードされない限り解消しない自己再生産的な不具合）。host が「直近に
+  webview へ push した内容」（`lastPushedToWebview`）を追跡し、ディスクがそれと一致する
+  限り `document` モデルの陳腐化を無視して適用してよいことにして修正した。✅
+
 ## 4. 2026-07-07 網羅監査（3 エージェントによる src/ ⇄ test/ 突き合わせ）
 
 `test-directory-design.md` のカテゴリ再編完了を受け、`src/preview/webview/`・`src/raw/`
@@ -155,6 +166,29 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   両方で同じ組み合わせ（周辺状態4種 × リスト種別2種 + 見出し起点）を検証するよう揃えた。
   実バグは見つからず、対称カバレッジを仕様として固定（`checkbox-cursor-jump-fix.md` に追記）。
 
+- ~~同一段落内で日本語IME変換を複数回連続確定すると冒頭が二重化する（ユーザー報告）~~ →
+  **調査済み（2026-07-08）、再現に至らず**: ユーザー報告「『このアプリで、Aという文章を
+  編集しているとして、』と一気に打つと『このアプリでこのアプリで、...』のように冒頭が
+  二重化する」を受け、`test/browser/ime/imeSequentialConversionDuplication.test.ts`
+  （句読点を挟んだ連続確定・非IME直接タイプとの混在・既存段落末尾からの継続・待ち時間ゼロの
+  高速連続確定の4パターン）と `imeExternalUpdateRace.test.ts`
+  「編集中の段落そのものに...古いupdateが変換中に届いても...」（自分エコー誤検知が
+  編集中と同じ段落を巻き戻すケースを想定）を新規に追加したが、いずれも再現しなかった。
+  CDP（`Input.imeSetComposition`/`insertText`）によるcomposition シミュレーションでは
+  この種の複製を起こせないことを確認した（実バグなし、既存動作を仕様として固定）。
+  「実 VS Code の webview サンドボックス + 実 OS の IME タイミングでしか起きないのでは」
+  という仮説を潰すため、実 VS Code（`test/extension`）側でも検証した: `previewPanel.ts` に
+  テスト専用シーム（`injectWebviewChangeForTesting` / `markdownInline.__test.injectWebviewChange`
+  コマンド。`context.extensionMode === vscode.ExtensionMode.Test` の時だけ登録＝本番には
+  無関係）を追加し、webview からの `change` メッセージ受信経路（`enqueueWebviewChange →
+  applyMarkdownFromWebview`。実ディスク read・`WorkspaceEdit`・save・fileWatcher エコー判定を
+  含む本物のタイミング）を実ファイル上で直接叩く `external-sync.test.ts` 12.7 を追加したが、
+  これも再現しなかった。webview 層（実 Chromium シミュレーション）・host 層（実 VS Code +
+  実ディスク I/O）の両方で再現を試みて見つからなかったことになる（詳細:
+  `bug-hunt-2026-07-findings.md` §4）。再発時は VS Code 上で実際に発生した直後の状況
+  （直前の保存タイミング、autoSave設定の有無、どのくらいの速さで打ったか）を記録できると
+  次の手がかりになる。
+
 - **`typedCheckboxConversion.test.ts` の日本語ケースが実 IME を通していない**:
   同ファイルの「日本語本文」ケースは `h.type()` の文字送りであり、`imeEnterRace.test.ts` が
   使う CDP `Input.imeSetComposition`/`insertText` の実 composition シーケンスを経ていない。
@@ -164,17 +198,33 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 ### 4.2 未テストの分岐・関数（存在を裏取り済み）
 
 **cursor-focus**
-- `blockPrefixEditPlugin.ts` の `pendingCheckboxSelectionGuard`（1000ms ガード窓の
-  armedAt 経過判定・誤爆からの復帰）は内部ロジック単体では未検証（症状レベルのみ）。
+- ~~`blockPrefixEditPlugin.ts` の `pendingCheckboxSelectionGuard`（1000ms ガード窓の
+  armedAt 経過判定・誤爆からの復帰）は内部ロジック単体では未検証（症状レベルのみ）~~ →
+  **消化済み（2026-07-07）**: `test/webview/cursor-focus/checkboxSelectionGuard.test.ts` を
+  新規作成し、(1) checked null→boolean 変換直後にドキュメントを変えない
+  selectionchange でズレても元の位置へ復元される、(2) 実タイプが続く間は追跡位置が
+  mapping で更新され誤って巻き戻さない、(3) ガード窓（1000ms）経過後は復元されなく
+  なる、の3点を jsdom 上で直接 transaction を発行して検証（実ブラウザより高速・決定的）。
+  実バグは見つからず、既存ロジックを仕様として固定。
 - `applyExternalContent.ts` のパーサー例外時フォールバック（`replaceAllWithClamp`）と、
   ノード属性が異なっても markdown 直列化が同じなら「変更なし」とみなすフォールバックは
-  未検証。同ファイルの `hadFocus`（外部更新後にフォーカスを復元するか）の分岐も未検証。
+  未検証。~~同ファイルの `hadFocus`（外部更新後にフォーカスを復元するか）の分岐も未検証~~ →
+  **hadFocus は消化済み（2026-07-07）**: `applyExternalContent.integration.test.ts` に
+  「差分置換パス」「全置換フォールバックパス（空文書）」双方で、フォーカスがある場合は
+  維持・無い場合は奪わないことを検証する4件を追加。実バグなし、既存動作を仕様固定。
+  パーサー例外時フォールバック自体（`replaceAllWithClamp` への到達条件のうち例外系）は
+  未検証のまま残っている（空文書＝childCount 0 の経路のみ確認済み）。
 
 **focus-expand**
-- `blockPrefixEditPlugin.ts`: 番号付きリスト項目（`1. item`）のフォーカス展開/収縮は
+- ~~`blockPrefixEditPlugin.ts`: 番号付きリスト項目（`1. item`）のフォーカス展開/収縮は
   `blockPrefixEdit.integration.test.ts` で未カバー（見出し・タスク・箇条書き・blockquote
-  のみ検証）。タスクリスト項目のプレフィックスを編集して `checked` が boolean → null に
-  戻る分岐も未検証。
+  のみ検証）~~ → **消化済み（2026-07-07）**: 「番号付きリスト」describe を追加し、
+  展開時に項目自身の番号（"1. " / "2. "）が現れること・抜けると番号のみ残ってプレフィックス
+  は消えること・2番目以降の項目でも常に "1. " にならず自身の番号になること・リンクで
+  始まる項目でプレフィックスがマークを継承しないことを検証（5件）。実バグなし、仕様固定。
+  タスクリスト項目のプレフィックスを編集して `checked` が boolean → null に
+  戻る分岐（`collapseListItem` 内、`getFocusedBlockInfo` がチェックボックス項目を
+  そもそも展開しないため実質到達不能に近いエッジケース）は未検証のまま残る。
 
 **shortcuts**
 - ~~`src/raw/completion/applySlashCommand.ts`: `/code` `/quote` `/divider` `/callout`
@@ -192,10 +242,18 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   （フィルタ一覧に出ることのみ確認済み）。
 
 **lists-tables**
-- `src/raw/list/moveLine.ts` の `moveLineWithHierarchy`、`src/raw/commands/navigation.ts`
-  の関連ハンドラは実コマンド経由では一切テストされていない（`test/suite/raw/` は多くが
-  ソースをコピーした純関数を独自に再実装してテストしており、**実ソースを通していない**
-  ことに注意。詳細は下記「構造上の注意」）。
+- ~~`src/raw/list/moveLine.ts` の `moveLineWithHierarchy`、`src/raw/commands/navigation.ts`
+  の関連ハンドラは実コマンド経由では一切テストされていない~~ →
+  **`navigation.ts` 側は消化済み（2026-07-08）**: `test/extension/raw/navigation.test.ts` に
+  実コマンド（`markdownInline.smartSelectLeft`/`smartMoveUp`/`smartMoveDown`/
+  `smartSelectAll`）経由の統合テストを9件追加。(1) `smartSelectLeft` のテーブルセル境界
+  を跨ぐ選択拡大（2番目以降のセルから前セルの内容末尾へ、先頭セルから行頭へ）、
+  (2) `smartMoveUp`/`smartMoveDown` の文書端（1行目/最終行、テーブル最終行）での
+  既定コマンドへのフォールバック、(3) コードフェンス内での `smartSelectAll` の段階的
+  選択（内容のみ→文書全体）。実バグなし、既存ロジックを仕様として固定。
+  `moveLineWithHierarchy`（`src/raw/list/moveLine.ts`）はまだ実コマンド未検証のまま
+  残っている（`test/suite/raw/` の一部はソースをコピーした純関数を独自に再実装して
+  テストしており、**実ソースを通していない**ことに注意。詳細は下記「構造上の注意」）。
 - `src/raw/list/toggleCheckbox.ts` の `moveCompletedTaskToBottom`
   （`autoMoveCompletedTasks` 設定）は実装を確認済みだが対応テストが無い。
 - `adjustIndent` のテーブルセル内 Tab/Shift+Tab 分岐と、複数行選択時の一括インデントは
@@ -205,6 +263,47 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 - テーブル系 webview テスト（`tableArrowKeymap`/`tableMove`/`tableSelection`/
   `tableSelectionFix`/`tableCellBreak`）は全て同じ 2列×2-3行の定型テーブルのみを使い、
   単一列・単一行（ヘッダのみ）・列数不揃いテーブルが未検証。
+- ~~（2026-07-08 追記）`test/extension/preview/` に `lists-tables` カテゴリが存在しない
+  （チェックボックスの実 VS Code end-to-end 書き戻しが未検証）~~ →
+  **消化済み（2026-07-08）**: `test/extension/preview/lists-tables.test.ts` を新設し、
+  `injectWebviewChangeForTesting` テストフック（`external-sync.test.ts` 12.7 と同じ仕組み）
+  経由で (1) トグル（未チェック⇄チェック済み）、(2) Enter による項目追加、(3) 下記バグの
+  host 側回帰、の3件を実ドキュメント・実ディスクまで確認。実バグなし（host 側の
+  書き戻しパス自体は健全）。
+- ~~（2026-07-08 追記）チェックボックス項目のテキスト中央で Enter して分割した場合、
+  新しい項目の `checked` が仕様どおり `false` にリセットされるか未検証~~ →
+  **消化済み（2026-07-08）**: `test/webview/editing-core/checkboxEditDelete.test.ts` と
+  `test/browser/lists-tables/checkboxEditDelete.test.ts` に追加。実バグなし
+  （`splitListItem` の `nextType` 解決により行末 Enter と同じく正しく `false` にリセットされる）。
+- ~~（2026-07-08 追記）2つの隣接するチェックボックス項目の境界で単発 Backspace した際の
+  マージ結果が未検証~~ →
+  **消化済み（2026-07-08）・実バグ発見・修正**: `markerBackspace.ts` のチェックボックス→
+  箇条書き降格（`checked: boolean → null`）が `blockPrefixEditPlugin` の展開抑制
+  （`setBlockPrefixExpansionSuppressed`）で囲まれていなかったため、降格直後
+  （および list-item-block コンポーネントの非同期再描画中）に「フォーカス中の普通の
+  箇条書きになった」と誤検知され、`- ` が実テキストとして混入していた
+  （例: `second` → `- second`、`checked` も壊れた状態のまま）。
+  `previewKeymapPlugin.ts` の `makeTodo()` が対処済みの Bug1 と同種だが、この降格経路
+  だけ対策が漏れていた。**jsdom（`milkdownHarness.ts` のみ）ではこのバグは再現しない**
+  （`markerBackspace`/`blockPrefixEditPlugin` の両方をロードするハーネスが必要）ため
+  `test/webview/focus-expand/blockPrefixEdit.integration.test.ts` に専用の回帰テストを
+  追加し、実ブラウザ（`test/browser/lists-tables/checkboxEditDelete.test.ts`）でも確認。
+  修正は `pendingCheckboxSelectionGuard` と同じ「位置追跡 + 時間窓」方式
+  （`markRecentCheckboxDemotion`）— グローバルな抑制フラグを非同期ウィンドウ全体で
+  持ち続けると無関係な他ブロックの正当な展開まで巻き込むため、対象ノードの位置だけを
+  時間窓つきで除外する設計にした。
+- ~~（2026-07-08 追記）チェックボックス項目末尾での Delete（前方削除）が後続ブロックを
+  巻き込んだときの構造が未検証~~ →
+  **消化済み（2026-07-08）**: `checkboxEditDelete.test.ts`（webview）に追加。実バグなし
+  （後続の普通の段落は同じ `bullet_list` 内の新規項目 `checked=null` として取り込まれる）。
+- ~~（2026-07-08 追記）チェック済み/未チェック項目のテキストを編集しても `checked` が
+  意図せず反転しないことが未検証~~ →
+  **消化済み（2026-07-08）**: `checkboxEditDelete.test.ts`（webview）に追加。実バグなし。
+- ~~（2026-07-08 追記）チェックボックス項目の Tab/Shift+Tab で `checked` が独立して
+  保持されるかが未検証~~ →
+  **消化済み（2026-07-08）**: `checkboxEditDelete.test.ts`（webview）に追加。実バグなし。
+- （2026-07-08 追記）チェックボックス項目の切り取り（Cmd/Ctrl+X）が未検証のまま残っている
+  （コピー&ペーストは `usageFlows.test.ts` に既存）。
 
 **editing-core**
 - `codeBlockTripleClickPlugin.ts` の実プラグイン（trip-click → TextSelection dispatch）は
@@ -245,6 +344,22 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 - テーブルセル内での実 IME 入力（table × ime の組み合わせ）。
 - リスト項目のテキスト内から始めてテーブルセルへドラッグする、構造境界をまたぐ選択。
 
+### 4.1b 新規発見（2026-07-08）: `8.5`/`8.22` がフルスイート実行時のみ失敗するテスト順序依存の flake
+
+`test/extension/raw/shortcuts.test.ts` の「8.5 /table normalize on で自動整形を有効化する」
+「8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される」は、
+単体（`MOCHA_GREP` で当該2件のみ）実行では3回連続成功するが、`extension/` 配下の
+全ファイルを通しで実行する本来の実行方法（VS Code を1回だけ起動し同一インスタンス内で
+連続実行）では毎回失敗する。前の suite（8.4 の `/table normalize off`、または
+7.x の `autoFormatTables` 設定変更テスト）が変更した設定またはエディタ状態が
+持ち越されている疑いが強い（testing-rules.md ルール 3 のアンチフレーク規則に該当）。
+原因未特定・未修正。次に着手する場合は、8.4→8.5 間で `autoFormatTables` 設定値を
+明示的に確認してから本題に進む（ルール 3-1: 前提条件アサート）ことから始めるとよい。
+（追記 2026-07-08 別セッション: フルスイートでも「毎回両方」ではなく、実行ごとに
+落ちる側が入れ替わる — 1回目は 8.22 を含む2件、2回目は 8.5 のみ。単独実行では両方成功。
+順序依存に加えタイミング依存（`config.update` Global 書き込みと 500–700ms 固定待ちの
+レース）の性格も持つ。）
+
 ### 4.3 構造上の注意（テスト基盤そのものの弱点）
 
 `test/suite/raw/` の複数ファイル（`smartNavigation.test.ts`、`selectionEdgeCases.test.ts`、
@@ -262,6 +377,8 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 
 ## 5. 実施方針
 
+原則（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク規則）は
+[../testing-rules.md](../testing-rules.md) に従う。
 各項目を実 Chromium テスト（`test/browser/`）または実 VS Code テスト（`test/extension/`、
 `MOCHA_GREP` で絞り込み実行可）で再現を試み、失敗したものは TDD で修正する。
 jsdom で十分なもの（DOM レイアウト非依存のもの）は `test/webview/` に振り分ける。

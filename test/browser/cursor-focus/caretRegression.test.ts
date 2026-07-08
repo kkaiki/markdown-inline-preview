@@ -39,8 +39,19 @@ describe('実ブラウザ回帰: Preview のキャレット保持（markerBacksp
         }
     });
 
-    /** 1 回 Backspace して「キャレットが上の行へ飛んでいない」ことを検証する共通処理。 */
-    async function expectNoUpwardJump(markdown: string, lineText: string, presses = 1): Promise<void> {
+    /**
+     * 1 回（または複数回）Backspace して「キャレットが上の行へ飛んでいない」ことを検証する
+     * 共通処理。`toleranceOverride` は、正当な構造変化（例: リスト項目内の段落 → 素の
+     * トップレベル段落への昇格に伴う CSS マージン差）で数 px のズレが生じるケース向け。
+     * 既定の `JUMP_TOLERANCE_PX` は「別ブロックへ丸ごと飛ぶ」誤バグ検出用の厳しめの値なので、
+     * みだりに緩めないこと。
+     */
+    async function expectNoUpwardJump(
+        markdown: string,
+        lineText: string,
+        presses = 1,
+        toleranceOverride?: number
+    ): Promise<void> {
         if (!browser) return; // skip 済み
         h = await openPreview(browser, markdown, lineText);
         await h.placeCursorAtLineStart(lineText);
@@ -50,8 +61,9 @@ describe('実ブラウザ回帰: Preview のキャレット保持（markerBacksp
         const after = await h.caretTop();
         assert.ok(after !== null, 'Backspace 後のキャレット座標が取得できない');
         const dy = after - before;
+        const tolerance = toleranceOverride ?? JUMP_TOLERANCE_PX;
         assert.ok(
-            dy >= -JUMP_TOLERANCE_PX,
+            dy >= -tolerance,
             `カーソルが上の行へ飛んだ（dy=${dy}px）。markerBackspace の pinSelection 回帰の疑い。`
         );
         assert.deepStrictEqual(h.errors, [], `ページ内でエラーが発生した: ${h.errors.join(' / ')}`);
@@ -78,7 +90,17 @@ describe('実ブラウザ回帰: Preview のキャレット保持（markerBacksp
     });
 
     it('単独チェックボックス（前に行なし）で連続 Backspace しても飛ばない（回帰）', async function () {
+        // 2回目の Backspace は「箇条書き → 素のトップレベル段落」への昇格
+        // （liftListItem）を伴う。list_item 内の段落と素の段落では CSS マージンが
+        // 異なるため、正しく昇格できているときは数 px の（別ブロックへの「飛び」ではない）
+        // 差が出る。既定の JUMP_TOLERANCE_PX（5px）はこの差を許容しないほど厳しく、
+        // 2026-07-08 に markerBackspace のチェックボックス降格バグ（"- " がテキストへ
+        // 漏れる不具合、preview-usage-flow-test-backlog.md 4.2 参照）を修正するまでは、
+        // 2回目の Backspace が「昇格」ではなく「漏れたプレフィックス文字の削除」という
+        // 別の壊れた動作をしてたまたま dy が許容内に収まっていた（構造は壊れているのに
+        // このテストは検知できていなかった＝偽装カバレッジ）。修正後の正しい動作を
+        // 前提に、この項目だけ緩めた許容値で「別ブロックへの飛び」でないことを確認する。
         if (!browser) { this.skip(); return; }
-        await expectNoUpwardJump('- [ ] solo task\n', 'solo task', 2);
+        await expectNoUpwardJump('- [ ] solo task\n', 'solo task', 2, 10);
     });
 });

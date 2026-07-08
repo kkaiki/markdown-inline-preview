@@ -3,7 +3,7 @@
 最終更新: 2026-06-21
 対象: Preview（Milkdown WYSIWYG モード）
 ステータス: **設計（実装前）** — この md で設計を固めてから実装に入る
-関連: `docs/preview-toggle-icon-candidates.md`（アイコン候補） / `docs/specifications/pro-export-pdf-marp.md`（Export/Pro 課金導線）
+関連: `docs/preview-toggle-icon-candidates.md`（アイコン候補） / Export/Pro 課金導線の仕様（別管理）
 
 ---
 
@@ -12,7 +12,7 @@
 Preview（Milkdown webview）の**上部に常設ツールバー**を置き、マウス操作だけで主要な書式（見出し・チェックボックス・番号付きリストなど）を適用できるようにする。あわせて:
 
 - 各ボタンを**ホバーするとショートカットキーを表示**（学習導線）。
-- 右端に **Export ボタン**を置き、押すと **Pro 課金の導線**（`pro-export-pdf-marp.md`）へつなぐ。
+- 右端に **Export ボタン**を置き、押すと **Pro 課金の導線**（別管理の仕様書）へつなぐ。
 
 Notion / Typora のような「触れば分かる」編集体験を Preview にもたらすのが狙い。
 
@@ -27,7 +27,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
    - 左端に **戻る ↶ / 進む ↷**（区切り線で書式ボタンと分離）。ショートカットは VS Code/Milkdown 標準の `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z`（ヒント表示のみ。keybinding の追加割り当ては不要）。
    - **引用 ❝**（`Cmd+Opt+9`）と **コードブロック `</>`**（`Cmd+Opt+8`）を追加。
 3. ホバーで「機能名 + ショートカット」を表示するツールチップ。
-4. **Export ボタン**（押下で Pro アップグレード案内モーダル/通知を表示。実出力は `pro-export-pdf-marp.md` 側で実装）。
+4. **Export ボタン**（押下で Pro アップグレード案内モーダル/通知を表示。実出力は別管理の仕様書側で実装）。
 
 ### 1.2 任意（設定で表示/非表示）
 
@@ -35,7 +35,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
 
 ### 1.3 非ゴール
 
-- 実際の PDF/Marp 生成（別仕様 `pro-export-pdf-marp.md`）。
+- 実際の PDF/Marp 生成（別管理の仕様書）。
 - ライセンス検証基盤そのもの（同上。ここでは「Export 押下 → 未課金なら案内を出す」フックだけ用意）。
 - Raw 側へのツールバー追加（Raw は既存のキーバインド/CodeLens で対応済み）。
 
@@ -66,7 +66,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
 | 見出し | `$(text-size)` + `H▼`（H1–H3 ドロップダウン） | 現在行を見出しに変換 | slash `h1/h2/h3`, `convertToHeading1..3` | ⌥⌘1 / ⌥⌘2 / ⌥⌘3 |
 | チェックボックス | `$(checklist)` ☑ | 現在行を `- [ ]` に | slash `todo`, `convertToCheckbox` | ⌥⌘4 |
 | 番号付きリスト | `$(list-ordered)` 🔢 | 現在行を `1.` に | slash `numbered`, `convertToNumbered` | ⌥⌘6 |
-| Export | `$(export)` 📤（未課金は ✨/🔒 付与） | エクスポート開始（Pro ゲート） | `pro-export-pdf-marp.md` | （なし） |
+| Export | `$(export)` 📤（未課金は ✨/🔒 付与） | エクスポート開始（Pro ゲート） | 別管理の仕様書 | （なし） |
 
 > アイコンの最終決定は `preview-toggle-icon-candidates.md` のセクション B で選定。
 
@@ -97,7 +97,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
 
 ### 2.5 Export ボタンと Pro 導線
 
-- クリック時、`pro-export-pdf-marp.md` の課金状態を確認:
+- クリック時、Pro ライセンスの課金状態を確認:
   - **未課金**: アップグレード案内を表示（「Pro にすると PDF / Marp で書き出せます」+ 「アップグレード」「あとで」）。導線は VSCode の通知 or webview 内モーダルのどちらか（§4.4）。
   - **課金済み / トライアル**: エクスポート処理へ（別仕様）。
 - ボタンには未課金時 ✨/🔒 バッジを付け、Pro 機能であることを示す。
@@ -138,7 +138,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
 
 - 候補1: Extension Host 側で `vscode.window.showInformationMessage(..., 'アップグレード', 'あとで')`。実装が軽く、VSCode らしい。
 - 候補2: webview 内モーダル（リッチに見せられる）。
-- webview のクリック → `postMessage({ type: 'export-request' })` → `previewPanel.ts` が受けてライセンス確認 → 未課金なら案内。配線は `pro-export-pdf-marp.md` の §3 構成に合流。
+- webview のクリック → `postMessage({ type: 'export-request' })` → `previewPanel.ts` が受けてライセンス確認 → 未課金なら案内。配線は別管理の仕様書（Pro Export）の構成に合流。
 
 ### 4.5 アクセシビリティ / 既存との整合
 

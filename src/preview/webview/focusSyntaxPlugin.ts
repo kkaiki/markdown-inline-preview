@@ -6,7 +6,8 @@ import { $prose } from '@milkdown/utils';
 import {
     collectInlineMarksInRange,
     findFocusedBlockDepth,
-    getBlockPrefix
+    getBlockPrefix,
+    getCodeFenceMarkers
 } from '../../shared/markdown/focusSyntaxHelpers';
 import { getExpandedBlock } from './blockPrefixEditPlugin';
 
@@ -46,24 +47,63 @@ function mkMarker(text: string, pmPos: number): () => HTMLElement {
 }
 
 /**
- * フォーカス中のブロックに対応する行頭マーカーの node decoration を返す。
- * （`## ` `- ` `1. ` `- [ ] ` `> ` を CSS の ::before で見せるための class/属性）
+ * フォーカス中のブロックに対応する行頭マーカーの decoration を返す。
+ * （`## ` `- ` `1. ` `- [ ] ` `> ` を見せるための decoration）
  *
- * 以前は plugin の `view` から ProseMirror 管理下の DOM へ直接 classList.add /
+ * 見出しは行内マーカー（`**` 等）と同じ `Decoration.widget` + 実 `<span>` で描画する。
+ * 以前は class + data-md-prefix の node decoration を CSS `::before` で見せていたが、
+ * `::before` の content は DOM テキストノードではないため、ネイティブの選択
+ * （Cmd+A 等）に本質的に含まれず、選択ハイライトから `## ` だけが抜け落ちて見える
+ * 不具合があった。widget なら実テキストとして選択に含まれる。
+ *
+ * list_item・blockquote は引き続き node decoration + CSS `::before` を使う
+ * （以前は plugin の `view` から ProseMirror 管理下の DOM へ直接 classList.add /
  * setAttribute していたが、それが ProseMirror の DOMObserver を発火させて
  * 「DOM 変更 → 再描画 → view.update → また DOM 変更」の無限ループ（＝編集不能）を
  * 引き起こしていた。node decoration なら ProseMirror 自身が描画時に属性を付けるので
- * observer ループにならず、文書モデルにも何も挿入されないのでカーソルにも影響しない。
+ * observer ループにならず、文書モデルにも何も挿入されないのでカーソルにも影響しない）。
  */
-function blockMarkerDecoration($from: ResolvedPos): Decoration | null {
-    // blockPrefixEditPlugin が実テキストとしてプレフィックスを展開中は
-    // CSS の ::before による二重表示を防ぐためスキップする。
-    if (getExpandedBlock() !== null) return null;
-
+function blockMarkerDecoration($from: ResolvedPos): Decoration[] {
     const depth = findFocusedBlockDepth($from);
-    if (depth === null) return null;
+    if (depth === null) return [];
+
+    // フェンスコードブロックは実テキスト展開（blockPrefixEditPlugin）の対象外なので、
+    // getExpandedBlock() のガードより先に判定する。開始行（```lang）と終了行（```）の
+    // 2 つの widget を、実文書には何も挿入せず表示する（Obsidian の Live Preview 相当）。
+    if ($from.node(depth).type.name === 'code_block') {
+        const node = $from.node(depth);
+        const markers = getCodeFenceMarkers(node);
+        if (!markers) return [];
+        const nodeStart = $from.before(depth);
+        const contentStart = nodeStart + 1;
+        const contentEnd = nodeStart + node.nodeSize - 1;
+        return [
+            Decoration.widget(contentStart, mkMarker(`${markers.open}\n`, contentStart), {
+                side: -1,
+                key: `fence-open-${nodeStart}`
+            }),
+            Decoration.widget(contentEnd, mkMarker(`\n${markers.close}`, contentEnd), {
+                side: 1,
+                key: `fence-close-${nodeStart}`
+            })
+        ];
+    }
+
+    // blockPrefixEditPlugin が実テキストとしてプレフィックスを展開中は
+    // 二重表示を防ぐためスキップする。
+    if (getExpandedBlock() !== null) return [];
+
     const prefix = getBlockPrefix($from, depth);
-    if (!prefix) return null;
+    if (!prefix) return [];
+
+    if ($from.node(depth).type.name === 'heading') {
+        const headingFrom = $from.before(depth);
+        const contentStart = headingFrom + 1;
+        return [Decoration.widget(contentStart, mkMarker(prefix, contentStart), {
+            side: -1,
+            key: `heading-prefix-${headingFrom}`
+        })];
+    }
 
     let listDepth = -1;
     for (let d = $from.depth; d > 0; d--) {
@@ -74,7 +114,7 @@ function blockMarkerDecoration($from: ResolvedPos): Decoration | null {
     const from = $from.before(nodeDepth);
     const to = from + $from.node(nodeDepth).nodeSize;
     const className = listDepth >= 0 ? 'md-focus-block md-focus-list' : 'md-focus-block';
-    return Decoration.node(from, to, { class: className, 'data-md-prefix': prefix });
+    return [Decoration.node(from, to, { class: className, 'data-md-prefix': prefix })];
 }
 
 export const focusSyntaxPlugin = $prose(() => {
@@ -114,8 +154,7 @@ export const focusSyntaxPlugin = $prose(() => {
 
                     const decorations: Decoration[] = [];
 
-                    const blockMarker = blockMarkerDecoration($pos);
-                    if (blockMarker) decorations.push(blockMarker);
+                    decorations.push(...blockMarkerDecoration($pos));
 
                     const blockStart = $pos.start(depth);
                     const blockEnd = $pos.end(depth);

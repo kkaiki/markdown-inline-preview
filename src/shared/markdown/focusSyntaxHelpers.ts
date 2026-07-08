@@ -71,10 +71,20 @@ export function getInlineMarkMarker(mark: Mark): InlineMarkMarker | null {
     return factory ? factory(mark) : null;
 }
 
+/**
+ * フェンスコードブロックの開始行・終了行のマーカー文字列（`` ```lang `` / `` ``` ``）。
+ * `code_block` 以外は null。
+ */
+export function getCodeFenceMarkers(node: ProseNode): { open: string; close: string } | null {
+    if (node.type.name !== 'code_block') return null;
+    const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
+    return { open: '```' + language, close: '```' };
+}
+
 export function findFocusedBlockDepth($pos: ResolvedPos): number | null {
     for (let depth = $pos.depth; depth > 0; depth--) {
         const name = $pos.node(depth).type.name;
-        if (name === 'heading' || name === 'paragraph' || name === 'list_item') {
+        if (name === 'heading' || name === 'paragraph' || name === 'list_item' || name === 'code_block') {
             return depth;
         }
     }

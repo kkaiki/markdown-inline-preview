@@ -2,21 +2,21 @@
 
 <!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->
 
-最終生成: 2026-07-07
+最終生成: 2026-07-08
 
 テストのタイトルは「この操作をしたら、こう動く」という仕様文として書かれている。
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1102 件**
+**総テスト数: 1160 件**
 
-## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 88 件
+## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 104 件
 
 実行: `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`
 
 実際の VS Code を **1 回だけ起動し、その同じインスタンス内で** raw/preview 両方・全カテゴリのテストを連続実行する。コマンド・タブ・フォーカス・設定連携を検証する、最も実践に近い層。`raw/`＝Raw、`preview/`＝Preview、それぞれ配下を `lists-tables`/`navigation`/`tabs-editors` 等の症状カテゴリで分類。`MOCHA_GREP` で絞り込み可。
 
-### `test/extension/preview/external-sync.test.ts`（5 件）
+### `test/extension/preview/external-sync.test.ts`（6 件）
 
 > Preview モード（実 VS Code）の外部（ファイル）との内容同期を検証する。
 >
@@ -34,8 +34,34 @@
     - 12.3 未保存（dirty）の Raw 編集がある状態で Preview→Raw と往復しても編集内容が失われない
     - 12.3b 未保存（dirty）の Raw 編集がある状態で openPreview コマンド（togglePreview 以外の経路）から Preview 化しても編集内容が失われない
     - 12.6 未保存の新規（untitled）ファイルを Preview 化しても本文が失われない
+    - 12.7 rapid な change（webview からの逐次本文送信を模す）連続後もファイル内容が壊れない（IME連続確定の疑いを検証）
 
-### `test/extension/preview/settings.test.ts`（6 件）
+### `test/extension/preview/lists-tables.test.ts`（3 件）
+
+> Preview モード（実 VS Code）でのチェックボックス操作が、実ドキュメント・実ディスクまで
+> 正しく書き戻されることを検証する。
+>
+> `test/browser`/`test/webview` はチェックボックスのトグル・改行・降格ロジック自体を
+> 大量にカバーしているが、それらは webview バンドル単体（実ファイル無し）のレイヤーで、
+> `enqueueWebviewChange → applyMarkdownFromWebview` 以降の実ホスト処理（ディスク read・
+> WorkspaceEdit・save・fileWatcher）を経由しない。ここでは webview からの `change`
+> メッセージ受信経路を直接叩けるテスト専用フック（`markdownInline.__test.injectWebviewChange`、
+> `external-sync.test.ts` 12.7 と同じ仕組み）を使い、チェックボックス操作の結果として
+> webview が送るであろう markdown 全文を模して、実ドキュメント・実ディスクへの反映を確認する。
+>
+> 発端: 2026-07-08、`docs/specifications/preview-usage-flow-test-backlog.md` 4.2 の監査で
+> `test/extension/preview/` に lists-tables カテゴリ（チェックボックス関連）が
+> 1件も存在しないことが判明した。
+>
+> 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
+> 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
+
+- **Preview: lists-tables（実 VS Code end-to-end）**
+  - 13.1 チェックボックスのトグル（未チェック→チェック済み→未チェック）が実ドキュメント・実ディスクへ反映される
+  - 13.2 Enter でチェックボックス項目を継続して増やした結果が実ドキュメント・実ディスクへ反映される
+  - 13.3 行頭 Backspace によるチェックボックス→箇条書きの降格が実ドキュメント・実ディスクへ反映される
+
+### `test/extension/preview/settings.test.ts`（9 件）
 
 > Preview モード（実 VS Code）の VS Code 本体設定との連携を検証する。
 >
@@ -54,6 +80,10 @@
     - 10.4 wordWrap を false にすると markdown 言語の editor.wordWrap が off になる
     - 10.5 wrapTabs を true にすると workbench.editor.wrapTabs が true になる
     - 10.6 wrapTabs を false にすると workbench.editor.wrapTabs が false に戻る
+  - **11. 行番号表示のコマンドパレット・トグル**
+    - 11.1 markdownInline.toggleLineNumbers はコマンドパレットに登録されている
+    - 11.2 既定値(true)から実行すると showLineNumbers が false になる
+    - 11.3 false から実行すると showLineNumbers が true に戻る
 
 ### `test/extension/preview/tabs-editors.test.ts`（10 件）
 
@@ -151,12 +181,18 @@
   - **11. 実 VS Code 環境でのバグハンティング**
     - 11.2 ネストリストの空行を跨ぐ再採番を Undo で 1 段階戻すと、番号と空行の両方が元通りになる
 
-### `test/extension/raw/navigation.test.ts`（17 件）
+### `test/extension/raw/navigation.test.ts`（26 件）
 
 > Raw モード（実 VS Code）のカーソル移動・スマート選択を検証する。
 >
-> 対象: スマート Enter（リスト継続・空項目脱出）、Smart Select All（段階的選択拡大）、
-> テーブルセル内の上下移動（列位置維持）。
+> 対象: スマート Enter（リスト継続・空項目脱出）、Smart Select All（段階的選択拡大。
+> テーブル・コードフェンス双方）、テーブルセル内の上下移動（列位置維持）、文書端での
+> smartMoveUp/Down フォールバック、Smart Select Left のテーブルセル境界を跨ぐ選択拡大。
+>
+> これらは従来 `test/suite/raw/navigation/` で `src/raw/commands/navigation.ts` の
+> ロジックを複製した純関数としてのみ検証されており、実コマンド
+> （`markdownInline.smartSelectLeft` 等）を実 VS Code で実行する経路が無かった
+> （testing-rules.md ルール 2-1 の返済）。
 >
 > 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
 > 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
@@ -182,6 +218,18 @@
     - 移動先セルが短い場合はセル末尾でクランプする
     - 上下移動でセル内容の相対位置を維持する
     - 空セルへ移動した時は入力用の空白を1つ残す
+  - **4.6 Smart Move Up/Down 文書端フォールバック**
+    - 文書の1行目で smartMoveUp を実行しても既定の cursorUp に委譲され落ちない
+    - 文書の最終行で smartMoveDown を実行しても既定の cursorDown に委譲され落ちない
+    - テーブル最終行で smartMoveDown を実行しても文書末で落ちない
+  - **5. Smart Select Left（テーブルセル境界を跨ぐ選択拡大）**
+    - 5.1 セル内容の途中から1回目: コンテンツ開始位置まで選択
+    - 5.2 続けて2回目: セル左端まで選択が拡大する
+    - 5.3 さらに3回目: セル境界を跨いで前のセルの内容末尾まで選択が拡大する
+    - 5.4 先頭セルで左端に達したら、行頭までセル境界を越えて選択が拡大する
+  - **6. コードフェンス内 Smart Select All の段階的選択**
+    - 1回目: コードブロックの内容のみ選択される（フェンス行は含まない）
+    - 2回目: 文書全体を選択する
 
 ### `test/extension/raw/settings.test.ts`（2 件）
 
@@ -232,7 +280,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 190 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 202 件
 
 実行: `npm run test:browser`
 
@@ -500,6 +548,35 @@
   - 編集中に連続する外部 update が届いても、文書が壊れずカーソルは範囲内に収まる
   - 文書サイズが増減を繰り返す連続 update でもクラッシュしない
 
+### `test/browser/external-sync/staleDocumentSaveDeferBug.test.ts`（1 件）
+
+> 実バグ回帰テスト: 外部（AI等）書き換え直後に Preview で入力を続けると、host 側の
+> 「document モデルの陳腐化」誤検知により、その入力が保存されずに消える不具合。
+>
+> ## 背景
+>
+> Preview だけを開いている（Raw のテキストエディタが無い）状態で外部ツールが .md を
+> 直接書き換えると、`FileSystemWatcher` が検知してディスクの最新内容を webview へ push する
+> （`readDocumentFromDisk()` 経由。`stale-external-push-cursor-jump-fix.md`）。この push は
+> ディスクを直接読むため正しく機能する。
+>
+> 問題は **push した後、webview から戻ってくる次の `change`（ユーザーが続けて入力した内容）を
+> host が保存してよいかどうかの判定**（`resolveWebviewSaveDecision`,
+> `src/preview/host/externalEcho.ts`）にある。この判定は `document.getText()`
+> （VS Code の TextDocument モデル）が最新かどうかに依存しているが、
+> その TextDocument モデル自体は外部ディスク書き込みを自動リロードしないことがある
+> （`test/extension/raw/external-sync.test.ts` 11.1/11.1c で確認済みの既知の制約）。
+>
+> 修正前は、host が「直近に webview へ push した内容」を追跡しておらず、
+> `document.getText()` の陳腐化を「新たな外部割り込みが発生した」と誤認して defer し続け、
+> ユーザーが外部編集の直後に Preview で入力した内容が **保存されず、host が古いディスク
+> 内容を再 push することで画面上からも消えてしまう**（実バグ）。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実バグ回帰: 外部書き換え直後の入力が document モデル陳腐化で消える**
+  - 外部 push 直後にユーザーが入力を続けても、host（修正後）は document モデルの陳腐化で保存を defer しない
+
 ### `test/browser/focus-expand/blockPrefixBugs.test.ts`（9 件）
 
 > 実ブラウザ回帰テスト: blockPrefixEditPlugin の不具合回帰。
@@ -534,6 +611,24 @@
   - Bug3: ⌥⌘5 を 6 回押した後、テキストに "- - -" が累積しない
   - Bug4: ⌥⌘4 後のカーソルがリスト項目の段落内にある
   - Bug4: ⌥⌘4 後のカーソル位置が文書の先頭（pos=1）に飛ばない
+
+### `test/browser/focus-expand/codeFenceFocusMarkers.test.ts`（3 件）
+
+> 実ブラウザ回帰テスト: コードフェンス（```lang` / ```` ``` ````）の focus-expand。
+>
+> 見出し（`## `）やインライン記法（`**` `` ` ``）は、フォーカスが中にあるあいだ
+> `focusSyntaxPlugin` が Markdown 記法（マーカー）を widget decoration として表示する
+> （Obsidian の Live Preview と同様）。フェンスコードブロック（```` ``` ````）だけは
+> この対象になっておらず、フォーカスの有無にかかわらず言語名やフェンス行が一切
+> 見えない。Obsidian 同様、コードブロックにフォーカスがある間は開始行（```` ```js ````
+> 等）と終了行（```` ``` ````）を表示し、フォーカスが外れると隠れるようにする。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: コードフェンスの focus-expand（```lang` / ```` ``` ````表示）**
+  - コードブロックにフォーカスがあるあいだ、開始行（```js` を含む）と終了行（```` ``` ````）が表示される
+  - フォーカスがコードブロックから外れると、フェンスマーカーは隠れる
+  - フェンスマーカーは装飾のみで、実文書やホストへ送る Markdown には混入しない
 
 ### `test/browser/focus-expand/collapseMarkdownSync.test.ts`（5 件）
 
@@ -641,7 +736,7 @@
   - IME確定Enter直後の連打でも、チェックボックス項目のテキストが失われず次の行もチェックボックスになる
   - composition confirmed WITHOUT Enter (space/click/auto-commit) does not swallow a later genuine Enter
 
-### `test/browser/ime/imeExternalUpdateRace.test.ts`（2 件）
+### `test/browser/ime/imeExternalUpdateRace.test.ts`（3 件）
 
 > 実ブラウザ回帰テスト: 日本語 IME 変換中（未確定 = compositionend 前）に
 > 外部 update（Raw エディタ・AI 等の編集反映）が届いたときの挙動。
@@ -656,6 +751,7 @@
 - **実ブラウザ: IME 変換中に届く外部 update**
   - 変換中（未確定）に無関係な段落への外部 update が届いても、確定後に変換テキストが失われない
   - 変換中に届いた外部 update の後も、通常の入力を継続できる（クラッシュしない）
+  - 編集中の段落そのものに、自分の直前の内容を反映した（＝古い）update が変換中に届いても、確定後に先頭が二重化しない
 
 ### `test/browser/ime/imePersistence.test.ts`（5 件）
 
@@ -676,6 +772,45 @@
   - IME: 箇条書きに日本語を追記 → 保存 Markdown が正しい（- が二重化しない）
   - 通常タイプ: 見出しに追記 → 保存 Markdown が正しい（# が二重化しない）
   - blockPrefixEdit: 見出し⇄段落を高速に出入りしても内容・構造が壊れない
+
+### `test/browser/ime/imeSequentialConversionDuplication.test.ts`（4 件）
+
+> 実ブラウザ回帰テスト: 同一段落内で日本語 IME 変換を複数回連続して確定したときの
+> 保存内容。
+>
+> ユーザー報告: 「このアプリで、Aという文章を編集しているとして、」のように、句読点を
+> 挟みながら一つの文をまとめて入力すると（＝IME 変換確定が段落内で複数回連続する）、
+> 冒頭の一部（例: 「このアプリで」）が二重に挿入されてしまう。既存の `imePersistence.test.ts`
+> は1段落につきIME変換確定が1回だけのケースしか検証しておらず、この「連続確定」の
+> 組み合わせは未検証だった。
+>
+> 本ファイルの各パターン（句読点を挟んだ連続確定・非IME直接タイプとの混在・既存段落末尾からの
+> 継続・待ち時間ゼロでの高速連続確定）はいずれも再現しなかった（実バグは見つからず、既存動作を
+> 仕様として固定する）。CDP（`Input.imeSetComposition`/`insertText`）によるシミュレーションでは
+> 再現しないため、実バグが実在するなら実 VS Code の Electron webview + 実 OS の日本語 IME 固有の
+> タイミング（本テスト基盤では再現できない領域）に起因する可能性が高い。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: 同一段落内での連続 IME 変換確定**
+  - 句読点を挟んで IME 変換を連続確定しても、冒頭が二重化しない
+  - 句読点は直接タイプ（非IME）、それ以外はIME変換という組み合わせでも壊れない
+  - 既存の段落の末尾（Enter で新規作成した段落）から続けて連続 IME 変換しても壊れない
+  - 待ち時間ゼロで複数の IME 変換確定を連続発行しても壊れない（極端な高速入力）
+
+### `test/browser/lists-tables/checkboxEditDelete.test.ts`（3 件）
+
+> 実ブラウザ回帰テスト: チェックボックス項目の Enter による文中分割、クリックによる
+> チェック解除（既存の `listMarkerDragFix.test.ts` はチェック方向のみ検証済み）を、
+> 実 DOM のカーソル位置・クリック座標を通して検証する。
+> jsdom（`test/webview/editing-core/checkboxEditDelete.test.ts`）で構造レベルの
+> 正しさは確認済みだが、実ブラウザのカーソル配置・DOM クリックでも同じ結果になることを
+> ここで固定する。
+
+- **実ブラウザ: チェックボックスの編集・削除**
+  - チェック済み項目のテキスト中央で Enter して分割すると、新項目は未チェックになる
+  - チェック済みのチェックボックスをクリックすると未チェックに戻る
+  - リスト2番目のチェックボックスの行頭で Backspace すると、前の項目とマージせず箇条書きへ降格し、テキストは汚れない
 
 ### `test/browser/lists-tables/listMarkerDragFix.test.ts`（3 件）
 
@@ -960,7 +1095,7 @@
     - チェックボックス項目をコピーして別の場所にペーストすると、同じ内容の未チェック項目として挿入される
     - チェックボックスをペーストした直後に別の行で [ ] を追記しても、両方の項目が正しいまま残る
 
-## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 203 件
+## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 223 件
 
 実行: `npm run test:unit`
 
@@ -983,6 +1118,22 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 再マッピング後に別ブロックへ抜けても、見出しは正しく collapse される（プレフィックス残存しない）
   - 展開中のブロックより前のブロックからテキストを削除すると、nodePos/contentStart が削除分だけ後退する
   - 複数回の別ブロック編集を経ても、最終的な collapse でプレフィックスが二重化しない
+
+### `test/webview/cursor-focus/checkboxSelectionGuard.test.ts`（3 件）
+
+> blockPrefixEditPlugin 内 `pendingCheckboxSelectionGuard`（1000ms のチェックボックス
+> 変換直後カーソル保護ガード）の内部ロジック単体テスト。
+>
+> 症状レベルの再現（実 Chromium・`test/browser/cursor-focus/checkboxCursorJump.test.ts`）は
+> 既に対称カバレッジ済みだが、ガード自身の「armedAt からの経過判定」「実タイプでは
+> 追跡位置と selection が一致し続けるので誤爆しない」「ドキュメントを変えない
+> transaction（selectionchange 由来）でズレたら復元する」という内部の時間窓・判定ロジックは
+> jsdom 上で直接 transaction を発行することで、実ブラウザより高速かつ決定的に検証できる。
+
+- **blockPrefixEditPlugin: pendingCheckboxSelectionGuard（変換直後カーソル保護ガード）**
+  - checked が null→boolean に変わった直後、ドキュメントを変えない selectionchange でカーソルがズレても元の位置へ復元される
+  - 変換直後に実際にタイプを続けても、ガードは追跡位置を更新するだけで誤って元に戻さない
+  - ガード窓（1000ms）経過後は、ドキュメントを変えない selectionchange があっても復元しない
 
 ### `test/webview/cursor-focus/cursorAnchor.integration.test.ts`（4 件）
 
@@ -1020,6 +1171,34 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 空行で区切られた `A\\n\\nB` は 2 段落として読み込まれる
   - 単一改行 `A\\nB`（ソフトブレイク）は 1 段落のまま
   - 複数の空行があっても本文が 2 段落で保持される
+
+### `test/webview/editing-core/checkboxEditDelete.test.ts`（7 件）
+
+> チェックボックス（タスクリスト）項目の Enter 継続以外の編集操作
+> （文中 Enter による分割・Delete によるマージ・テキスト編集・
+> インデント/アウトデント・複数項目にまたがる選択削除）を検証する。
+> `checkboxEnter.test.ts` は行末 Enter のみを扱うため、それ以外の編集経路の
+> `checked` 属性の扱いをここで固定する。
+>
+> このファイルのハーネス（`milkdownHarness.ts`）は `commonmark`/`gfm` プリセットのみで、
+> `markerBackspace`/`blockPrefixEditPlugin` 等の実アプリのカスタムプラグインを含まない
+> （list-item-block が jsdom で使えないため素の schema-list 既定動作の確認用）。
+> そのため **「チェックボックス項目の行頭」での単発 Backspace** は本ファイルでは扱わない
+> （markerBackspace が横取りする経路のため、素の ProseMirror 既定動作は実際のアプリ挙動と
+> 異なる＝偽装カバレッジになる）。その経路は
+> `test/webview/focus-expand/blockPrefixEdit.integration.test.ts`
+> （`markerBackspace`+`blockPrefixEditPlugin` を両方ロードする専用ハーネス）で検証する。
+> 範囲選択を伴う Backspace は markerBackspace が selection.empty で早期リターンするため
+> ここでの検証で実挙動と一致する。
+
+- **webview統合: チェックボックスの編集・削除・インデント**
+  - チェック済み項目のテキスト中央で Enter して分割すると、新項目は未チェックになる
+  - チェックボックス項目末尾での Delete は後続の通常段落を同じリストの新規項目として取り込む
+  - チェック済み項目のテキストを編集しても checked は反転しない
+  - 未チェック項目のテキストを編集しても checked は反転しない
+  - Tab でチェックボックス項目をインデントしても、各項目の checked は独立して保たれる
+  - Shift+Tab でネストしたチェックボックス項目をアウトデントしても checked は保たれる
+  - 2つのチェックボックス項目にまたがる範囲選択を削除しても、先頭項目の checked のまま1項目にマージされる
 
 ### `test/webview/editing-core/checkboxEnter.test.ts`（5 件）
 
@@ -1190,7 +1369,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 複数の特殊文字を含む段落でバックスラッシュが一切混入しない
   - round-trip が安定（[括弧] → parse → serialize → [括弧]）
 
-### `test/webview/external-sync/applyExternalContent.integration.test.ts`（4 件）
+### `test/webview/external-sync/applyExternalContent.integration.test.ts`（8 件）
 
 > applyExternalContent の統合テスト（jsdom 上の実 Milkdown）。
 >
@@ -1203,6 +1382,11 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 追記された内容も反映される
   - 置換後にカーソルが新しい文書サイズへクランプされ、落ちない
   - 空文書への置換でも落ちない
+  - **hadFocus: 更新前後でフォーカス状態を保つ**
+    - 差分置換パス: フォーカスがある状態での外部更新後もフォーカスが保たれる
+    - 差分置換パス: フォーカスが無い状態での外部更新はフォーカスを奪わない
+    - 全置換フォールバックパス（空文書）: フォーカスがある状態では更新後もフォーカスが保たれる
+    - 全置換フォールバックパス（空文書）: フォーカスが無い状態では更新後もフォーカスを奪わない
 
 ### `test/webview/external-sync/previewDiff.integration.test.ts`（4 件）
 
@@ -1222,7 +1406,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 基準も本文と同じ正規形にすると差分が出ない（修正後）
   - 本文を実際に編集したら差分は出る（正規化が差分を消し過ぎない）
 
-### `test/webview/focus-expand/blockPrefixEdit.integration.test.ts`（22 件）
+### `test/webview/focus-expand/blockPrefixEdit.integration.test.ts`（28 件）
 
 > blockPrefixEditPlugin 統合テスト（Typora 風「フォーカスで記法展開」）。
 >
@@ -1250,10 +1434,17 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
     - - [x] item にカーソルを入れても展開しない
     - チェックボックス項目を通過しても他ブロックの展開に影響しない
     - checked 属性が保持される（展開なしでも属性は変わらない）
+    - markerBackspace のチェックボックス→箇条書き降格直後に "- " が実テキストとして漏れない（実バグ回帰・2026-07-08 発見/修正）
   - **箇条書き**
     - - item にカーソルを入れると "- " が先頭に現れる
     - 抜けると "- " が消えてテキストだけ残る
     - リンクで始まる箇条書きにフォーカスしても、挿入した "- " がリンクのマークを継承しない
+  - **番号付きリスト**
+    - 1. item にカーソルを入れると "1. " が先頭に現れる
+    - 抜けると "1. " が消えてテキストだけ残る
+    - 2番目の項目にカーソルを入れると項目自身の番号 "2. " が現れる（常に "1. " にならない）
+    - 抜けても番号は変化しない（"2. " のまま維持される）
+    - リンクで始まる番号付き項目にフォーカスしても、挿入した番号プレフィックスがリンクのマークを継承しない
   - **blockquote**
     - > text にカーソルを入れると "> " が先頭に現れる
     - 抜けると "> " が消える
@@ -1518,7 +1709,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 621 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 631 件
 
 実行: `npm run test:unit`
 
@@ -1560,12 +1751,16 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 空行上のカーソルは近いブロック先頭へ寄せる
   - 範囲外ブロック index はクランプ
 
-### `test/suite/preview/cursor-focus/previewFocusSyntax.test.ts`（9 件）
+### `test/suite/preview/cursor-focus/previewFocusSyntax.test.ts`（13 件）
 
 - **focusSyntaxHelpers**
   - getHeadingPrefix returns correct hashes
   - getInlineMarkMarker maps common marks
   - getBlockPrefix resolves the list-item prefix from the inner paragraph depth
+  - getCodeFenceMarkers returns the open/close fence text for a code_block
+  - getCodeFenceMarkers omits the language when empty
+  - getCodeFenceMarkers returns null for non-code_block nodes
+  - findFocusedBlockDepth resolves a position inside a code_block
 - **slashMenuItems**
   - filterSlashMenuItems matches label prefix
   - filterSlashMenuItems returns all when query empty
@@ -1577,7 +1772,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **applyPreviewSlash**
   - getSlashLineBlockRange wraps the current textblock
 
-### `test/suite/preview/external-sync/externalEcho.test.ts`（8 件）
+### `test/suite/preview/external-sync/externalEcho.test.ts`（11 件）
 
 > resolveExternalPush（自分の書き込みのエコーを内容ベースで弾く）のユニットテスト。
 >
@@ -1598,6 +1793,9 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - ディスク内容が自分の直近の書き込みと一致するなら適用してよい（apply）
   - ディスクが document モデルとも自分の直近の書き込みとも食い違うなら見送る（defer） — 外部ツールが割り込んで書き換えた可能性
   - lastAppliedFromWebview が null（まだ何も保存していない）でも、document モデルと食い違えば defer
+  - 直近に webview へ push した内容（lastPushedToWebview）とディスクが一致するなら、document モデルが陳腐化していても適用してよい（apply）
+  - lastPushedToWebview が無い（何も push していない）なら、document モデルとの食い違いは今まで通り defer する
+  - lastPushedToWebview とも食い違うディスク内容は、新たな外部割り込みとみなし defer する
 
 ### `test/suite/preview/external-sync/scrollAnchor.test.ts`（4 件）
 
@@ -2226,7 +2424,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
     - should correctly identify split point scenario - real user case
     - should use isListItem to detect list marker at start
 
-### `test/suite/shared/markdownInlineSettings.test.ts`（6 件）
+### `test/suite/shared/markdownInlineSettings.test.ts`（9 件）
 
 - **markdownInlineSettings**
   - resolves preview enabled with default true
@@ -2236,6 +2434,10 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
     - showThumbnail=true を明示したときだけ on
     - imagePreview.enabled=false なら showThumbnail=true でも off
     - preview 機能自体が無効なら off
+  - **resolveShowLineNumbers**
+    - 既定では on（Preview でもソース行番号を表示する）
+    - showLineNumbers=false を明示したときは off
+    - package.json の contributes 既定値も on（resolve 側の既定とズレない）
 
 ### `test/suite/shared/patterns.test.ts`（40 件）
 

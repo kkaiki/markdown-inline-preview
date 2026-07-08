@@ -29,6 +29,15 @@ describe('実ブラウザ: IME 変換中に届く外部 update', function () {
     });
     afterEach(async () => { if (h) { await h.close(); h = undefined; } });
 
+    async function imeCommit(handle: PreviewHandle, text: string): Promise<void> {
+        const client: CDPSession = await handle.page.context().newCDPSession(handle.page);
+        await client.send('Input.imeSetComposition', { text, selectionStart: text.length, selectionEnd: text.length });
+        await handle.page.waitForTimeout(80);
+        await client.send('Input.insertText', { text });
+        await client.detach();
+        await handle.page.waitForTimeout(120);
+    }
+
     async function postUpdate(handle: PreviewHandle, markdown: string): Promise<void> {
         await handle.page.evaluate(
             (md) => window.postMessage({ type: 'update', markdown: md, frontmatter: null }, '*'),
@@ -80,6 +89,38 @@ describe('実ブラウザ: IME 変換中に届く外部 update', function () {
         await h.type('続き');
         const m = await h.model();
         assert.ok(m.text.includes('短い外部変更'), `外部 update が反映されていない: ${m.text}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('編集中の段落そのものに、自分の直前の内容を反映した（＝古い）update が変換中に届いても、確定後に先頭が二重化しない', async function () {
+        // ユーザー報告の再現を狙う: 「このアプリで」を確定した直後、ホスト側の
+        // 自分エコー誤検知（保存直後の disk read が古い内容を読んでしまう等）により
+        // 同じ段落へ「このアプリで確定前の状態（＝空段落）」に相当する古い update が
+        // 押し戻されるタイミングで、続く変換（「Aという文章を編集しているとして」）が
+        // 未確定のまま進んでいるケース。
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '\n', undefined);
+        await h.focusEditor();
+
+        await imeCommit(h, 'このアプリで');
+
+        const client: CDPSession = await h.page.context().newCDPSession(h.page);
+        await client.send('Input.imeSetComposition', {
+            text: 'Aという文章を編集しているとして', selectionStart: 16, selectionEnd: 16
+        });
+        await h.page.waitForTimeout(100);
+
+        // 自分エコーの誤検知: 同じ段落を「このアプリで」を確定する前の状態（空）に
+        // 巻き戻す update が届く。
+        await postUpdate(h, '\n');
+
+        await client.send('Input.insertText', { text: 'Aという文章を編集しているとして' });
+        await client.detach();
+        await h.page.waitForTimeout(200);
+
+        const m = await h.model();
+        const expected = 'このアプリでAという文章を編集しているとして';
+        assert.strictEqual(m.text, expected, `テキストが壊れた（冒頭二重化の疑い）: ${JSON.stringify(m.text)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 });

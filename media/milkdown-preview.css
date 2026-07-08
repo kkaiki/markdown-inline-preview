@@ -123,7 +123,9 @@ html, body {
 /* ── 行番号ガター（lineNumberGutterPlugin） ──────────────
    各トップレベルブロックの左に「ソース Markdown の開始行番号」を出す。
    diff 色バー（left:-14px）よりさらに左に置き、両方を並べて見せる。
-   既定は非表示で、body.show-line-numbers のときだけ表示する。 */
+   body.show-line-numbers のときだけ表示する（クラスは設定
+   markdownInline.preview.showLineNumbers＝既定 on が制御。Raw モードで常に
+   見えている VS Code の行番号と見た目を揃えるため、既定で表示する）。 */
 .milkdown .line-number-gutter { display: none; }
 /* 単位は rem（ルート基準）。em だと見出し等の大きいフォント内で値が複合して
    行番号が画面外へ押し出されるため、ブロックのフォントサイズに依存しない rem を使う。 */
@@ -987,4 +989,22 @@ body.preview-fade-in {
     background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #094771));
     color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #ffffff));
     outline: none;
+}
+
+/* ── KaTeX 数式（mathDecorationPlugin） ─────────────────────────
+   カーソルが数式の外にある間、ソーステキスト（$...$）を隠して
+   レンダリング結果の widget だけを見せる。カーソルが触れると
+   デコレーションが外れてソースがそのまま現れる。 */
+.ipreview-math-source {
+    display: none;
+}
+
+.ipreview-math {
+    user-select: none;
+}
+
+.ipreview-math-display {
+    display: block;
+    text-align: center;
+    padding: 0.3em 0;
 }

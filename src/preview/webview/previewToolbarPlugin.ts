@@ -14,13 +14,13 @@ import type { EditorView } from '@milkdown/prose/view';
 import type { NodeType } from '@milkdown/prose/model';
 import type { Ctx } from '@milkdown/ctx';
 import { setBlockType } from '@milkdown/prose/commands';
-import { wrapInList, liftListItem } from '@milkdown/prose/schema-list';
+import { liftListItem } from '@milkdown/prose/schema-list';
 import { commandsCtx } from '@milkdown/kit/core';
 import { createCodeBlockCommand, wrapInBlockquoteCommand } from '@milkdown/kit/preset/commonmark';
 import { undoCommand, redoCommand } from '@milkdown/kit/plugin/history';
 import { insertTableCommand } from '@milkdown/kit/preset/gfm';
 import { $prose } from '@milkdown/utils';
-import { applyListType } from './previewKeymapPlugin';
+import { applyListType, wrapInBulletListAndSetChecked } from './previewKeymapPlugin';
 import { setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
 import { t } from './i18n';
 
@@ -200,17 +200,11 @@ function toggleCheckbox(view: EditorView): void {
         }
 
         // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
+        // wrap と checked 設定は同じ transaction にまとめて 1 回だけ dispatch する
+        // （2 回に分けると list-item-block Web Component の再マウントでカーソルが別
+        // ブロックへ飛ぶことがある。詳細: docs/specifications/checkbox-cursor-jump-fix.md）。
         demoteHeadingToParagraph(view);
-        if (!wrapInList(bulletList)(view.state, view.dispatch, view)) {
-            view.focus();
-            return;
-        }
-        const newDepth = findListItemDepth(view.state, listItem);
-        if (newDepth < 0) {
-            view.focus();
-            return;
-        }
-        setChecked(view, newDepth, false);
+        wrapInBulletListAndSetChecked(view.state, view, false);
         view.focus();
     } finally {
         setBlockPrefixExpansionSuppressed(false);

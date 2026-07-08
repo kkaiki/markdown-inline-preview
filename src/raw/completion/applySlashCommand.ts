@@ -64,16 +64,28 @@ export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<
             return true;
         }
         if (normalizeMode !== null) {
-            await vscode.workspace.getConfiguration('markdownInline.advanced')
-                .update('autoFormatTables', normalizeMode, vscode.ConfigurationTarget.Workspace);
+            // `ConfigurationTarget.Workspace` はワークスペース（フォルダ）を開いていないと
+            // 例外を投げる（単一ファイルを開いているだけのユーザーは多い）。その場合は
+            // Global にフォールバックする。永続化に失敗しても、即座に効かせたい
+            // `rawRuntime.slashTableNormalizeOverride` の設定は妨げない。
+            const target = vscode.workspace.workspaceFolders?.length
+                ? vscode.ConfigurationTarget.Workspace
+                : vscode.ConfigurationTarget.Global;
+            try {
+                await vscode.workspace.getConfiguration('markdownInline.advanced')
+                    .update('autoFormatTables', normalizeMode, target);
+            } catch (err) {
+                debugLog(`[slash] Failed to persist autoFormatTables: ${String(err)}`);
+            }
             rawRuntime.slashTableNormalizeOverride = normalizeMode;
             await editor.edit(eb => {
                 eb.replace(new vscode.Range(lineIdx, 0, lineIdx, rawLineText.length), '');
             });
             const targetPos = new vscode.Position(Math.min(lineIdx, document.lineCount - 1), 0);
             editor.selection = new vscode.Selection(targetPos, targetPos);
+            const savedTo = target === vscode.ConfigurationTarget.Workspace ? 'ワークスペース設定' : 'ユーザー設定';
             vscode.window.showInformationMessage(
-                `テーブル自動整形を ${normalizeMode ? '有効' : '無効'} にしました（ワークスペース設定に保存）`
+                `テーブル自動整形を ${normalizeMode ? '有効' : '無効'} にしました（${savedTo}に保存）`
             );
             return true;
         }

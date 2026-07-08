@@ -17,29 +17,47 @@ export function renumberLists(editor: vscode.TextEditor, lineNumber: number | nu
     let startLine = currentLine;
     let endLine = currentLine;
 
+    // 空行が1つだけの場合、それがネスト行（インデントあり）どうしを区切っているときだけ
+    // 同じリスト（loose list）の続きとみなして跨ぐ。トップレベルの項目どうしを区切る空行は
+    // 別のリストとの境界とみなして止める（ユーザーが意図して 2 つのリストを空行で分けている
+    // ケースの方が一般的なため）。2 つ以上連続する空行は、ネストの有無によらず常に止める。
+    let blankRun = 0;
+    let lastMatchedIndent: string | null = match[1];
     for (let i = currentLine - 1; i >= 0; i--) {
         const text = document.lineAt(i).text;
 
         if (text.trim() === '') {
-            break;
+            blankRun++;
+            if (blankRun >= 2 || !lastMatchedIndent) break;
+            continue;
         }
 
-        if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
+        const m = text.match(/^(\s*)(\d+)([\.)])\s*/);
+        if (m) {
             startLine = i;
+            lastMatchedIndent = m[1];
+            blankRun = 0;
         } else {
             break;
         }
     }
 
+    blankRun = 0;
+    lastMatchedIndent = match[1];
     for (let i = currentLine + 1; i < document.lineCount; i++) {
         const text = document.lineAt(i).text;
 
         if (text.trim() === '') {
-            break;
+            blankRun++;
+            if (blankRun >= 2 || !lastMatchedIndent) break;
+            continue;
         }
 
-        if (text.match(/^(\s*)(\d+)([\.)])\s*/)) {
+        const m = text.match(/^(\s*)(\d+)([\.)])\s*/);
+        if (m) {
             endLine = i;
+            lastMatchedIndent = m[1];
+            blankRun = 0;
         } else {
             break;
         }

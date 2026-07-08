@@ -4,10 +4,12 @@ export {
 } from './config';
 export type { ConfigInspection, ConfigLike } from './config';
 export {
+    resolveAlwaysOpenNewTab,
     resolveAutoTableFormattingEnabled,
     resolveCheckboxMouseToggleEnabled,
     resolveCodeBlockAutoCompleteEnabled,
     resolveCodeBlockDecorationsEnabled,
+    resolveDefaultWordWrap,
     resolveDisableCompetingMarkdownFeatures,
     resolveHeadingDecorationsEnabled,
     resolveHorizontalRuleDecorationsEnabled,
@@ -15,8 +17,10 @@ export {
     resolveImageThumbnailEnabled,
     resolvePreviewEnabled,
     resolveShowCheckboxCodeLensEnabled,
+    resolveShowLineNumbers,
     resolveTableWrapHoverEnabled,
-    resolveTableWrapMaxWidth
+    resolveTableWrapMaxWidth,
+    resolveWrapTabs
 } from './markdownInlineSettings';
 export { rawRuntime, clearRuntimeTimers } from './runtime';
 export { debugLog } from './debug';
