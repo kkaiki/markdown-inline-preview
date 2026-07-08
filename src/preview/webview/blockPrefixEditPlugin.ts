@@ -315,15 +315,25 @@ function collapseHeading(view: EditorView, expanded: ExpandedBlock, currentLevel
     // 展開時に挿入した区切り文字は non-breaking space（\s でマッチ）。ユーザーが手で
     // 半角スペースへ打ち替えた場合にも対応できるよう両方許容する。
     const m = /^(#{1,6})\s/.exec(fullText);
-    const newLevel = m ? m[1].length : currentLevel;
-    const prefixLen = m ? m[1].length + 1 : 0;
 
     const tr = state.tr;
-    if (prefixLen > 0) {
+    if (m) {
+        const newLevel = m[1].length;
+        const prefixLen = m[1].length + 1;
         tr.delete(expanded.contentStart, expanded.contentStart + prefixLen);
-    }
-    if (newLevel !== currentLevel) {
-        tr.setNodeMarkup(expanded.nodePos, undefined, { ...node.attrs, level: newLevel });
+        if (newLevel !== currentLevel) {
+            tr.setNodeMarkup(expanded.nodePos, undefined, { ...node.attrs, level: newLevel });
+        }
+    } else {
+        // `#` が1個も残っていない = 見出し記法として成立しない → 段落へ変換する。
+        // ここで何もしない（レベルを維持する）と、展開時に挿入した区切り文字（NBSP）が
+        // 削除されないまま本文に残り続け、見出しレベルも固着してしまう
+        // （heading-prefix-zero-hash-collapse-fix.md）。
+        const leadingWhitespace = /^\s+/.exec(fullText);
+        if (leadingWhitespace) {
+            tr.delete(expanded.contentStart, expanded.contentStart + leadingWhitespace[0].length);
+        }
+        tr.setNodeMarkup(expanded.nodePos, state.schema.nodes.paragraph);
     }
     tr.setMeta('addToHistory', false);
     tr.setMeta(PLUGIN_META, 'collapse');

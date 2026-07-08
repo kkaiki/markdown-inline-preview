@@ -1,12 +1,15 @@
 /**
  * 実ブラウザ回帰テスト: 行番号ガター（lineNumberGutterPlugin）。
  *
- * 各トップレベルブロックの左に「ソース Markdown の開始行番号」を出す機能。
+ * 各トップレベルブロック（＋リスト項目）の左に「表示要素の連番」を出す機能。
  * - 設定 showLineNumbers が true のときだけ表示する。
- * - 行番号は保存ファイルと同じ整形（tight リスト等）を通して数えるため、実際のソース行と一致する。
+ * - 番号はソース Markdown の行番号とは対応しない。1, 2, 3, ... と隙間なく振られる
+ *   （以前は「ソース行番号の近似値」だったため空行や複数行ブロックで番号が飛んでいたが、
+ *   連番方式に変更した。ソースの空行自体は別途、実体のある空 paragraph として復元表示
+ *   されるようになったため、連番はそれも1要素として数える）。
  * - 既存の diff ガターと共存する（別レイヤ）。
  *
- * jsdom では座標・widget 描画・シリアライズ整形の組み合わせを検証できないため、ここが砦。
+ * jsdom では座標・widget 描画の組み合わせを検証できないため、ここが砦。
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */
 import * as assert from 'assert';
@@ -47,11 +50,11 @@ describe('実ブラウザ: 行番号ガター', function () {
         h = await openPreview(browser, '# Title\n\nbody paragraph\n', 'body paragraph', { showLineNumbers: true });
         await h.page.waitForTimeout(300);
         const nums = await gutterNumbers(h);
-        assert.deepStrictEqual(nums, ['1', '3'], `行番号が想定外: ${JSON.stringify(nums)}`);
+        assert.deepStrictEqual(nums, ['1', '2'], `行番号が想定外: ${JSON.stringify(nums)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('行番号が実際のソース行と一致する（見出し/段落/リスト/コード/引用）', async function () {
+    it('連番が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）', async function () {
         if (!browser) { this.skip(); return; }
         const md = '# 見出し\n\n本文の段落です。\n\n- リスト項目1\n- リスト項目2\n\n```js\nconst x = 1;\nconsole.log(x);\n```\n\n> 引用文\n\n最後の段落。\n';
         h = await openPreview(browser, md, '最後の段落', { showLineNumbers: true });
@@ -60,9 +63,8 @@ describe('実ブラウザ: 行番号ガター', function () {
         await h.type('!');
         await h.page.waitForTimeout(300);
         const nums = await gutterNumbers(h);
-        // 1:見出し 3:本文 5:リスト項目1 6:リスト項目2 8:コード 13:引用 15:最後
-        // （リストは各項目に番号が出る）
-        assert.deepStrictEqual(nums, ['1', '3', '5', '6', '8', '13', '15'], `行番号がソースと不一致: ${JSON.stringify(nums)}`);
+        // 1:見出し 2:本文 3:リスト項目1 4:リスト項目2 5:コード 6:引用 7:最後（連番、隙間なし）
+        assert.deepStrictEqual(nums, ['1', '2', '3', '4', '5', '6', '7'], `連番になっていない: ${JSON.stringify(nums)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 
@@ -74,8 +76,8 @@ describe('実ブラウザ: 行番号ガター', function () {
         await h.type('!');
         await h.page.waitForTimeout(300);
         const nums = await gutterNumbers(h);
-        // 見出し=1, 各項目=3,4,5, 本文=7
-        assert.deepStrictEqual(nums, ['1', '3', '4', '5', '7'], `各項目に行番号が出ていない: ${JSON.stringify(nums)}`);
+        // 見出し=1, 各項目=2,3,4, 本文=5（連番、隙間なし）
+        assert.deepStrictEqual(nums, ['1', '2', '3', '4', '5'], `各項目に行番号が出ていない: ${JSON.stringify(nums)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 
@@ -87,7 +89,7 @@ describe('実ブラウザ: 行番号ガター', function () {
         await h.type('!');
         await h.page.waitForTimeout(300);
         const nums = await gutterNumbers(h);
-        assert.deepStrictEqual(nums, ['1', '3', '4', '5', '7'], `番号付きリスト各項目に行番号が出ていない: ${JSON.stringify(nums)}`);
+        assert.deepStrictEqual(nums, ['1', '2', '3', '4', '5'], `番号付きリスト各項目に行番号が出ていない: ${JSON.stringify(nums)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 
@@ -146,6 +148,32 @@ describe('実ブラウザ: 行番号ガター', function () {
             return { ok: pl >= 50, reason: `padding-left=${pl}px (expected >= 50px for line numbers)` };
         });
         assert.strictEqual(result.ok, true, result.reason);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('空行スペーサーはガター連番に含まれ、カーソルを置いて入力・Backspaceで削除できる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, 'para A\n\n\npara B\n', 'para A', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+
+        let nums = await gutterNumbers(h);
+        assert.deepStrictEqual(nums, ['1', '2', '3'], `空行スペーサーがガター連番に含まれていない: ${JSON.stringify(nums)}`);
+
+        let m = await h.model();
+        assert.deepStrictEqual(m.topTypes, ['paragraph', 'paragraph', 'paragraph'], '空行スペーサーが空 paragraph として復元されていない');
+
+        // 空行スペーサー（para A の次のブロック）へカーソルを移動して入力する。
+        await h.placeCursorAfterText('para A');
+        await h.press('ArrowDown');
+        await h.type('inserted');
+        m = await h.model();
+        assert.ok(m.outline.includes('"inserted"'), `空行スペーサーへの入力が反映されていない: ${m.outline}`);
+
+        // 入力を取り消したうえで、空行スペーサーを Backspace で削除する（前のブロックと結合）。
+        for (let i = 0; i < 'inserted'.length; i++) await h.press('Backspace');
+        await h.press('Backspace');
+        m = await h.model();
+        assert.deepStrictEqual(m.topTypes, ['paragraph', 'paragraph'], `Backspace で空行スペーサーを削除できない: ${JSON.stringify(m.topTypes)}`);
         assert.deepStrictEqual(h.errors, []);
     });
 });

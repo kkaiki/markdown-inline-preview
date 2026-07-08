@@ -218,7 +218,7 @@ Raw モード共通の `markdownInline.enablePreview` が `false` の場合、�
 | 機能 | Mac | Windows/Linux |
 |------|-----|---------------|
 | Raw ↔ Preview 切替 | `Cmd+Shift+.` | `Ctrl+Shift+.` |
-| 段階選択（行 → セル/コードブロック → 全文） | `Cmd+A` | `Ctrl+A` |
+| 段階選択（括弧の中身 → 行 → セル/コードブロック → 全文） | `Cmd+A` | `Ctrl+A` |
 | Preview 内検索 | `Cmd+F` | `Ctrl+F` |
 | Preview 内置換 | `Cmd+Opt+F` | `Ctrl+H` |
 | **行頭への 2 段階移動** | `Cmd+←` | `Ctrl+←` |
@@ -260,8 +260,11 @@ Windows/Linux は `Alt+Ctrl+<数字>`。
 > **文書全体の段階は `AllSelection` を明示的に dispatch する。** 以前は `false` を返してブラウザ/Electron の native「Select All」に委ねていたが、webview では効かない・効いても**先頭行へ巻き戻る**等で不安定だった。明示選択にしたことで「2 回目で確実に文書全体」になり、ユニットテストでも検証できる。文書全体（`AllSelection`）まで来たら以降は `false`（何もしない）で、先頭行へ巻き戻らない。
 
 - **通常のテキストブロック**（段落・見出し・リスト項目など）:
-  1. カーソルのある「行（テキストブロック）」の中身を丸ごと（`$from.start()`〜`$from.end()` の `TextSelection`）
-  2. 既に行全体が選択済みなら **`AllSelection`（文書全体）** を選ぶ
+  1. カーソルが `(...)` / `[...]` の中にあれば、まず**その括弧の中身だけ**（`findEnclosingBracketContent`、`src/shared/markdown/bracketSelection.ts`）。ネストしている場合は最も内側の括弧を優先する。括弧の外にカーソルがある場合はこの段階を飛ばす。
+  2. カーソルのある「行（テキストブロック）」の中身を丸ごと（`$from.start()`〜`$from.end()` の `TextSelection`）
+  3. 既に行全体が選択済みなら **`AllSelection`（文書全体）** を選ぶ
+
+  括弧の中身が行全体と同じ範囲になる場合（行が丸ごと1組の括弧である等）は、中身の段階と行の段階が同一になり実質1段階に短縮される。
 - **テーブルセル内**（押下回数）:
   1. セルの中身（`TextSelection`）
   2. 行全体（`CellSelection`・`isRowSelection()===true` / `isColSelection()===false`）

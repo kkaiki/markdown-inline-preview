@@ -21,6 +21,7 @@
 | `i18n-localization.md` | `test/suite/preview/rendering/webviewI18n.test.ts` | 文字列テーブルの存在・キー網羅を検証 |
 | `mermaid-node-label-inline-edit.md` | `test/suite/preview/rendering/mermaidNodeLabelEdit.test.ts`（純関数）、`test/browser/rendering/mermaidNodeLabelEdit.test.ts`（ダブルクリック→確定→ソース反映、Escapeキャンセル） | 新規実装・テスト済み（2026-07-08）。プレビュー上でのノードラベル編集（新機能）。座標のドラッグ編集は Mermaid 構文上不可能なため対象外 |
 | `preview-scroll-sync.md` | `test/suite/preview/external-sync/scrollAnchor.test.ts`、`test/suite/preview/external-sync/scrollSync.test.ts` | 純関数レベルで検証済み |
+| `blank-line-preservation.md` | `test/webview/rendering/blankLineRoundtrip.test.ts`（連続空行のround-trip）、`test/browser/rendering/lineNumberGutter.test.ts`（連番化・空行スペーサーの入力/Backspace） | 新規実装・テスト済み（2026-07-08）。トップレベルの空行を空 paragraph として復元し、ガター番号を連番化 |
 
 ## fix 仕様書（バグ修正・回帰防止）
 
@@ -28,6 +29,7 @@
 |---|---|---|
 | `checkbox-cursor-jump-fix.md` | `test/browser/cursor-focus/checkboxCursorJump.test.ts`（20件） | 修正済み。**2026-07-07**: ショートカット系/ツールバー系の非対称カバレッジを解消し、両入口で同じ組み合わせ（周辺状態4種×リスト種別2種+見出し起点）を検証するよう対称化 |
 | `checkbox-demotion-prefix-leak-fix.md` | `test/webview/focus-expand/blockPrefixEdit.integration.test.ts`、`test/browser/lists-tables/checkboxEditDelete.test.ts`、`test/extension/preview/lists-tables.test.ts` | **修正済み（2026-07-08）**: チェックボックス→箇条書き降格直後に `- ` が実テキストへ漏れる不具合。`test/browser/cursor-focus/caretRegression.test.ts` の許容値も併せて再調整 |
+| `code-block-arrow-vertical-nav-fix.md` | `test/browser/cursor-focus/codeBlockArrowUpJumpToTop.test.ts`（5件） | **修正済み（2026-07-08）**: コードブロック1行目からの ArrowUp が文書先頭へ飛ぶ／最終行からの ArrowDown が抜けられないバグ。`codeBlockArrowKeymap.ts` で手動の行計算に置き換え |
 | `code-block-tab-focus-leak-fix.md` | `test/browser/cursor-focus/codeBlockTabFocus.test.ts`、`test/suite/preview/shortcuts/previewShortcuts.test.ts` | 修正済み・回帰防止済み |
 | `code-fence-focus-markers.md` | `test/suite/preview/cursor-focus/previewFocusSyntax.test.ts`（純関数）、`test/browser/focus-expand/codeFenceFocusMarkers.test.ts` | 新規実装・テスト済み（2026-07-08）。フォーカス中のフェンス行/言語名表示（新機能） |
 | `collapse-markdown-sync-fix.md` | `test/browser/focus-expand/collapseMarkdownSync.test.ts` | 修正済み・回帰防止済み |
@@ -36,6 +38,7 @@
 | `external-update-cursor-jump-fix.md` | `test/browser/cursor-focus/externalUpdateRace.test.ts`、`test/browser/external-sync/rapidExternalUpdates.test.ts`、`test/webview/external-sync/applyExternalContent.integration.test.ts` | 修正済み。2026-07-07 に短時間連続 update のケースを追加 |
 | `heading-blockquote-prefix-space-fix.md` | `test/browser/focus-expand/headingBlockquotePrefixSpace.test.ts` | 修正済み・回帰防止済み |
 | `heading-prefix-selectable-widget-fix.md` | `test/browser/cursor-focus/headingFocusMarkerBugs.test.ts` | 修正済み・回帰防止済み |
+| `inline-mark-focus-edit-fix.md` | `test/browser/focus-expand/inlineMarkFocusEdit.test.ts`（10件） | 新規実装・テスト済み（2026-07-08）。strong/emphasis/inlineCode/strike_through/link の focus-expand。当初 link は href 編集の影響範囲が大きいとして対象外だったが、目次・行ジャンプ用リンクも含め削除・打ち替え可能にしてほしいというユーザー要望を受けて対象に追加（href も含め編集可能） |
 | `list-marker-drag-fix.md` | `test/browser/lists-tables/listMarkerDragFix.test.ts` | 修正済み・回帰防止済み |
 | `math-decoration-rendering-fix.md` | `test/browser/rendering/mathRendering.test.ts`（9件） | 修正済み。2026-07-07 に金額表記（`$ 100`）の誤認防止テストを追加（実装済みガードの未テストコメントを解消） |
 | `mermaid-text-selection-fix.md` | `test/browser/rendering/mermaidTextSelection.test.ts` | 修正済み・回帰防止済み |

@@ -4,7 +4,6 @@ import type { ResolvedPos } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 
 import {
-    collectInlineMarksInRange,
     findFocusedBlockDepth,
     getBlockPrefix,
     getCodeFenceMarkers
@@ -18,7 +17,8 @@ export function setFocusSyntaxEnabled(value: boolean): void {
 }
 
 /**
- * 行内記法マーカー（`**` `*` `` ` `` `~~` `[..](..)`）の装飾要素。
+ * 見出し等の行頭マーカーの装飾要素（行内記法マーカーは全て `inlineMarkEditPlugin` の
+ * 実テキスト展開でカバーされるため、この widget はもう使わない）。
  *
  * **`contenteditable="false"` が重要**: これが無いとマーカーの `<span>` がエディタから
  * `contenteditable=true` を継承し、矢印キーのキャレットがマーカー文字（`**` 等）の中に
@@ -143,8 +143,7 @@ export const focusSyntaxPlugin = $prose(() => {
                     return true;
                 }
             },
-            // フォーカス行の行頭マーカー（node decoration）と
-            // 行内マーカー（** * ` ~~ [..](..) を widget）をまとめて返す。
+            // フォーカス行の行頭マーカー（node decoration）を返す。
             decorations(state) {
                 if (!enabled) return DecorationSet.empty;
                 try {
@@ -152,20 +151,7 @@ export const focusSyntaxPlugin = $prose(() => {
                     const depth = findFocusedBlockDepth($pos);
                     if (depth === null) return DecorationSet.empty;
 
-                    const decorations: Decoration[] = [];
-
-                    decorations.push(...blockMarkerDecoration($pos));
-
-                    const blockStart = $pos.start(depth);
-                    const blockEnd = $pos.end(depth);
-                    for (const { pos, end, marker } of collectInlineMarksInRange(state.doc, blockStart, blockEnd)) {
-                        decorations.push(
-                            Decoration.widget(pos, mkMarker(marker.open, pos), { side: -1, key: `open-${pos}` }),
-                            Decoration.widget(end, mkMarker(marker.close, end), { side: 1, key: `close-${end}` })
-                        );
-                    }
-
-                    return DecorationSet.create(state.doc, decorations);
+                    return DecorationSet.create(state.doc, blockMarkerDecoration($pos));
                 } catch {
                     return DecorationSet.empty;
                 }

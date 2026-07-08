@@ -97,7 +97,59 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
     `setEditable()` の `view.setProps()` が副作用として全デコレーションの再計算
     （ProseMirror の `view.update`）を強制しているため。実装変更は不要だった ✅
 
+## 1f. 消化済み（2026-07-08: タイプ中・確定後の「文字忠実性」テスト拡充・実バグ発見/修正）
+
+`docs/specifications/typing-fidelity-test-proposal.md`（本セッションの提案書、消化に伴い削除）
+§4.1 を TDD で実装。既存テストが最終結果の構造を `includes` で見るだけで**途中経過・厳密一致**
+を見ていなかったのに対し、1打鍵ごとに doc 全体のテキストを `assert.strictEqual` で突き合わせる
+方式（`test/browser/typingFidelityHelpers.ts` の `typeCharByCharExact`/`commitByCommitExact`）を
+新設し、崩れた瞬間のキーストロークを特定できるようにした。
+
+- **実バグ発見・修正**: 段落等の**末尾**でスペースを1回打つと、ブラウザの contenteditable が
+  `white-space: normal` の折りたたみ回避のため通常スペース（U+0020）の代わりに**不可視の
+  NBSP（U+00A0）**を DOM へ挿入し、それが ProseMirror の doc モデル・直列化 markdown（＝
+  保存されるファイル内容）にまで漏れる不具合を発見・修正（`trailing-space-nbsp-corruption-fix.md`）。
+  後続の入力で自己修復することもあるが、autosave 相当の change 送信タイミングによっては
+  修復前に保存されファイルへ不可視文字が残ってしまう一過性の不具合だった。
+  修正は2段構え: (1) `.milkdown .editor` に `white-space: pre-wrap`（ProseMirror 自身が
+  コンソール警告で要求していた設定でもあった）を追加し、ブラウザ側の代替措置自体を起こさせない。
+  (2) それでも見出し変換直後のプレフィックス再挿入など「自己修復に頼れない経路」が残るため、
+  `src/preview/webview/trailingNbspFixPlugin.ts` を新設し、`appendTransaction` で
+  **そのトランザクションが実際に変更した範囲**のテキストブロック末尾だけを見て NBSP を正規化する
+  （文書全体を毎回走査する初期実装は、無関係なトランザクション（外部更新・IME 変換中の
+  イベント等）でも走査コストを払うことになり、`test/browser/ime/imeExternalUpdateRace.test.ts`
+  のようなタイミングに敏感な既存レーステストの実行タイミングを狂わせる副作用があったため、
+  変更範囲だけを見る設計に絞り込んだ）。
+- `test/browser/editing-core/typingFidelity.test.ts`（28件・実 Chromium）: プレーンな文字列
+  （ASCII・日本語・絵文字・全角・連続スペース・200字高速連打等）を1文字ずつ・各種カーソル位置
+  （段落先頭挿入＝未再現のユーザー報告「連続入力で冒頭が二重化する」の症状位置を含む）・
+  各種ブロック種別（見出し・リスト・チェックボックス・blockquote・インラインコード・
+  fenced code block・テーブルセル）・編集を挟むタイプ（Backspace・中央挿入・Undo/Redo・
+  複数段落間の往復）で検証。全て実バグは見つからず（上記1件を除く）既存動作を仕様として固定。
+- 未着手のまま `typing-fidelity-test-proposal.md` に残っていた §4.2〜§4.7（markdown 記号の
+  literal タイプ・IME 確定ごとの厳密一致・実 VS Code 逐次 change・チェックボックス削除
+  （Cmd+X 等）・jsdom 総当たり）は下記 §2 へ集約した。
+
 ## 2. 未消化（次の候補）
+
+- **markdown 記号を「ただの文字」として打った場合の文字忠実性**（`_` `|` `$100` `[ ]` `<b>`
+  URL 等を段落・テーブルセル内で1文字ずつ打ち、表示・直列化の両方が壊れない/意図通りに
+  エスケープされることを固定する）。`disableTextEscape.ts` のテーブルセル内トレードオフ、
+  `mathDecorationPlugin.ts` の金額誤認防止ガードも合わせて消化できる
+  （`typing-fidelity-test-proposal.md` §4.2 だった内容）。
+- **IME 確定ごとの厳密一致**（`commitByCommitExact` ヘルパーは実装済み・未使用）:
+  1文字ずつ確定・変換候補切り替え・composition キャンセル・IME⇔ASCII 交互切り替え・
+  外部 update を確定と確定の間に挟む、など。既存の再現試行テストは最終結果中心だったが、
+  確定ごとに見ることで「N回目の確定で崩れる」を検出できる（同 §4.3 だった内容）。
+- **実 VS Code での逐次 change 検証**: `injectWebviewChangeForTesting` 経由で1打鍵相当ずつ
+  送り、毎ステップ `document.getText()` とファイル内容を厳密一致で確認（12.7 の細粒度版。
+  同 §4.5 だった内容）。
+- **表内チェックボックス・チェックボックスの削除・箇条書き全般の文字忠実性**:
+  特に **Cmd/Ctrl+X によるチェックボックス項目の切り取りが未検証のまま残っている**
+  （既存 `checkboxEditDelete.test.ts` には無い）。空リスト削除後の残骸チェック、
+  番号付きリストの実削除→リナンバー結合テストも未着手（同 §4.6 だった内容）。
+- **jsdom 版の文字セット総当たり**: 上記の文字種 × ブロック種別マトリクスを
+  `test/webview/` で高速に網羅する版（同 §4.4/§4.7 だった内容）。
 
 - **同一ファイルを 2 つの Preview パネル（分割エディタ）で同時編集**: タブレベルは
   スイート 12.4 で検証済み（`supportsMultipleEditorsPerDocument: false` のため 1 枚に保たれる）。
@@ -188,6 +240,23 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   `bug-hunt-2026-07-findings.md` §4）。再発時は VS Code 上で実際に発生した直後の状況
   （直前の保存タイミング、autoSave設定の有無、どのくらいの速さで打ったか）を記録できると
   次の手がかりになる。
+
+- ~~コードブロック1行目の単語をダブルクリック選択 → ArrowUp で文書先頭へ飛ぶ（ユーザー報告、2026-07-08）~~ →
+  **消化済み（2026-07-08）、実バグ発見・修正**: フェンスコードブロック（```` ```python ```` 等）の
+  1行目にある単語を実クリックで選択した状態で ↑（ArrowUp）を押すと、コードブロックの
+  直前ブロックではなく**文書の一番先頭**（`selFrom=1`）まで選択/カーソルが飛ぶことを
+  実 Chromium で確認（対称のバグとして、最終行での ArrowDown はブロックの外へ抜けられず
+  固まる）。原因はフォーカス中コードブロックが表示する開始/終了フェンスの
+  `contenteditable="false"` widget（改行文字入り）の境界を、ネイティブのキャレット上下
+  移動が正しく越えられないこと。`src/preview/webview/codeBlockArrowKeymap.ts` を新設し、
+  コードブロック内の ↑/↓ をネイティブ移動に頼らず `lineRangeAt` による手動の行計算へ
+  置き換えて修正（詳細: `code-block-arrow-vertical-nav-fix.md`）。再現には実 DOM クリックが
+  必須で（`view.dispatch` によるプログラム的な `TextSelection` では再現しない）、
+  `page.getByText(...).click()` は hljs の `<span>` 分割で意図しない位置をクリックする
+  ことがあったため、`previewBrowserHarness.ts` に DOM Range ベースの実座標クリック
+  `clickTextAt`/`doubleClickTextAt` を追加した。テストは
+  `test/browser/cursor-focus/codeBlockArrowUpJumpToTop.test.ts`（5ケース、境界越え・
+  ブロック内移動の両方を検証）。
 
 - **`typedCheckboxConversion.test.ts` の日本語ケースが実 IME を通していない**:
   同ファイルの「日本語本文」ケースは `h.type()` の文字送りであり、`imeEnterRace.test.ts` が

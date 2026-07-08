@@ -257,6 +257,99 @@ suite('Raw: navigation', () => {
         });
     });
 
+    suite('4.5 括弧内 Smart Select All の段階的選択', () => {
+
+        test('4.5.1 丸括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('note (detail here) end');
+            const cursorPos = 'note (detail'.length;
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(editor.document.getText(editor.selection), 'detail here', '括弧の中身のみが選択されていません');
+        });
+
+        test('4.5.2 角括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('ref [note text] end');
+            const cursorPos = 'ref [note'.length;
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(editor.document.getText(editor.selection), 'note text', '括弧の中身のみが選択されていません');
+        });
+
+        test('4.5.3 括弧の中身選択後の2回目で行全体を選択する', async function() {
+            this.timeout(5000);
+
+            const lineText = 'note (detail here) end';
+            // 2行目を足して「行」と「文書全体」のテキストが一致しないようにする
+            // （1行だけだと両者が同じ文字列になり、2回目の検証にならない）。
+            const editor = await createTestDocument(lineText + '\n2行目');
+            const cursorPos = 'note (detail'.length;
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(editor.document.getText(editor.selection), lineText, '行全体が選択されていません');
+            assert.notStrictEqual(editor.document.getText(editor.selection), editor.document.getText(), '文書全体まで広がってはいけない');
+        });
+
+        test('4.5.4 行全体選択後の3回目で文書全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('note (detail here) end');
+            const cursorPos = 'note (detail'.length;
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            for (let i = 0; i < 3; i++) {
+                await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+                await new Promise(resolve => setTimeout(resolve, 300));
+            }
+
+            assert.strictEqual(editor.document.getText(editor.selection), editor.document.getText(), '文書全体が選択されていません');
+        });
+
+        test('4.5.5 括弧の外にカーソルがある場合は従来通り1回目で文書全体を選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('note (detail here) end\n2行目');
+            const cursorPos = 'note (detail here) '.length; // "end" の手前、括弧の外
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(
+                editor.document.getText(editor.selection),
+                editor.document.getText(),
+                '括弧の外では従来通り1回目で文書全体が選択されるべき'
+            );
+        });
+
+        test('4.5.6 ネストした括弧では最も内側の中身を1回目に選択する', async function() {
+            this.timeout(5000);
+
+            const editor = await createTestDocument('outer (mid [inner] end) tail');
+            const cursorPos = 'outer (mid [inn'.length;
+            editor.selection = new vscode.Selection(0, cursorPos, 0, cursorPos);
+
+            await vscode.commands.executeCommand('markdownInline.smartSelectAll');
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            assert.strictEqual(editor.document.getText(editor.selection), 'inner', '最も内側の括弧の中身が選択されていません');
+        });
+    });
+
     suite('4.3 Table Vertical Navigation', () => {
 
         test('上下移動で同じセル内オフセットを維持する', async function() {

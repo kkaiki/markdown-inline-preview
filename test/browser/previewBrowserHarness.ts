@@ -144,6 +144,12 @@ export interface PreviewHandle {
     caretTop(): Promise<number | null>;
     /** ドキュメント構造・選択のスナップショットを返す。 */
     model(): Promise<ModelSnapshot>;
+    /**
+     * doc 全体のプレーンテキストをブロック区切り `\n` で返す（`model().text` は
+     * ProseMirror の `textContent` をそのまま使うためブロック間の区切りが無く、
+     * 複数ブロックにまたがる文字忠実性の厳密比較には不向き）。
+     */
+    docText(): Promise<string>;
     /** エディタへフォーカスする。 */
     focusEditor(): Promise<void>;
     /**
@@ -151,8 +157,19 @@ export interface PreviewHandle {
      * 確実（DOM フォーカス/タイミングに依存しない）。見つからなければ例外。
      */
     selectText(text: string): Promise<void>;
+    /**
+     * 指定テキストの実際の画面上の位置へ、実マウスクリック（`page.mouse.click`）でカーソルを
+     * 置く。`page.getByText(...).click()` は要素境界（hljs の `<span>` 分割等）に依存して
+     * 意図しない位置をクリックすることがあるため、DOM の Range から実座標を計算して
+     * `page.mouse` で直接クリックする（要素境界に依存しない、真にピクセル精度のクリック）。
+     */
+    clickTextAt(text: string): Promise<void>;
+    /** `clickTextAt` と同じ座標計算で、実マウスのダブルクリック（`clickCount: 2`）を行う。 */
+    doubleClickTextAt(text: string): Promise<void>;
     /** 指定テキスト（最初の出現）の直後にカーソルを置く（プログラム的・確実）。 */
     placeCursorAfterText(text: string): Promise<void>;
+    /** 指定テキスト（最初の出現）の直前にカーソルを置く（プログラム的・確実）。 */
+    placeCursorBeforeText(text: string): Promise<void>;
     /** doc 末尾に空段落を足してそこへカーソルを移し、確定（collapse）させる。 */
     moveToEnd(): Promise<void>;
     /** ホストへ送られた最新の change Markdown（無ければ null）。 */
@@ -169,6 +186,30 @@ export interface PreviewHandle {
     screenshot(name: string): Promise<string>;
     /** 後始末。 */
     close(): Promise<void>;
+}
+
+/**
+ * `.milkdown` 配下のテキストノードを走査し、指定文字列（最初の出現）を含む Range の
+ * 画面中央座標を返す。見つからなければ null。
+ */
+async function locateTextRect(page: Page, text: string): Promise<{ x: number; y: number } | null> {
+    return page.evaluate((t) => {
+        const root = document.querySelector('.milkdown') || document.body;
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node: Node | null;
+        while ((node = walker.nextNode())) {
+            const content = node.textContent || '';
+            const idx = content.indexOf(t);
+            if (idx < 0) continue;
+            const range = document.createRange();
+            range.setStart(node, idx);
+            range.setEnd(node, idx + t.length);
+            const rects = range.getClientRects();
+            const rect = rects.length ? rects[0] : range.getBoundingClientRect();
+            return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        }
+        return null;
+    }, text);
 }
 
 /**
@@ -271,6 +312,16 @@ export async function openPreview(
                 /* eslint-enable @typescript-eslint/no-explicit-any */
             });
         },
+        async docText() {
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            return page.evaluate(() => {
+                const view = (window as any).__view;
+                if (!view) throw new Error('__view 未設定（テストフックが呼ばれていない）');
+                const doc = view.state.doc;
+                return doc.textBetween(0, doc.content.size, '\n', '\n');
+            });
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+        },
         async focusEditor() {
             /* eslint-disable @typescript-eslint/no-explicit-any */
             await page.evaluate(() => { (window as any).__view.focus(); });
@@ -299,6 +350,18 @@ export async function openPreview(
             if (!ok) throw new Error(`selectText: テキストが見つからない: ${text}`);
             await page.waitForTimeout(80);
         },
+        async clickTextAt(text: string) {
+            const rect = await locateTextRect(page, text);
+            if (!rect) throw new Error(`clickTextAt: テキストが見つからない: ${text}`);
+            await page.mouse.click(rect.x, rect.y);
+            await page.waitForTimeout(120);
+        },
+        async doubleClickTextAt(text: string) {
+            const rect = await locateTextRect(page, text);
+            if (!rect) throw new Error(`doubleClickTextAt: テキストが見つからない: ${text}`);
+            await page.mouse.click(rect.x, rect.y, { clickCount: 2 });
+            await page.waitForTimeout(120);
+        },
         async placeCursorAfterText(text: string) {
             /* eslint-disable @typescript-eslint/no-explicit-any */
             const ok = await page.evaluate((t) => {
@@ -319,6 +382,28 @@ export async function openPreview(
             }, text);
             /* eslint-enable @typescript-eslint/no-explicit-any */
             if (!ok) throw new Error(`placeCursorAfterText: 見つからない: ${text}`);
+            await page.waitForTimeout(120);
+        },
+        async placeCursorBeforeText(text: string) {
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            const ok = await page.evaluate((t) => {
+                const view = (window as any).__view;
+                let at = -1;
+                view.state.doc.descendants((n: any, p: number) => {
+                    if (at < 0 && n.isText && typeof n.text === 'string' && n.text.includes(t)) {
+                        at = p + n.text.indexOf(t);
+                        return false;
+                    }
+                    return true;
+                });
+                if (at < 0) return false;
+                const TextSelection = view.state.selection.constructor;
+                view.focus();
+                view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+                return true;
+            }, text);
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+            if (!ok) throw new Error(`placeCursorBeforeText: 見つからない: ${text}`);
             await page.waitForTimeout(120);
         },
         async moveToEnd() {

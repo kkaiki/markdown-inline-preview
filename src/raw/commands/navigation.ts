@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import type { TableCellInfo, CellBoundary, DebugLogFunction } from '../../types';
 import { getMarkerInfo } from '../../shared/markdown/patterns';
 import { findTableBlock } from '../../shared/table/table';
+import { findEnclosingBracketContent } from '../../shared/markdown/bracketSelection';
 
 function selectionsEqual(a: vscode.Selection, b: vscode.Selection): boolean {
     return a.start.line === b.start.line &&
@@ -424,6 +425,31 @@ export function createSmartSelectAllHandler(handlers: NavigationHandlers): () =>
                     }
                 }
             }
+        }
+
+        // 括弧（()/[]）内のチェック: 中身 → 行全体 → 文書全体 と段階的に選択を広げる
+        const bracketRange = findEnclosingBracketContent(currentLine, position.character);
+        if (bracketRange) {
+            const bracketSelection = new vscode.Selection(
+                new vscode.Position(position.line, bracketRange.start),
+                new vscode.Position(position.line, bracketRange.end)
+            );
+            const lineSelection = new vscode.Selection(
+                new vscode.Position(position.line, 0),
+                new vscode.Position(position.line, currentLine.length)
+            );
+
+            const isLineSelected = selectionsEqual(editor.selection, lineSelection);
+            const isBracketSelected = selectionsEqual(editor.selection, bracketSelection);
+
+            if (isLineSelected) {
+                selectWholeDocument(editor);
+            } else if (isBracketSelected) {
+                editor.selection = lineSelection;
+            } else {
+                editor.selection = bracketSelection;
+            }
+            return;
         }
 
         selectWholeDocument(editor);

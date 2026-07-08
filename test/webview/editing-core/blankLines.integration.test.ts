@@ -1,6 +1,10 @@
 /**
  * 段落間の空行が Preview で保持されることの統合テスト。
  * 「`A\n\nB` の空行が preview に入る（= 2 段落として読み込まれ、空行ぶんの隙間が出る）」の回帰防止。
+ *
+ * 空行1つは従来どおり「ブロック間の既定の余白」（追加ノードなし）。空行が2つ以上ある場合は
+ * blankLineRemarkPlugin により本数分の空 paragraph が実体として復元される
+ * （blank-line-preservation.md）。
  */
 import '../jsdomSetup';
 import * as assert from 'assert';
@@ -28,8 +32,8 @@ describe('webview統合: 段落間の空行の保持', () => {
         assert.strictEqual(paragraphCount(h), 1, 'ソフトブレイクが 2 段落に割れている');
     });
 
-    it('複数の空行があっても本文が 2 段落で保持される', async () => {
+    it('複数の空行はその本数ぶんの空 paragraph が復元される（3行なら計4段落）', async () => {
         h = await createPreviewEditor(normalizePreviewMarkdown('para A\n\n\n\npara B\n'));
-        assert.strictEqual(paragraphCount(h), 2);
+        assert.strictEqual(paragraphCount(h), 4, '空行の本数ぶんの空 paragraph が復元されていない');
     });
 });

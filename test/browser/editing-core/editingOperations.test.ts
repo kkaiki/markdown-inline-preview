@@ -124,25 +124,66 @@ describe('実ブラウザ: Preview 編集操作', function () {
     // ── インラインマークの解除（実 DOM カーソルでマーク端 Backspace）──
     // jsdom 側 inlineMarkBackspace はプログラム的 setCursor で検証するが、実 DOM の
     // カーソルがマーク端にある状態の実キー操作はここでしか守れない。
-    describe('インラインマーク端の Backspace で解除', () => {
-        it('太字の末尾で Backspace → 太字が外れ、テキストは残る', async function () {
+    describe('インラインマーク端の Backspace（実マーカー文字を1文字ずつ編集）', () => {
+        // 【仕様変更】以前は "bold" 直後での Backspace 1回でマーク全体が即座に外れていたが、
+        // inlineMarkEditPlugin の導入により、フォーカス中は "**" 等のマーカーが実テキストと
+        // して見え、文字単位で編集・削除できるようになった（見出しの "## " が実テキスト化
+        // されて以来 markerBackspace の「先頭 Backspace で1段階降格」が発火しなくなったのと
+        // 同じトレードオフ。inline-mark-focus-edit-fix.md 参照）。
+        // "bold" 直後（= マーカーの手前）での Backspace は、マーカーではなく本文の最後の
+        // 文字を1文字削除する（マーカーそのものを消すには、閉じマーカーの後ろまでカーソルを
+        // 進めてから Backspace する）。
+        it('太字の直後（マーカーの手前）で Backspace → マーカーではなく本文の最後の文字が消える', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, 'x **bold** y\n', 'bold');
             await h.placeCursorAfterText('bold');
             await h.press('Backspace');
             const m = await h.model();
-            assert.ok(!m.outline.includes('{strong}'), `太字が外れていない: ${m.outline}`);
+            assert.ok(m.outline.includes('{strong}'), `太字マークは維持されるはず: ${m.outline}`);
+            assert.ok(m.text.includes('bol') && !m.text.includes('bold'), `本文の最後の文字(d)が消えるはず: ${JSON.stringify(m.text)}`);
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('太字の閉じマーカーの後ろまで進めてから Backspace を2回 → マーカーが1文字ずつ消え、最後に太字が外れる', async function () {
+            if (!browser) { this.skip(); return; }
+            // inlineMarkEditPlugin はブロック単位で expand/collapse するため、collapse を
+            // 発火させるには別ブロック（別段落）へフォーカスを移す必要がある
+            // （同一段落内でのカーソル移動だけでは何も確定しない）。
+            h = await openPreview(browser, 'x **bold** y\n\n次の段落\n', 'bold');
+            await h.placeCursorAfterText('bold');
+            await h.press('ArrowRight');
+            await h.press('ArrowRight');
+            await h.press('Backspace');
+            await h.press('Backspace');
+            await h.placeCursorAfterText('次の段落');
+            await h.page.waitForTimeout(150);
+            const m = await h.model();
+            assert.ok(!m.outline.includes('{strong}') && !m.outline.includes('{emphasis}'), `太字が外れているはず: ${m.outline}`);
             assert.ok(m.text.includes('bold'), 'テキストが消えた');
             assert.deepStrictEqual(h.errors, []);
         });
 
-        it('インラインコードの末尾で Backspace → コードが外れ、テキストは残る', async function () {
+        it('インラインコードの直後（マーカーの手前）で Backspace → マーカーではなく本文の最後の文字が消える', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, 'x `code` y\n', 'code');
             await h.placeCursorAfterText('code');
             await h.press('Backspace');
             const m = await h.model();
-            assert.ok(!/\{.*(inlineCode|code).*\}/.test(m.outline), `コードが外れていない: ${m.outline}`);
+            assert.ok(/\{.*(inlineCode|code).*\}/.test(m.outline), `inlineCode マークは維持されるはず: ${m.outline}`);
+            assert.ok(m.text.includes('cod') && !m.text.includes('code'), `本文の最後の文字(e)が消えるはず: ${JSON.stringify(m.text)}`);
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('インラインコードの閉じマーカーの後ろまで進めてから Backspace → コードが外れる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openPreview(browser, 'x `code` y\n\n次の段落\n', 'code');
+            await h.placeCursorAfterText('code');
+            await h.press('ArrowRight');
+            await h.press('Backspace');
+            await h.placeCursorAfterText('次の段落');
+            await h.page.waitForTimeout(150);
+            const m = await h.model();
+            assert.ok(!/\{.*(inlineCode|code).*\}/.test(m.outline), `コードが外れているはず: ${m.outline}`);
             assert.ok(m.text.includes('code'), 'テキストが消えた');
             assert.deepStrictEqual(h.errors, []);
         });

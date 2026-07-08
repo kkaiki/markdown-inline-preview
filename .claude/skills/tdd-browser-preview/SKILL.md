@@ -20,7 +20,7 @@ description: "markdown-inline-preview プロジェクトでのバグ修正 TDD �
 ## 必須の順序
 
 ```
-1. 失敗するテストを書く（test/browser/、test/suite/、または test/extension/（raw.test.ts / preview.test.ts））
+1. 失敗するテストを書く（test/browser/、test/suite/、または test/extension/raw/<category>.test.ts・test/extension/preview/<category>.test.ts）
 2. テストが「失敗」することを確認
 3. docs/specifications/ の仕様を更新
 4. 実装を修正
@@ -36,7 +36,7 @@ description: "markdown-inline-preview プロジェクトでのバグ修正 TDD �
 | キー操作・カーソル座標・DOM 依存（webview 内） | `test/browser/`（Playwright + Chromium。webview バンドルを単体で読み込むだけで、実 VS Code は起動しない） |
 | 純関数・ロジック | `test/suite/` か `test/webview/`（jsdom） |
 | jsdom では `endOfTextblock` 等が動かないバグ | 必ず `test/browser/` |
-| **VS Code のタブ・エディタグループ・フォーカス・`vscode.window.tabGroups` 絡みのバグ**（例: Preview⇔Raw 切替で違うファイルにフォーカスが飛ぶ） | 必ず `test/extension/preview.test.ts`（Raw コマンド系は `raw.test.ts`）（`@vscode/test-electron` で実 VS Code を起動）。`test/browser/` は webview 単体表示のみで実タブを持たないため、この種のバグは**原理的に再現できない**。 |
+| **VS Code のタブ・エディタグループ・フォーカス・`vscode.window.tabGroups` 絡みのバグ**（例: Preview⇔Raw 切替で違うファイルにフォーカスが飛ぶ） | 必ず `test/extension/preview/<category>.test.ts`（例: `tabs-editors.test.ts`。Raw コマンド系は `test/extension/raw/<category>.test.ts`）（`@vscode/test-electron` で実 VS Code を起動）。`test/browser/` は webview 単体表示のみで実タブを持たないため、この種のバグは**原理的に再現できない**。 |
 
 ## test/extension/（実 VS Code 拡張ホスト）を使うとき
 
@@ -48,7 +48,7 @@ npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js
 
 `test/runTest.ts` の `extensionDevelopmentPath = path.resolve(__dirname, '../../')` （プロジェクトルート）になっているか確認する。`tsconfig.test.json` の `outDir`/`include` 次第でコンパイル後の階層が変わるため、`../` の個数がズレると拡張機能自体がロードされず、**全コマンドが `command not found` で「全滅」する**（feature のバグではなく設定ミスなので、まずこれを疑う）。
 
-テストは `test/suite/index.ts` の `glob('extension/**/*.test.js', ...)` が `test/extension/` 配下を拾う。VS Code は 1 回だけ起動され、その同じインスタンス内で全ファイルが連続実行される。`MOCHA_GREP='12\.'` 環境変数でテスト名の絞り込みができる。新しいシナリオは raw.test.ts / preview.test.ts のどちらか適切な方に `suite(...)` を追記する。
+テストは `test/suite/index.ts` の `glob('extension/**/*.test.js', ...)` が `test/extension/` 配下を拾う。VS Code は 1 回だけ起動され、その同じインスタンス内で全ファイルが連続実行される。`MOCHA_GREP='12\.'` 環境変数でテスト名の絞り込みができる。新しいシナリオは `test/extension/raw/<category>.test.ts` か `test/extension/preview/<category>.test.ts` のうち該当する症状カテゴリのファイルに `suite(...)` を追記する（カテゴリの判定基準は CLAUDE.md 参照。無ければ新規カテゴリファイルを追加する）。
 
 ### タブ・フォーカス系バグの再現のコツ
 
@@ -85,7 +85,7 @@ npm run build:host      # 実装修正後ビルド（src/preview/host, src/raw �
 ## 主要ファイル
 
 - `test/browser/previewBrowserHarness.ts` — テストハーネス（`openPreview`, `h.model()` 等）
-- `test/extension/raw.test.ts` / `preview.test.ts` — 実 VS Code 拡張ホストテスト（タブ・フォーカス・コマンド系）
+- `test/extension/raw/` / `test/extension/preview/` — 実 VS Code 拡張ホストテスト（タブ・フォーカス・コマンド系。症状カテゴリ別にファイル分割済み。詳細は CLAUDE.md のディレクトリ構造節）
 - `test/runTest.ts` — `@vscode/test-electron` の起動設定。`extensionDevelopmentPath` のパス階層に注意
 - `src/preview/host/previewPanel.ts` — Preview⇔Raw 切替、タブ管理（`switchToRaw`/`switchToPreview`/`closeStaleTabs`）
 - `src/preview/webview/blockPrefixEditPlugin.ts` — フォーカス展開プラグイン

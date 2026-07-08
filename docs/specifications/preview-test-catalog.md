@@ -8,9 +8,9 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1170 件**
+**総テスト数: 1246 件**
 
-## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 104 件
+## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 110 件
 
 実行: `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`
 
@@ -181,7 +181,7 @@
   - **11. 実 VS Code 環境でのバグハンティング**
     - 11.2 ネストリストの空行を跨ぐ再採番を Undo で 1 段階戻すと、番号と空行の両方が元通りになる
 
-### `test/extension/raw/navigation.test.ts`（26 件）
+### `test/extension/raw/navigation.test.ts`（32 件）
 
 > Raw モード（実 VS Code）のカーソル移動・スマート選択を検証する。
 >
@@ -213,6 +213,13 @@
     - 4.2 テーブルセル選択後の2回目で行全体を選択する
     - 4.3 テーブル行選択後の3回目でテーブル全体を選択する
     - 4.4 テーブル全体選択後の4回目で文書全体を選択する
+  - **4.5 括弧内 Smart Select All の段階的選択**
+    - 4.5.1 丸括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する
+    - 4.5.2 角括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する
+    - 4.5.3 括弧の中身選択後の2回目で行全体を選択する
+    - 4.5.4 行全体選択後の3回目で文書全体を選択する
+    - 4.5.5 括弧の外にカーソルがある場合は従来通り1回目で文書全体を選択する
+    - 4.5.6 ネストした括弧では最も内側の中身を1回目に選択する
   - **4.3 Table Vertical Navigation**
     - 上下移動で同じセル内オフセットを維持する
     - 移動先セルが短い場合はセル末尾でクランプする
@@ -280,7 +287,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 206 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 254 件
 
 実行: `npm run test:browser`
 
@@ -350,6 +357,37 @@
   - **⌥⌘4 ショートカット（見出し起点）**
     - 見出しから変換する場合も、周辺に既存リストがあればカーソルは対象行に留まる
   - 上に既存リストがあっても、対象行は checked=false の独立した list_item になる
+
+### `test/browser/cursor-focus/codeBlockArrowUpJumpToTop.test.ts`（5 件）
+
+> 実ブラウザ回帰テスト（修正確認）: コードブロック内での ↑/↓（縦移動）。
+>
+> ユーザー報告: Python の `class` 定義など、コードブロックの1行目にある単語（クラス名）を
+> ダブルクリックで選択した状態で ↑ を押すと、直前の段落ではなく**文書の一番先頭**まで
+> カーソルが飛ぶ。
+>
+> 原因: フォーカス中のコードブロックは開始行（```lang）/終了行（```）を
+> `contenteditable="false"` の widget として表示する（`focusSyntaxPlugin.ts`、
+> `code-fence-focus-markers.md`）。この widget には改行文字を含むテキストが入っており、
+> ネイティブのキャレット上下移動がこの widget の境界をまたぐ際に DOM 位置を正しく
+> 解決できず、文書の先頭付近へキャレットが飛んでしまっていた（コードブロック末尾側の
+> 境界でも対称の問題があり、こちらは「最終行から下へ抜けられない」という形で現れる）。
+> `codeBlockArrowKeymap.ts` がコードブロック内の ↑/↓ を横取りし、`code_block` の生テキストを
+> 行分割して移動先を手動計算することで、ネイティブのキャレット移動を経由しないようにした。
+>
+> 実座標クリックについて: `page.getByText(...).click()` は要素境界（hljs のシンタックス
+> ハイライト `<span>` 分割等）に依存して意図しない位置をクリックすることがあるため、
+> ここでは `h.doubleClickTextAt` / `h.clickTextAt`（DOM Range から実座標を計算して
+> `page.mouse` で直接クリックする）を使う。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **修正確認: コードブロック内 ↑/↓ でブロック境界を正しく越える**
+  - コードブロック1行目の単語選択 → ArrowUp で、直前の段落（文書先頭ではない）へ抜ける
+  - コードブロック2行目の単語選択 → ArrowUp で、ブロック内の1行目へ留まる
+  - コードブロック3行目（最終行）の単語選択 → ArrowUp で、ブロック内の2行目へ留まる
+  - コードブロック2行目の単語選択 → ArrowDown で、ブロック内の3行目へ留まる
+  - コードブロック最終行の単語選択 → ArrowDown で、直後の見出し（ブロック内に留まらない）へ抜ける
 
 ### `test/browser/cursor-focus/codeBlockTabFocus.test.ts`（4 件）
 
@@ -493,7 +531,7 @@
     - 選択して Cmd+I で斜体（emphasis）が付く
     - 太字を選択して Cmd+B で解除できる（トグル）
 
-### `test/browser/editing-core/editingOperations.test.ts`（17 件）
+### `test/browser/editing-core/editingOperations.test.ts`（19 件）
 
 > 実ブラウザ回帰テスト: Preview の編集操作。
 >
@@ -517,9 +555,11 @@
     - 引用の先頭で Backspace してもクラッシュしない
   - **段落の分割と結合**
     - 段落途中で Enter 分割 → 先頭 Backspace で元通り結合できる
-  - **インラインマーク端の Backspace で解除**
-    - 太字の末尾で Backspace → 太字が外れ、テキストは残る
-    - インラインコードの末尾で Backspace → コードが外れ、テキストは残る
+  - **インラインマーク端の Backspace（実マーカー文字を1文字ずつ編集）**
+    - 太字の直後（マーカーの手前）で Backspace → マーカーではなく本文の最後の文字が消える
+    - 太字の閉じマーカーの後ろまで進めてから Backspace を2回 → マーカーが1文字ずつ消え、最後に太字が外れる
+    - インラインコードの直後（マーカーの手前）で Backspace → マーカーではなく本文の最後の文字が消える
+    - インラインコードの閉じマーカーの後ろまで進めてから Backspace → コードが外れる
   - **テーブルのセル間カーソル移動（実キー）**
     - ↓ で真下のセルへ（列を保つ）、↑ で戻る
     - → で隣のセルへ移る
@@ -530,6 +570,45 @@
     - セル内テキストが選択状態（non-empty）で ↓ → 同列の真下セルへ（分析シートバグ再現）
   - **Undo / Redo**
     - Cmd+B の太字付与を Cmd+Z で取り消し、Cmd+Shift+Z でやり直せる
+
+### `test/browser/editing-core/typingFidelity.test.ts`（19 件）
+
+> 実ブラウザ回帰テスト: タイプ中・確定後の「文字忠実性」。
+>
+> 目的:
+>   既存の basicOperations/editingOperations は最終結果の**構造**を `includes` で
+>   見ているだけで、途中経過と厳密一致（`===`）は見ていない。本ファイルは 1 打鍵ごとに
+>   doc 全体のテキストを `assert.strictEqual` で突き合わせ、「途中の1文字だけ余分/欠落」
+>   「冒頭が二重化する」といった崩れを検出できるようにする
+>   （未再現のユーザー報告「連続した日本語入力で冒頭が二重化する」に対する最も細かい網）。
+>
+> `docs/specifications/typing-fidelity-test-proposal.md` §4.1 の TDD 実装。
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: タイプ中・確定後の文字忠実性**
+  - **プレーンな文字列（空段落へ1文字ずつ）**
+      - ${label}「${text}」を1文字ずつ打っても、各時点で全文が厳密一致する
+    - 長文200文字を打鍵間ウェイトなしで連続タイプしても、最終結果が厳密一致する
+  - **カーソル位置バリエーション**
+    - 既存段落の先頭に打つ（冒頭挿入 = ユーザー報告の症状位置）
+    - 既存段落の末尾から続けて打つ
+    - 既存段落の中央に打つ
+    - 空ドキュメントに最初の1文字から打つ
+    - 文書の最終ブロック末尾（境界 pos）で打つ
+  - **ブロック種別ごとの本文タイプ**
+    - 見出し本文に打っても表示・markdown が厳密一致する
+    - 箇条書き項目の本文に打っても厳密一致する
+    - 番号付きリスト項目の本文に打っても厳密一致する
+    - チェックボックスラベルに打っても checked が反転せず厳密一致する
+    - blockquote 本文に打っても厳密一致する
+    - インラインコード内に打っても input rule が発火せず文字がそのまま残る
+    - fenced code block 内で "#" や "- " を打っても変換されずインデントも保持される
+    - テーブルセル内（パイプ以外の通常文字）に打っても厳密一致する
+  - **編集を挟むタイプ**
+    - タイプ → Backspace 数回 → 打ち直し で最終文字列が厳密一致する
+    - タイプ途中で ←← と戻って中央挿入しても最終文字列が厳密一致する
+    - タイプ → Undo → 再タイプ → Undo → Redo の後の全文が厳密一致する
+    - 2つの段落を行き来しながら交互に追記しても、それぞれ厳密一致する
 
 ### `test/browser/external-sync/rapidExternalUpdates.test.ts`（3 件）
 
@@ -630,6 +709,31 @@
   - フォーカスがコードブロックから外れると、フェンスマーカーは隠れる
   - フェンスマーカーは装飾のみで、実文書やホストへ送る Markdown には混入しない
 
+### `test/browser/focus-expand/codeFenceLanguageEdit.test.ts`（4 件）
+
+> 実ブラウザ回帰テスト: コードフェンスの言語名を自由テキストとして編集できること。
+>
+> ## 背景
+>
+> コードフェンス（`` ```lang `` 〜 `` ``` ``）のバッククォート自体は、実テキスト化すると
+> 直列化（保存）時にコード本文へ紛れ込む恐れがあるため widget 表示のまま編集不可にしている
+> （`code-fence-focus-markers.md`）。一方、言語名部分は `code_block` ノードの `language`
+> 属性であり、内容テキストとは別管理なので実テキスト化のリスクが無い。
+>
+> 以前から `codeLanguagePlugin`（フォーカス中にブロック右上へ浮かぶ言語セレクタ）が
+> 存在したが、`<select>` で固定リストからしか選べず、自由な文字列への打ち替え・
+> Backspace による編集ができなかった。`<input>`（`<datalist>` でリストを提案）へ
+> 変更し、キー入力のたびに `code_block` の `language` 属性へ反映するようにした
+> （`code-fence-language-focus-edit-fix.md` 参照）。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: コードフェンス言語名の自由テキスト編集**
+  - コードブロックにフォーカスすると言語欄が <input> として表示される（<select> ではない）
+  - 言語欄にプリセットに無い文字列を打つと、そのまま code_block の language 属性になる
+  - 言語欄で Backspace すると1文字ずつ削除でき、それに応じて language 属性が更新される
+  - 言語欄には既知の言語一覧が <datalist> の候補として提案される
+
 ### `test/browser/focus-expand/collapseMarkdownSync.test.ts`（5 件）
 
 > 実ブラウザ回帰テスト: ブロックの collapse（フォーカスが外れた際の記法プレフィックス除去）が
@@ -684,6 +788,73 @@
   - "> quote" でもスペースが保持される
   - 回帰確認: 見出しの collapse 後、保存 markdown に "## " が正しく（欠落・二重化せず）反映される
   - 回帰確認: 引用の collapse 後、保存 markdown に "> " が正しく反映される
+
+### `test/browser/focus-expand/headingPrefixBackspaceLevel.test.ts`（3 件）
+
+> 実ブラウザ回帰テスト: 見出しプレフィックス編集中に `#` を Backspace で削除したあと、
+> フォーカスを外して再度フォーカスすると見出しレベルが意図せず増える不具合。
+>
+> ## 調査結果
+>
+> ユーザー報告「# を1つ消して unfocus→focus を繰り返すと ### が増えていく」を
+> 実ブラウザで多数のパターン（1文字ずつの削除、実クリックでの操作、待機なしの
+> 高速操作、前方からの Delete 等）で再現を試みたところ、**「#」を1つだけ・または
+> 数個残して削除するケースは正しく動作する**（レベルは正しく増減し、再フォーカスでも
+> 表示される # の数は一致する）ことを確認した（下の「Backspace で1つ削除 → 正しく
+> H3 になる」テスト、および「複数回繰り返しても安定する」テストが green で固定）。
+>
+> 唯一再現できた実バグは、**「#」を全部（0個まで）削除しきった場合**:
+> `collapseHeading` の正規表現 `/^(#{1,6})\s/` は最低1個の `#` が無いとマッチせず、
+> マッチしないと「削除ゼロ・レベル変更なし」のまま何もせず collapse してしまう。
+> その結果、展開時に挿入した区切り文字（NBSP, U+00A0）が実テキストとして
+> **本文の中に残り続け**、見出しレベルも元のまま固着する。次に再フォーカスすると、
+> 元のレベル分の新しい "####" + NBSP がその残骸の**手前に**挿入されるため、
+> 見た目上は "####  見出し"（NBSP が2つ、余分な隙間）のように増殖して見える。
+> これを繰り返すたびに残骸の NBSP が積み重なっていく。
+>
+> `#` を全部消すというのは「もう見出しではない」という明確な意図なので、
+> 修正方針はレベルを弄るのではなく **ノードタイプを heading → paragraph へ変換する**
+> （`codeBlockBackspace.ts` がフェンス解除で code_block → paragraph に変換するのと
+> 同じ発想）。詳細仕様は `docs/specifications/heading-prefix-zero-hash-collapse-fix.md`。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: 見出しプレフィックスの Backspace 編集後、レベルが増殖しない**
+  - H4 の "####" から1文字 Backspace で H3 にした後、フォーカスを外して戻してもレベルは3のまま
+  - さらにもう一度 unfocus→focus を繰り返してもレベルは3のまま安定する（累積しない）
+  - # を全部（0個まで）削除すると、見出しではなく段落になる（残骸のNBSPも残らない）
+
+### `test/browser/focus-expand/inlineMarkFocusEdit.test.ts`（10 件）
+
+> 実ブラウザ回帰テスト: インライン記法（`**太字**` `*斜体*` `~~取り消し線~~` `` `コード` ``
+> `[link](url)`）の focus-expand（実テキスト編集化）。
+>
+> ## 背景
+>
+> 見出し・箇条書き・引用の行頭プレフィックス（`## ` 等）は `blockPrefixEditPlugin` が
+> フォーカス時に実テキストとして挿入し、そのまま Backspace で編集・削除できる。
+> 一方インライン記法マーカー（`**` 等）は `focusSyntaxPlugin` が `contenteditable="false"`
+> の widget として表示するだけで、実テキストではなく編集できなかった（手動確認で見つかった
+> 仕様ギャップ）。
+>
+> `inlineMarkEditPlugin` は、フォーカス中のブロック内にある対象マーク（strong / emphasis /
+> inlineCode / strike_through / link）を実テキストとして展開し、フォーカスが外れたら現在の
+> マーカー文字を読み取ってマークを再構築する。link は href（`](url)` の中身）も編集対象に
+> 含む（`docs/specifications/inline-mark-focus-edit-fix.md` 参照）。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: インライン記法マークの focus-expand（実テキスト編集化）**
+  - 太字にカーソルを合わせると "**" が実テキストとして表示される
+  - フォーカスを外すと実テキストの "**" は消え、太字マークは維持される（編集していないので change は増えない）
+  - 閉じ側の "**" から1文字 Backspace すると、フォーカスを外した時に太字ではなく斜体になる
+  - "**" を両側とも全部消すと、フォーカスを外した時に太字ではなくなる（マーク除去）
+  - インラインコード `` ` `` も同様にフォーカス中は実テキストで見え、削除するとマークが外れる
+  - 取り消し線 `~~` も同様にフォーカス中は実テキストで見え、編集していなければ change は増えない
+  - リンクにカーソルを合わせると "[link](https://example.com)" が実テキストとして表示される
+  - リンクのフォーカスを外すと実テキストの "[" "](url)" は消え、リンクは維持される（編集していないので change は増えない）
+  - リンクの URL 部分を打ち替えると、フォーカスを外した時に新しい href になる
+  - リンクの "[" と "](url)" を両方全部消すと、フォーカスを外した時にリンクではなくなる（マーク除去）
 
 ### `test/browser/ime/imeCheckbox.test.ts`（5 件）
 
@@ -888,27 +1059,31 @@
   - 外部編集（update メッセージ）で frontmatter が変わるとパネルも追従する
   - frontmatter が無いファイルではパネルは出ない（showFrontmatter: true でも）
 
-### `test/browser/rendering/lineNumberGutter.test.ts`（8 件）
+### `test/browser/rendering/lineNumberGutter.test.ts`（9 件）
 
 > 実ブラウザ回帰テスト: 行番号ガター（lineNumberGutterPlugin）。
 >
-> 各トップレベルブロックの左に「ソース Markdown の開始行番号」を出す機能。
+> 各トップレベルブロック（＋リスト項目）の左に「表示要素の連番」を出す機能。
 > - 設定 showLineNumbers が true のときだけ表示する。
-> - 行番号は保存ファイルと同じ整形（tight リスト等）を通して数えるため、実際のソース行と一致する。
+> - 番号はソース Markdown の行番号とは対応しない。1, 2, 3, ... と隙間なく振られる
+>   （以前は「ソース行番号の近似値」だったため空行や複数行ブロックで番号が飛んでいたが、
+>   連番方式に変更した。ソースの空行自体は別途、実体のある空 paragraph として復元表示
+>   されるようになったため、連番はそれも1要素として数える）。
 > - 既存の diff ガターと共存する（別レイヤ）。
 >
-> jsdom では座標・widget 描画・シリアライズ整形の組み合わせを検証できないため、ここが砦。
+> jsdom では座標・widget 描画の組み合わせを検証できないため、ここが砦。
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
 - **実ブラウザ: 行番号ガター**
   - showLineNumbers=false のときは行番号を表示しない
   - showLineNumbers=true で各ブロックに行番号が出る
-  - 行番号が実際のソース行と一致する（見出し/段落/リスト/コード/引用）
+  - 連番が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）
   - リストは各項目に行番号が出る（先頭だけでない）
   - 番号付きリストも各項目に行番号が出る
   - コードブロックの行番号も（pre の overflow に）クリップされず表示される
   - showToolbar: true のときも行番号が viewport 左端よりも右にある（クリップされない）
   - showLineNumbers: true のとき .milkdown に padding-left が付与されて行番号スペースが確保される
+  - 空行スペーサーはガター連番に含まれ、カーソルを置いて入力・Backspaceで削除できる
 
 ### `test/browser/rendering/mathRendering.test.ts`（10 件）
 
@@ -1055,6 +1230,24 @@
   - toolbarShowShortcuts: false のときホバーツールチップにショートカットキー表示が出ない
   - toolbarShowShortcuts: true（既定）のときホバーツールチップにショートカットキーが表示される
 
+### `test/browser/shortcuts/selectAllBrackets.test.ts`（4 件）
+
+> 実ブラウザ回帰テスト: Cmd+A 段階選択の「括弧の中身」優先段階を、
+> **ビルド済みの実 webview バンドル**（media/milkdown.bundle.js）に対して実キー操作で検証する。
+>
+> test/webview（jsdom）はソースの .ts を直接 esbuild でバンドルしてテストするため、
+> `npm run build:webview` を忘れて media/milkdown.bundle.js が古いままでも green になり得る
+> （実際にこの抜け穴で本番バンドルへの反映漏れが一度発生した）。ここでは実際に VS Code の
+> Preview が読み込むファイルそのものを実 Chromium にロードし、実 Meta+a キー入力で検証する。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: Cmd+A 括弧の中身優先選択（本番バンドル）**
+  - 丸括弧の中にカーソルがあれば1回目のCmd+Aで括弧の中身だけを選択する
+  - 角括弧の中にカーソルがあれば1回目のCmd+Aで括弧の中身だけを選択する
+  - 括弧の中身→行全体→文書全体と3回のCmd+Aで段階的に広がる
+  - ネストした括弧では最も内側の中身を1回目のCmd+Aで選択する
+
 ### `test/browser/shortcuts/slashMenuDom.test.ts`（6 件）
 
 > 実ブラウザ・仕様カバレッジテスト: Preview スラッシュメニューの実 DOM 操作。
@@ -1115,7 +1308,7 @@
     - チェックボックス項目をコピーして別の場所にペーストすると、同じ内容の未チェック項目として挿入される
     - チェックボックスをペーストした直後に別の行で [ ] を追記しても、両方の項目が正しいまま残る
 
-## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 223 件
+## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 233 件
 
 実行: `npm run test:unit`
 
@@ -1186,11 +1379,15 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 
 > 段落間の空行が Preview で保持されることの統合テスト。
 > 「`A\n\nB` の空行が preview に入る（= 2 段落として読み込まれ、空行ぶんの隙間が出る）」の回帰防止。
+>
+> 空行1つは従来どおり「ブロック間の既定の余白」（追加ノードなし）。空行が2つ以上ある場合は
+> blankLineRemarkPlugin により本数分の空 paragraph が実体として復元される
+> （blank-line-preservation.md）。
 
 - **webview統合: 段落間の空行の保持**
   - 空行で区切られた `A\\n\\nB` は 2 段落として読み込まれる
   - 単一改行 `A\\nB`（ソフトブレイク）は 1 段落のまま
-  - 複数の空行があっても本文が 2 段落で保持される
+  - 複数の空行はその本数ぶんの空 paragraph が復元される（3行なら計4段落）
 
 ### `test/webview/editing-core/checkboxEditDelete.test.ts`（7 件）
 
@@ -1564,6 +1761,22 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - カーソル（空選択）は触らない（null）
   - end-to-end: プラグインを載せて dispatch すると、表をまたぐ選択が保持される（壊れない）
 
+### `test/webview/rendering/blankLineRoundtrip.test.ts`（4 件）
+
+> ソースMarkdown中の「連続した複数の空行」を Preview に実体のある空 paragraph
+> ノードとして復元し、保存時にも同じ本数の空行として書き戻せることを検証する。
+>
+> 従来: `remark-parse` は空行そのものをノード化しないため、隣接する2ブロック間に
+> 何行空行があったかという情報はパース時点で失われていた（1行でも5行でも同じ
+> 2ブロック構成になる）。このテストは、その本数がドキュメントモデル（空 paragraph
+> ノードの個数）として復元され、round-trip でも往復することを固定する。
+
+- **webview統合: 連続する空行の復元とround-trip**
+  - 空行1つは従来どおり2段落のまま（空 paragraph は増やさない）
+  - 空行2つは間に空 paragraph が1つ復元される
+  - 空行3つは間に空 paragraph が2つ復元される
+  - 見出しと本文の間の空行2つも復元される（段落以外の組み合わせ）
+
 ### `test/webview/rendering/codeHighlight.integration.test.ts`（5 件）
 
 > codeHighlightPlugin（コードブロックのシンタックスハイライト）の統合テスト。
@@ -1656,7 +1869,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - Replace は現在の一致だけを置換し、残りは保持する
   - 置換テキストが空なら一致を削除できる
 
-### `test/webview/shortcuts/previewKeymap.integration.test.ts`（30 件）
+### `test/webview/shortcuts/previewKeymap.integration.test.ts`（36 件）
 
 > previewKeymapPlugin の統合テスト。
 > 実 Milkdown エディタ（jsdom）に対して DOM keydown を送り、
@@ -1685,6 +1898,13 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 段落の行全体を選択済みで再度 Cmd+A: 文書全体になる
   - 見出しでも Cmd+A: 1回目=その行(見出し)全体を選択
   - 通常の段落でも previewSelectAllApplies が各段階の preventDefault と一致する
+- **webview統合: Cmd/Ctrl+A 括弧の中身優先選択**
+  - 丸括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する
+  - 角括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する
+  - 括弧の中身選択済みで2回目は行（段落）全体を選択する
+  - 行全体選択済みで3回目は文書全体を選択する
+  - 括弧の外にカーソルがある場合は従来通り行全体が1回目で選ばれる
+  - ネストした括弧では最も内側の中身を1回目に選択する
 - **webview統合: Cmd/Ctrl+A capture ハンドラ（milkdownApp 相当）**
   - capture が native を抑止し、1 押下で 1 段階だけ進む（plugin と二重発火しない）
   - capture でも 1 押下ごとに セル内容→行→表 と 1 段階ずつ進む
@@ -1729,7 +1949,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 637 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 649 件
 
 実行: `npm run test:unit`
 
@@ -2310,6 +2530,22 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - records trailing deletions
   - handles all-new (no base)
   - mixes modified and added in one change region
+
+### `test/suite/shared/bracketSelection.test.ts`（12 件）
+
+- **bracketSelection: findEnclosingBracketContent**
+  - カーソルが丸括弧の中にあれば中身の範囲を返す
+  - カーソルが角括弧の中にあれば中身の範囲を返す
+  - 括弧の外（開き括弧より前）にカーソルがあれば null を返す
+  - 括弧が全く無い行では null を返す
+  - ネストした括弧では最も内側の範囲を返す
+  - ネストした括弧の外側部分にカーソルがあれば外側の範囲を返す
+  - 複数の独立した括弧では現在位置を含む方だけを返す
+  - 開き括弧の直後にカーソルがあれば中身（空でも）を選択対象にする
+  - 閉じ括弧の直前（中身の末尾と同じ位置）にカーソルがあれば中身に含める
+  - 開き括弧の直前にカーソルがあれば括弧の外とみなす
+  - 対応しない閉じ括弧は無視して外側の対応する開き括弧とペアにする
+  - 種類の異なる括弧はまたがず、対応する種類同士だけをペアにする
 
 ### `test/suite/shared/frontmatter.test.ts`（2 件）
 

@@ -1,8 +1,9 @@
 /**
  * Preview（Milkdown）向けのキーボードショートカット。
  *
- * - `Cmd/Ctrl+A`: まずカーソルのある「行（テキストブロック）」全体を選択し、もう一度押すと
- *   既定の全選択（文書全体）へ。テーブルセル内はセル内容 → 行 → 表全体 と段階選択。
+ * - `Cmd/Ctrl+A`: カーソルが `(...)`/`[...]` の中にあればまず括弧の中身、次に行（テキスト
+ *   ブロック）全体、もう一度押すと既定の全選択（文書全体）へ。テーブルセル内はセル内容 →
+ *   行 → 表全体 と段階選択。
  * - Notion 風ブロック変換 `Cmd/Ctrl+Opt+<数字>`:
  *   0=本文, 1/2/3=見出し, 4=ToDo, 5=箇条書き, 6=番号付き, 8=コード, 9=引用。
  *
@@ -26,6 +27,7 @@ import type { ResolvedPos } from '@milkdown/prose/model';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 import { classifyPreviewShortcut, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
+import { findEnclosingBracketContent } from '../../shared/markdown/bracketSelection';
 import { getExpandedBlock, setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
 
 function findDepth($pos: ResolvedPos, names: string[]): number {
@@ -144,6 +146,7 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     }
 
     // 通常のテキストブロック（段落・見出し・リスト項目など）:
+    // カーソルが (...) / [...] の中にあれば、まずその中身だけを選択（ネストは最も内側優先）。
     // 1 回目はカーソルのある「行（テキストブロック）」の中身を丸ごと選択。
     // 2 回目（既に行全体が選択済み）は文書全体（AllSelection）にする。
     if ($from.parent.isTextblock) {
@@ -153,6 +156,31 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
         const expanded = getExpandedBlock();
         const blockStart = expanded ? expanded.contentStart : $from.start();
         const blockEnd = $from.end();
+
+        const blockText = state.doc.textBetween($from.start(), $from.end(), '\n', '\n');
+        const cursorOffset = $from.pos - $from.start();
+        const bracketRange = findEnclosingBracketContent(blockText, cursorOffset);
+
+        if (bracketRange) {
+            const bracketFrom = $from.start() + bracketRange.start;
+            const bracketTo = $from.start() + bracketRange.end;
+            const lineContent = TextSelection.create(state.doc, blockStart, blockEnd);
+
+            const isLineSelected =
+                sel instanceof TextSelection && sel.from === lineContent.from && sel.to === lineContent.to && blockStart < blockEnd;
+            const isBracketSelected =
+                sel instanceof TextSelection && sel.from === bracketFrom && sel.to === bracketTo;
+
+            if (isLineSelected) return selectWholeDoc(view);
+            if (isBracketSelected) {
+                view.dispatch(state.tr.setSelection(lineContent).scrollIntoView());
+                return true;
+            }
+
+            const bracketContent = TextSelection.create(state.doc, bracketFrom, bracketTo);
+            view.dispatch(state.tr.setSelection(bracketContent).scrollIntoView());
+            return true;
+        }
 
         const isBlockSelected =
             sel instanceof TextSelection && sel.from === blockStart && sel.to === blockEnd && blockStart < blockEnd;

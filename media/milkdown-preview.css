@@ -75,6 +75,12 @@ html, body {
 
 .milkdown .editor {
     outline: none;
+    /* ProseMirror 自身がこの設定を前提にしている（未設定だとブラウザの
+       contenteditable が行末の半角スペースを NBSP へすり替え、DOM⇔doc モデルの
+       位置対応も不安定になる。実行時に "ProseMirror expects the CSS white-space
+       property to be set, preferably to 'pre-wrap'" という警告が出ていた）。
+       trailing-space-nbsp-corruption-fix.md 参照。 */
+    white-space: pre-wrap;
 }
 
 .milkdown h1, .milkdown h2, .milkdown h3,
@@ -325,7 +331,7 @@ body.theme-dark {
 .code-lang-select[hidden] {
     display: none;
 }
-.code-lang-select select {
+.code-lang-select input {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 11px;
     color: var(--vscode-dropdown-foreground, var(--preview-fg));
@@ -333,7 +339,7 @@ body.theme-dark {
     border: 1px solid var(--vscode-dropdown-border, var(--preview-border));
     border-radius: 4px;
     padding: 1px 4px;
-    cursor: pointer;
+    width: 7em;
 }
 
 .milkdown blockquote {

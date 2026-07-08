@@ -2,8 +2,7 @@
  * WebView 側エントリポイント。esbuild で media/milkdown.bundle.js にバンドルされる。
  */
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx, remarkStringifyOptionsCtx, serializerCtx } from '@milkdown/kit/core';
-import type { Node as ProseNode } from '@milkdown/prose/model';
-import { commonmark, insertImageCommand } from '@milkdown/kit/preset/commonmark';
+import { commonmark, insertImageCommand, updateCodeBlockLanguageCommand } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
 import { clipboard } from '@milkdown/kit/plugin/clipboard';
@@ -30,6 +29,7 @@ import { scrollRatioFromPixels, pixelsFromScrollRatio, contentScrollHeight } fro
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { createMarkerBackspacePlugin } from './markerBackspace';
 import { createBlockPrefixEditPlugin, isBlockPrefixActive, setOnCollapseSync } from './blockPrefixEditPlugin';
+import { createInlineMarkEditPlugin, isInlineMarkEditActive, setOnCollapseSync as setInlineMarkOnCollapseSync } from './inlineMarkEditPlugin';
 import { createLineNumberGutterPlugin } from './lineNumberGutterPlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
@@ -39,6 +39,7 @@ import { createClipboardPlainTextPlugin } from './clipboardPlainTextPlugin';
 import { createListMarkerDragFixPlugin } from './listMarkerDragFixPlugin';
 import { createTableSelectionFixPlugin } from './tableSelectionFix';
 import { createTableArrowKeymapPlugin } from './tableArrowKeymap';
+import { createCodeBlockArrowKeymapPlugin } from './codeBlockArrowKeymap';
 import { createPreviewKeymapPlugin, handleSelectAllCapture } from './previewKeymapPlugin';
 import { classifyPreviewShortcut } from '../../shared/preview/previewShortcuts';
 import { createCodeLanguagePlugin } from './codeLanguagePlugin';
@@ -55,9 +56,11 @@ import { PreviewFindBar } from './previewFindBar';
 import { setLanguage, t } from './i18n';
 import { createImageCopyPlugin, writeDataUrlToClipboard } from './imageCopyPlugin';
 import { imageIsolationPlugin } from './imageIsolationPlugin';
+import { trailingNbspFixPlugin } from './trailingNbspFixPlugin';
 import { applyExternalContent } from './applyExternalContent';
 import { getPreviewCursorAnchor, applyPreviewCursorAnchor } from './cursorAnchor';
 import type { CursorAnchor } from '../../shared/preview/cursorAnchor';
+import { blankLineRemarkPlugin } from './blankLineRemarkPlugin';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -174,6 +177,8 @@ let lastSyncedMarkdown: string | null = null;
 let currentFrontmatter: string | null = null;
 let currentSettings: PreviewSettings | null = null;
 let scrollReportEnabled = false;
+let isComposing = false;
+let compositionBaseBlockText = '';
 const slashMenuController = slashMenuEl ? new PreviewSlashMenuController(slashMenuEl) : null;
 const slashMenuPlugin = slashMenuController ? createSlashMenuPlugin(slashMenuController) : null;
 
@@ -444,6 +449,15 @@ function postChange(markdown: string): void {
     vscodeApi.postMessage({ type: 'change', markdown: fileMarkdown });
 }
 
+function activeBlockText(view: EditorView): string {
+    const { $from } = view.state.selection;
+    for (let depth = $from.depth; depth >= 0; depth--) {
+        const node = $from.node(depth);
+        if (node.isBlock) return node.textContent;
+    }
+    return '';
+}
+
 
 async function createEditor(markdown: string, settings: PreviewSettings): Promise<void> {
     const initialMarkdown = normalizeMarkdown(markdown);
@@ -452,27 +466,6 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     setLanguage(settings.language);
     setFocusSyntaxEnabled(settings.showFocusSyntax);
     setSlashMenuEnabled(settings.enableSlashMenu);
-
-    // 行番号ガター: トップレベルブロック 1 つを単独 Markdown 化して開始行を数えるための
-    // シリアライザ。editor 作成後にのみ呼ばれる（decorations 経由）。
-    const serializeBlock = (node: ProseNode): string => {
-        if (!editor) return node.textContent;
-        let out = node.textContent;
-        try {
-            editor.action((ctx) => {
-                const serialize = ctx.get(serializerCtx);
-                const view = ctx.get(editorViewCtx);
-                const wrapped = view.state.schema.topNodeType.create(null, node);
-                // postChange と同じ整形（リストの tight 化等）を通す。これをしないと
-                // シリアライザは loose リスト（項目間に空行）を出し、保存ファイルの行数と
-                // 食い違って行番号がズレる。
-                out = stripListItemPlaceholderBr(stripPlaceholderLineBreaks(tightenListSpacing(serialize(wrapped))));
-            });
-        } catch {
-            /* フォールバックは textContent のまま */
-        }
-        return out;
-    };
 
     const builder = Editor.make()
         .config((ctx) => {
@@ -483,6 +476,16 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                 editable: () => settings.editable,
                 handleDOMEvents: {
                     click: (_view, event) => handlePreviewLinkClick(event),
+                    compositionstart: (view) => {
+                        isComposing = true;
+                        compositionBaseBlockText = activeBlockText(view);
+                        return false;
+                    },
+                    compositionend: () => {
+                        isComposing = false;
+                        compositionBaseBlockText = '';
+                        return false;
+                    },
                     paste: (view, event) => {
                         if (handleImageDataTransfer(event.clipboardData)) {
                             event.preventDefault();
@@ -506,7 +509,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
                 // blockPrefixEditPlugin 展開中はプレフィックスが二重直列化（`## ## Hello`）
                 // されるため、カーソルがブロックを抜けて折りたたみが完了するまで同期を抑制する。
-                if (isBlockPrefixActive()) return;
+                if (isBlockPrefixActive() || isInlineMarkEditActive()) return;
                 postChange(nextMarkdown);
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
@@ -528,8 +531,15 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createTableCellEnterPlugin())
         .use(createTableSelectionFixPlugin())
         .use(createTableArrowKeymapPlugin())
+        .use(createCodeBlockArrowKeymapPlugin())
         .use(commonmark)
+        // commonmark プリセットの `commands` 配列に含まれていないため、明示的に
+        // 使わないと commandsCtx に一切登録されず、呼び出すと例外になる
+        // （code-fence-language-focus-edit-fix.md で発見。既存の言語ドロップダウンも
+        // 同じ理由で元から機能していなかった）。
+        .use(updateCodeBlockLanguageCommand)
         .use(gfm)
+        .use(blankLineRemarkPlugin)
         .use(history)
         // 画像ノード選択時の Cmd+C / 右クリック「Copy Image」を処理する。
         // clipboard プラグインより前に登録して、画像 NodeSelection では優先して処理する。
@@ -538,6 +548,9 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         }))
         // 画像とテキストの混在を防ぐ。文書変更後に混在段落を自動分離する。
         .use(imageIsolationPlugin)
+        // ブロック末尾に紛れ込んだ NBSP（ブラウザの行末スペース代替措置由来）を
+        // 通常スペースへ正規化する（trailing-space-nbsp-corruption-fix.md）。
+        .use(trailingNbspFixPlugin)
         // コピー時、表セルの改行を保存用 markdown の `<br>` のまま漏らさず、実際の
         // 改行として渡す。clipboard プラグインより前に登録し、someProp の先勝ちで上書きする。
         .use(createClipboardPlainTextPlugin())
@@ -556,7 +569,8 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(focusSyntaxPlugin)
         .use(createMarkerBackspacePlugin())
         .use(createBlockPrefixEditPlugin())
-        .use(createLineNumberGutterPlugin({ serializeBlock }));
+        .use(createInlineMarkEditPlugin())
+        .use(createLineNumberGutterPlugin());
 
     if (settings.showToolbar) {
         const isMac = /mac/i.test(navigator.platform || navigator.userAgent || '');
@@ -592,6 +606,14 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             postChange(serialize(view.state.doc));
         });
     });
+    setInlineMarkOnCollapseSync(() => {
+        if (!editor) return;
+        editor.action((ctx) => {
+            const serialize = ctx.get(serializerCtx);
+            const view = ctx.get(editorViewCtx);
+            postChange(serialize(view.state.doc));
+        });
+    });
     // テスト専用シーム: 事前に window.__IPREVIEW_TEST_HOOK__ が定義されている場合のみ
     // EditorView を渡す。本番（実 VS Code）では未定義なので何もしない。
     // 実ブラウザ回帰テスト（test/browser）がドキュメントモデル/選択を読むために使う。
@@ -613,6 +635,10 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
 function applyExternalMarkdown(markdown: string): void {
     const next = normalizeMarkdown(markdown);
     if (!editor || next === lastSyncedMarkdown) return;
+    const baseText = compositionBaseBlockText.trim();
+    if (isComposing && baseText.length > 0 && !next.includes(baseText)) {
+        return;
+    }
     lastSyncedMarkdown = next;
     editor.action((ctx) => applyExternalContent(ctx, next));
 }

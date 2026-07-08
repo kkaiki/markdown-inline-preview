@@ -217,6 +217,14 @@ Preview（WYSIWYG）モードは [preview-features.md](./preview-features.md) �
 
 `smartSelectAll` の最終段階（セル/コードブロック全体選択済みの状態からの文書全体選択）は、VS Code 既定の `editor.action.selectAll` に委譲せず、明示的に `Selection(0,0 〜 最終行末)` を組み立てて設定する（`selectWholeDocument`、`navigation.ts`）。`editor.action.selectAll` は実ウィンドウがフォーカスを持たない環境（自動テスト実行時など）で無反応になることがあり、他の段階（セル/行/表）と同じ「明示的に Selection を組み立てる」方式に揃えた。
 
+テーブルセル内・コードフェンス内のいずれでもない通常行では、カーソルが `(...)` / `[...]` の中にある場合、以下の3段階で選択が広がる（`findEnclosingBracketContent`、`src/shared/markdown/bracketSelection.ts` を共有）:
+
+1. 括弧の中身（ネストしていれば最も内側の括弧を優先）
+2. 行全体
+3. 文書全体
+
+カーソルが括弧の外にある通常行では、この段階を経由せず従来どおり1回目で文書全体を選択する。括弧の中身が行全体と同じ範囲になる場合（行が丸ごと1組の括弧である等）は、中身の段階と行の段階が同一になり実質2段階に短縮される。
+
 ---
 
 ## 設定一覧
