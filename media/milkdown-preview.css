@@ -604,6 +604,25 @@ body.theme-dark {
     height: auto;
 }
 
+.mermaid-diagram .node {
+    cursor: text;
+}
+
+.mermaid-node-label-editor {
+    position: fixed;
+    z-index: 100;
+    box-sizing: border-box;
+    padding: 1px 4px;
+    font-family: inherit;
+    font-size: 16px;
+    text-align: center;
+    color: var(--vscode-input-foreground, #333);
+    background: var(--vscode-input-background, #fff);
+    border: 1px solid var(--vscode-focusBorder, #9370DB);
+    border-radius: 2px;
+    outline: none;
+}
+
 /* Mode transition */
 @keyframes previewFadeIn {
     from { opacity: 0.35; }
