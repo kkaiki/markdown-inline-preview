@@ -15,6 +15,7 @@ import type { EditorView } from '@milkdown/prose/view';
 import type { Ctx } from '@milkdown/ctx';
 
 import { createPreviewKeymapPlugin } from '../../src/preview/webview/previewKeymapPlugin';
+import { blankLineRemarkPlugin } from '../../src/preview/webview/blankLineRemarkPlugin';
 
 export interface PreviewEditorHandle {
     editor: Editor;
@@ -60,6 +61,7 @@ export async function createPreviewEditor(
         .use(createPreviewKeymapPlugin())
         .use(commonmark)
         .use(gfm)
+        .use(blankLineRemarkPlugin)
         .create();
 
     let view!: EditorView;

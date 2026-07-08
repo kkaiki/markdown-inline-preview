@@ -252,6 +252,87 @@ describe('webview統合: Cmd/Ctrl+A 段階選択', () => {
     });
 });
 
+describe('webview統合: Cmd/Ctrl+A 括弧の中身優先選択', () => {
+    let h: PreviewEditorHandle;
+    afterEach(() => h?.destroy());
+
+    function selectedText(handle: PreviewEditorHandle): string {
+        const sel = handle.view.state.selection;
+        return handle.view.state.doc.textBetween(sel.from, sel.to);
+    }
+
+    it('丸括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する', async () => {
+        const text = 'note (detail here) end';
+        h = await createPreviewEditor(text + '\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('detail') + 1);
+
+        const res = h.pressKey({ code: 'KeyA', key: 'a', meta: true });
+        assert.strictEqual(res.defaultPrevented, true);
+        assert.ok(h.view.state.selection instanceof TextSelection);
+        assert.strictEqual(selectedText(h), 'detail here');
+    });
+
+    it('角括弧の中にカーソルがあれば1回目で括弧の中身だけを選択する', async () => {
+        const text = 'ref [note text] end';
+        h = await createPreviewEditor(text + '\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('note text') + 1);
+
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true });
+        assert.strictEqual(selectedText(h), 'note text');
+    });
+
+    it('括弧の中身選択済みで2回目は行（段落）全体を選択する', async () => {
+        const text = 'note (detail here) end';
+        // 2段落にして「行」と「文書全体」のテキストが一致しないようにする
+        // （1段落だけだと両者が同じ文字列になり、テストが2段階目を検証できない）。
+        h = await createPreviewEditor(text + '\n\nsecond paragraph\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('detail') + 1);
+
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 1回目: 括弧の中身
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 2回目: 行全体
+        assert.strictEqual(selectedText(h), text);
+        assert.notStrictEqual(selectedText(h), h.view.state.doc.textBetween(0, h.view.state.doc.content.size), '文書全体まで広がってはいけない');
+    });
+
+    it('行全体選択済みで3回目は文書全体を選択する', async () => {
+        const text = 'note (detail here) end';
+        h = await createPreviewEditor(text + '\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('detail') + 1);
+
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 括弧の中身
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 行全体
+        const res = h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 文書全体
+        assert.strictEqual(res.defaultPrevented, true);
+        const sel = h.view.state.selection;
+        assert.strictEqual(sel.from, 0);
+        assert.strictEqual(sel.to, h.view.state.doc.content.size);
+    });
+
+    it('括弧の外にカーソルがある場合は従来通り行全体が1回目で選ばれる', async () => {
+        const text = 'note (detail here) end';
+        h = await createPreviewEditor(text + '\n\nsecond paragraph\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('end') + 1); // 括弧の外
+
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true });
+        assert.strictEqual(selectedText(h), text, '括弧の外では行全体が1回目で選ばれるべき');
+    });
+
+    it('ネストした括弧では最も内側の中身を1回目に選択する', async () => {
+        const text = 'outer (mid [inner] end) tail';
+        h = await createPreviewEditor(text + '\n');
+        const blockStart = findFirstPosOfType(h, 'paragraph');
+        h.setCursor(blockStart + text.indexOf('inner') + 2);
+
+        h.pressKey({ code: 'KeyA', key: 'a', meta: true });
+        assert.strictEqual(selectedText(h), 'inner');
+    });
+});
+
 // milkdownApp.ts の capture フェーズ keydown リスナを「実際のイベント伝播」で再現して、
 // handleSelectAllCapture（= 実コードが呼ぶ関数）の挙動を検証する。
 // 上の「Cmd/Ctrl+A 段階選択」群が plugin の handleKeyDown 経路（view.dom へ直接 keydown）を

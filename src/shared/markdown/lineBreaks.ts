@@ -12,12 +12,34 @@ const STANDALONE_BREAK = /^[ \t]*<br\s*\/?>[ \t]*$/gim;
 // "* [ ] <br />" → "* [ ] " のようにチェックボックス構文を保ちつつ <br /> を除去する。
 const LIST_ITEM_TRAILING_BR = /^([ \t]*[-*+][ \t]+(?:\[[x ]\][ \t]*)?)<br\s*\/?>[ \t]*$/gm;
 
+// 連続する空 paragraph（blankLineRemarkPlugin.ts が復元したもの）の連鎖。
+// remark-stringify は各空 paragraph を前後 1 空行のセパレータで囲んで出力するため、
+// N-1 個の空 paragraph は素の出力で `\n\n<br />` が (N-1) 回連なる形になる
+// （前後のセパレータと重なり合うため、単純に <br /> を取り除くだけでは
+// 2*(N-1)+1 行の空行になってしまい、元の N 行と本数が合わない）。
+// ここで連鎖の長さ（<br /> の個数）から逆算し、正しい本数の空行に一括で戻す。
+const BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n\n/g;
+
+/**
+ * `blankLineRemarkPlugin.ts` が復元した連続空 paragraph の直列化結果を、
+ * 元のソースと同じ本数の空行に戻す。`stripPlaceholderLineBreaks` より前に適用する。
+ */
+export function collapseBlankLineChains(markdown: string): string {
+    return markdown.replace(BLANK_PARAGRAPH_CHAIN, (chain) => {
+        const brCount = (chain.match(/<br\s*\/?>/gi) ?? []).length;
+        // brCount 個の空 paragraph → (brCount + 1) 行の空行 → (brCount + 2) 個の改行文字。
+        return '\n'.repeat(brCount + 2);
+    });
+}
+
 /**
  * `<br />` プレースホルダ（空行・空セル）を通常の空行・空セルへ戻す。
  * 本文中の意図的なインライン `<br />`（例: `foo<br />bar`）は対象にしない。
+ * 連続空 paragraph の連鎖は本数がずれるため、先に `collapseBlankLineChains` で
+ * 正しい本数へ変換してから、残った単発の `<br />` を除去する。
  */
 export function stripPlaceholderLineBreaks(markdown: string): string {
-    return markdown
+    return collapseBlankLineChains(markdown)
         .replace(EMPTY_CELL_BREAK, '$1$2')
         .replace(STANDALONE_BREAK, '');
 }
