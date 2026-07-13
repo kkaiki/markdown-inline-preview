@@ -436,6 +436,7 @@ function handleTaskListEnter(view: EditorView, ctx: Ctx): boolean {
     return true;
 }
 
+
 /**
  * Enter 押下時、カーソル行が ``` または ```lang だけの段落なら、コードブロックに
  * 変換する（入力ルールは Enter では発火しないため、ここで Enter を拾う）。
@@ -583,8 +584,11 @@ export function createPreviewKeymapPlugin() {
                                 return true;
                             }
                             return false;
-                        default:
-                            // find は milkdownApp の capture リスナが処理する
+                        case 'find':
+                        case 'replace':
+                        case 'toggleRaw':
+                            // milkdownApp の document capture リスナ側で処理済み
+                            // （ここには元々来ない想定だが、念のため既定へ委ねる）。
                             return false;
                     }
                 }
