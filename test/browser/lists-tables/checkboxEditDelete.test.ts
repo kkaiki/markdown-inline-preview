@@ -73,4 +73,18 @@ describe('実ブラウザ: チェックボックスの編集・削除', function
             `2項目目はチェックボックスから箇条書きへ降格し、テキストは "second" のままであるべき（"- " が漏れていないか）: ${m.outline}`);
         assert.deepStrictEqual(h.errors, []);
     });
+
+    it('空チェックボックスで Backspace → 箇条書きを経由せず、その位置に空行を残す', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, 'above\n\n- [ ] x\n\nbelow\n', 'below');
+        await h.placeCursorAfterText('x');
+        await h.press('Backspace'); // 本文を空にする
+        await h.press('Backspace');
+        await h.page.waitForTimeout(100);
+
+        const m = await h.model();
+        assert.deepStrictEqual(m.topTypes, ['paragraph', 'paragraph', 'paragraph'], `空行として残っていない: ${m.outline}`);
+        assert.ok(!m.outline.includes('bullet_list'), `空の箇条書きが残っている: ${m.outline}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
 });
