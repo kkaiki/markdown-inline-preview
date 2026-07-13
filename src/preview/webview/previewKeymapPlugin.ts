@@ -436,6 +436,27 @@ function handleTaskListEnter(view: EditorView, ctx: Ctx): boolean {
     return true;
 }
 
+/**
+ * 通常段落の Enter は段落分割（Markdown では空行を伴う `\n\n`）ではなく、
+ * 同じ段落内の改行（保存時は `\n`）として扱う。
+ *
+ * リスト・コード・見出し・表はそれぞれ固有の Enter 操作を持つため対象外。
+ */
+function handleParagraphEnter(view: EditorView): boolean {
+    const { state } = view;
+    const { $from, empty } = state.selection;
+    if (!empty || $from.parent.type.name !== 'paragraph') return false;
+
+    // リスト項目内は「次の項目を作る」という既定動作を維持する。
+    if (findDepth($from, ['list_item']) >= 0) return false;
+    // 表セル内は tableCellEnterPlugin が担当する。
+    if (tableCellDepth($from) >= 0) return false;
+
+    const hardbreak = state.schema.nodes.hardbreak;
+    if (!hardbreak) return false;
+    view.dispatch(state.tr.replaceSelectionWith(hardbreak.create()).scrollIntoView());
+    return true;
+}
 
 /**
  * Enter 押下時、カーソル行が ``` または ```lang だけの段落なら、コードブロックに
@@ -553,6 +574,11 @@ export function createPreviewKeymapPlugin() {
                             }
                             // fence でなければタスク項目の継続を試す
                             if (handleTaskListEnter(view, ctx)) {
+                                event.preventDefault();
+                                return true;
+                            }
+                            // 通常段落では、空行を増やす段落分割ではなく1改行だけ挿入する。
+                            if (handleParagraphEnter(view)) {
                                 event.preventDefault();
                                 return true;
                             }

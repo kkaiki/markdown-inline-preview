@@ -45,30 +45,33 @@ describe('webview統合: 段落での Enter / Shift+Enter', () => {
     let h: PreviewEditorHandle;
     afterEach(() => h?.destroy());
 
-    it('段落末尾で Enter → 段落が1つ増える', async () => {
+    it('段落末尾で Enter → 段落を増やさず単一改行を1つ挿入する', async () => {
         h = await createPreviewEditor('hello\n');
         const pos = findFirstPosOfType(h, 'paragraph');
         h.setCursor(h.view.state.doc.resolve(pos).end());
         const before = paragraphCount(h);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.strictEqual(paragraphCount(h), before + 1, 'Enter で段落が増えていない');
+        assert.strictEqual(paragraphCount(h), before, 'Enter で段落が分割されてはいけない');
+        assert.strictEqual(hardBreakCount(h), 1, '単一改行が1つ挿入されていない');
     });
 
-    it('段落途中で Enter → カーソル位置で2段落に分割される', async () => {
+    it('段落途中で Enter → 同じ段落内で単一改行になる', async () => {
         h = await createPreviewEditor('helloworld\n');
         // "hello|world" の位置（段落中身の先頭 + 5）
         const start = findFirstPosOfType(h, 'paragraph');
         h.setCursor(start + 5);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.deepStrictEqual(paragraphTexts(h), ['hello', 'world'], '分割位置が想定外');
+        assert.deepStrictEqual(paragraphTexts(h), ['helloworld'], '段落が分割されてはいけない');
+        assert.strictEqual(hardBreakCount(h), 1);
     });
 
-    it('段落先頭で Enter → 上に空段落が入り、本文は2段落目になる', async () => {
+    it('段落先頭で Enter → 同じ段落の先頭に単一改行が入る', async () => {
         h = await createPreviewEditor('content\n');
         const start = findFirstPosOfType(h, 'paragraph');
         h.setCursor(start);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.deepStrictEqual(paragraphTexts(h), ['', 'content']);
+        assert.deepStrictEqual(paragraphTexts(h), ['content']);
+        assert.strictEqual(hardBreakCount(h), 1);
     });
 
     it('Shift+Enter → 段落は増えず、hardBreak が1つ挿入される', async () => {
@@ -81,12 +84,13 @@ describe('webview統合: 段落での Enter / Shift+Enter', () => {
         assert.strictEqual(hardBreakCount(h), 1, 'hardBreak（ソフトブレイク）が挿入されていない');
     });
 
-    it('空段落で Enter → さらに空段落が増える（エラーにならない）', async () => {
+    it('空段落で Enter → 空段落を増やさず単一改行を挿入する', async () => {
         h = await createPreviewEditor('\n');
         const pos = findFirstPosOfType(h, 'paragraph');
         h.setCursor(pos);
         const before = paragraphCount(h);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.strictEqual(paragraphCount(h), before + 1);
+        assert.strictEqual(paragraphCount(h), before);
+        assert.strictEqual(hardBreakCount(h), 1);
     });
 });
