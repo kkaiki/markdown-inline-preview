@@ -27,6 +27,7 @@
  */
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import type { EditorState } from '@milkdown/prose/state';
+import type { ResolvedPos } from '@milkdown/prose/model';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
@@ -177,10 +178,35 @@ export function markRecentCheckboxDemotion(pos: number): void {
     recentCheckboxDemotion = { pos, armedAt: Date.now() };
 }
 
+/**
+ * 対象ブロック（heading / list_item / blockquote 内 paragraph）の識別位置（nodePos 相当）を
+ * 返す。`getFocusedBlockInfo` の探索ロジックのうち「どのブロックか」の判定部分だけを
+ * 複製したもの（チェックボックス除外等の細かい分岐は含まない、同一ブロック判定専用）。
+ */
+function findBlockAnchorPos($pos: ResolvedPos): number | null {
+    for (let depth = $pos.depth; depth > 0; depth--) {
+        const node = $pos.node(depth);
+        if (node.type.name === 'heading' || node.type.name === 'list_item') {
+            return $pos.before(depth);
+        }
+        if (node.type.name === 'paragraph' && depth > 0 && $pos.node(depth - 1).type.name === 'blockquote') {
+            return $pos.before(depth - 1);
+        }
+    }
+    return null;
+}
+
 function getFocusedBlockInfo(state: EditorState): FocusedBlockInfo | null {
     if (suppressExpansion) return null;
-    if (!state.selection.empty) return null;
-    const { $from } = state.selection;
+    const { $from, $to } = state.selection;
+
+    if (!state.selection.empty) {
+        // 選択中でも、選択の両端が同一ブロック内に収まっているなら引き続き
+        // フォーカス中とみなし展開を維持する（複数ブロックにまたがる選択のみ収縮させる）。
+        const fromAnchor = findBlockAnchorPos($from);
+        const toAnchor = findBlockAnchorPos($to);
+        if (fromAnchor === null || toAnchor === null || fromAnchor !== toAnchor) return null;
+    }
 
     for (let depth = $from.depth; depth > 0; depth--) {
         const node = $from.node(depth);

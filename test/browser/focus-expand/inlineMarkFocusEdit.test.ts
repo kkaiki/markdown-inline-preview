@@ -229,6 +229,101 @@ describe('実ブラウザ: インライン記法マークの focus-expand（実�
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('展開中のマーク内でテキストを選択しても view モードへ収縮せず、実テキストの "**" が見えたままになる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, 'これは **bold** です。\n', 'bold');
+
+        await h.placeCursorAfterText('bold');
+        await h.page.waitForTimeout(150);
+        let model = await h.model();
+        assert.ok(model.text.includes('**bold**'), `フォーカス中は "**bold**" が実テキストで見えるはず: ${JSON.stringify(model.text)}`);
+
+        // 同じ太字テキスト内を選択（ドラッグ選択相当）しても、展開状態は維持されるはず。
+        await h.selectText('bold');
+        await h.page.waitForTimeout(150);
+        model = await h.model();
+        assert.ok(model.text.includes('**bold**'), `同じブロック内の選択では展開が維持されるはず: ${JSON.stringify(model.text)}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('太字以外（斜体・インラインコード・取り消し線・リンク）でも、展開中に選択しても収縮しない', async function () {
+        if (!browser) { this.skip(); return; }
+
+        h = await openPreview(browser, 'これは *emph* です。\n', 'emph');
+        await h.placeCursorAfterText('emph');
+        await h.page.waitForTimeout(150);
+        await h.selectText('emph');
+        await h.page.waitForTimeout(150);
+        let model = await h.model();
+        assert.ok(model.text.includes('*emph*'), `斜体: 選択中も展開が維持されるはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは `code` です。\n', 'code');
+        await h.placeCursorAfterText('code');
+        await h.page.waitForTimeout(150);
+        await h.selectText('code');
+        await h.page.waitForTimeout(150);
+        model = await h.model();
+        assert.ok(model.text.includes('`code`'), `インラインコード: 選択中も展開が維持されるはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは ~~done~~ です。\n', 'done');
+        await h.placeCursorAfterText('done');
+        await h.page.waitForTimeout(150);
+        await h.selectText('done');
+        await h.page.waitForTimeout(150);
+        model = await h.model();
+        assert.ok(model.text.includes('~~done~~'), `取り消し線: 選択中も展開が維持されるはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは [link](https://example.com) です。\n', 'link');
+        await h.placeCursorAfterText('link');
+        await h.page.waitForTimeout(150);
+        await h.selectText('link');
+        await h.page.waitForTimeout(150);
+        model = await h.model();
+        assert.ok(model.text.includes('[link](https://example.com)'), `リンク: 選択中も展開が維持されるはず: ${JSON.stringify(model.text)}`);
+
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('太字以外（斜体・インラインコード・取り消し線・リンク）でも、選択範囲がマーカー挿入で単一カーソルへ潰れない（選択して Backspace で選択部分だけ消える）', async function () {
+        if (!browser) { this.skip(); return; }
+
+        h = await openPreview(browser, 'これは *emph* です。\n', 'emph');
+        await h.selectText('emph');
+        await h.press('Backspace');
+        let model = await h.model();
+        assert.ok(!model.text.includes('emph'), `斜体: 選択範囲(emph)がまるごと消えるはず: ${JSON.stringify(model.text)}`);
+        assert.ok(model.text.includes('これは') && model.text.includes('です。'), `斜体: 選択範囲以外は残るはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは `code` です。\n', 'code');
+        await h.selectText('code');
+        await h.press('Backspace');
+        model = await h.model();
+        assert.ok(!model.text.includes('code'), `インラインコード: 選択範囲(code)がまるごと消えるはず: ${JSON.stringify(model.text)}`);
+        assert.ok(model.text.includes('これは') && model.text.includes('です。'), `インラインコード: 選択範囲以外は残るはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは ~~done~~ です。\n', 'done');
+        await h.selectText('done');
+        await h.press('Backspace');
+        model = await h.model();
+        assert.ok(!model.text.includes('done'), `取り消し線: 選択範囲(done)がまるごと消えるはず: ${JSON.stringify(model.text)}`);
+        assert.ok(model.text.includes('これは') && model.text.includes('です。'), `取り消し線: 選択範囲以外は残るはず: ${JSON.stringify(model.text)}`);
+        await h.close();
+
+        h = await openPreview(browser, 'これは [link](https://example.com) です。\n', 'link');
+        await h.selectText('link');
+        await h.press('Backspace');
+        model = await h.model();
+        assert.ok(!model.text.includes('link'), `リンク: 選択範囲(link)がまるごと消えるはず: ${JSON.stringify(model.text)}`);
+        assert.ok(model.text.includes('これは') && model.text.includes('です。'), `リンク: 選択範囲以外は残るはず: ${JSON.stringify(model.text)}`);
+
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('リンクの "[" と "](url)" を両方全部消すと、フォーカスを外した時にリンクではなくなる（マーク除去）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, 'これは [link](https://example.com) です。\n\n次の段落\n', 'link');

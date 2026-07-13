@@ -19,6 +19,12 @@
  * 4. **⌥⌘4 後のカーソル位置がリスト項目外に飛ぶ**
  *    expand/collapse サイクルが連鎖してカーソルが意図しない位置に移動する。
  *
+ * 5. **展開中のブロック内でテキストを選択すると "## "/"- "/"> " が収縮する**
+ *    `getFocusedBlockInfo` が `!state.selection.empty` を無条件に「フォーカス対象なし」と
+ *    判定していたため、同じブロック内の選択でも収縮 → 再展開が起きてテキスト位置が
+ *    ずれ、選択中の編集がやりづらくなる（`inlineMarkEditPlugin` で既に修正済みの
+ *    「選択中は収縮させない」と同種の不具合が block prefix 側に残っていた）。
+ *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */
 import * as assert from 'assert';
@@ -233,6 +239,69 @@ describe('実ブラウザ: blockPrefixEditPlugin バグ回帰', function () {
             posAfter > 2,
             `カーソルが文書先頭（pos=${posAfter}）に飛んだ（変換前 pos=${posBefore}）`
         );
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Bug 5: 展開中のブロック内でテキストを選択すると "## "/"- "/"> " が収縮する
+    // ─────────────────────────────────────────────────────────────────────────
+    it('Bug5: 見出し展開中に同じブロック内のテキストを選択しても "## " が収縮しない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 展開時に挿入される区切り文字は non-breaking space（ ）。
+        const expanded = '## 見出しテキスト';
+        h = await openPreview(browser, '## 見出しテキスト\n\n段落\n', '見出しテキスト');
+        await h.placeCursorAfterText('見出しテキスト');
+        await h.page.waitForTimeout(150);
+        let m = await h.model();
+        assert.ok(m.text.includes(expanded), `フォーカス直後は "## " が実テキストで見えるはず: ${JSON.stringify(m.text)}`);
+
+        await h.selectText('見出しテキスト');
+        await h.page.waitForTimeout(150);
+        m = await h.model();
+        assert.ok(m.text.includes(expanded), `同じブロック内の選択では展開が維持されるはず: ${JSON.stringify(m.text)}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('Bug5: 箇条書き展開中に同じブロック内のテキストを選択しても "- " が収縮しない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '- 項目テキスト\n\n段落\n', '項目テキスト');
+        await h.placeCursorAfterText('項目テキスト');
+        await h.page.waitForTimeout(150);
+        await h.selectText('項目テキスト');
+        await h.page.waitForTimeout(150);
+        const m = await h.model();
+        assert.ok(m.text.includes('- 項目テキスト'), `箇条書き: 選択中も "- " が維持されるはず: ${m.text}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('Bug5: 引用展開中に同じブロック内のテキストを選択しても "> " が収縮しない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 展開時に挿入される区切り文字は non-breaking space（ ）。
+        const expanded = '> 引用テキスト';
+        h = await openPreview(browser, '> 引用テキスト\n\n段落\n', '引用テキスト');
+        await h.placeCursorAfterText('引用テキスト');
+        await h.page.waitForTimeout(150);
+        await h.selectText('引用テキスト');
+        await h.page.waitForTimeout(150);
+        const m = await h.model();
+        assert.ok(m.text.includes(expanded), `引用: 選択中も "> " が維持されるはず: ${JSON.stringify(m.text)}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('Bug5b: 見出しを選択した状態で初めてフォーカスしても、選択範囲が単一カーソルへ潰れず選択部分だけ Backspace で消せる', async function () {
+        if (!browser) { this.skip(); return; }
+        // カーソルをまず置いてから選択するのではなく、未フォーカスの見出しに対して
+        // いきなり選択（ダブルクリック相当）で初めてフォーカスが入るケース。
+        h = await openPreview(browser, '## 見出しテキスト\n\n段落\n', '見出しテキスト');
+        await h.selectText('見出しテキスト');
+        await h.page.waitForTimeout(150);
+        let m = await h.model();
+        assert.ok(m.text.includes('## 見出しテキスト'), `選択によるフォーカスでも "## " が実テキストとして展開されるはず: ${JSON.stringify(m.text)}`);
+
+        await h.press('Backspace');
+        m = await h.model();
+        assert.ok(!m.text.includes('見出しテキスト'), `選択範囲(見出しテキスト)がまるごと消えるはず: ${JSON.stringify(m.text)}`);
+        assert.ok(m.outline.includes('heading'), `見出しノード自体は残るはず（空の見出しになる）: ${m.outline}`);
         assert.deepStrictEqual(h.errors, []);
     });
 });
