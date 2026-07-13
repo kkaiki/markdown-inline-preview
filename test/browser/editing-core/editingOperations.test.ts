@@ -81,14 +81,25 @@ describe('実ブラウザ: Preview 編集操作', function () {
 
     // ── 各種 Backspace（ブロック解除）───────────────────────────
     describe('行頭 Backspace によるブロック解除', () => {
-        it('コードブロックの先頭で Backspace → 段落に解除される', async function () {
+        // 2026-07-09: codeFenceEditPlugin（code-fence-real-text-edit-fix.md）により、
+        // フォーカス中は開始フェンス（```js\n）が実テキストとして「code line」の直前に
+        // 挿入されている。そのため「行頭」で Backspace すると、フェンスの改行1文字を
+        // 削って前の行と結合するだけになり（見出し等の focus-expand と同じ、実テキスト
+        // 編集の一般的な挙動）、以前のような「即座に段落へ解除」にはならない。
+        // 完全な解除は、開始フェンスの ``` を全部消してフォーカスを外したときに起きる
+        // （`test/browser/focus-expand/codeFenceRealTextEdit.test.ts` で検証済み）。
+        it('コードブロックの先頭で Backspace → 開始フェンスの改行が1文字削除される（即座には段落解除されない）', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, '```js\ncode line\n```\n\nTAIL\n', 'code line');
-            await h.placeCursorAtLineStart('code line');
+            // フォーカス中は実テキストの開始フェンス（```js\n）が「code line」の直前の行に
+            // なるため、`placeCursorAtLineStart` のようなピクセル座標クリックは
+            // （マッチした要素の先頭付近をクリックする都合上）フェンス行を拾ってしまう。
+            // ドキュメントモデル上の位置で確実に指定できる `placeCursorBeforeText` を使う。
+            await h.placeCursorBeforeText('code line');
             await h.press('Backspace');
             const m = await h.model();
-            assert.ok(!m.topTypes.includes('code_block'), `コードブロックが解除されていない: ${m.outline}`);
-            assert.ok(m.text.includes('code line'), '内容が失われた');
+            assert.ok(m.topTypes.includes('code_block'), `即座に段落解除されるのは意図しない挙動: ${m.outline}`);
+            assert.ok(m.text.includes('```jscode line'), `開始フェンスの改行が1文字削除された結果になっていない: ${JSON.stringify(m.text)}`);
             assert.deepStrictEqual(h.errors, []);
         });
 

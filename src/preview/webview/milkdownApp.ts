@@ -30,6 +30,7 @@ import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { createMarkerBackspacePlugin } from './markerBackspace';
 import { createBlockPrefixEditPlugin, isBlockPrefixActive, setOnCollapseSync } from './blockPrefixEditPlugin';
 import { createInlineMarkEditPlugin, isInlineMarkEditActive, setOnCollapseSync as setInlineMarkOnCollapseSync } from './inlineMarkEditPlugin';
+import { createCodeFenceEditPlugin, isCodeFenceEditActive, setOnCollapseSync as setCodeFenceOnCollapseSync } from './codeFenceEditPlugin';
 import { createLineNumberGutterPlugin } from './lineNumberGutterPlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
@@ -509,7 +510,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
             ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
                 // blockPrefixEditPlugin 展開中はプレフィックスが二重直列化（`## ## Hello`）
                 // されるため、カーソルがブロックを抜けて折りたたみが完了するまで同期を抑制する。
-                if (isBlockPrefixActive() || isInlineMarkEditActive()) return;
+                if (isBlockPrefixActive() || isInlineMarkEditActive() || isCodeFenceEditActive()) return;
                 postChange(nextMarkdown);
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
@@ -570,6 +571,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createMarkerBackspacePlugin())
         .use(createBlockPrefixEditPlugin())
         .use(createInlineMarkEditPlugin())
+        .use(createCodeFenceEditPlugin())
         .use(createLineNumberGutterPlugin());
 
     if (settings.showToolbar) {
@@ -607,6 +609,14 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         });
     });
     setInlineMarkOnCollapseSync(() => {
+        if (!editor) return;
+        editor.action((ctx) => {
+            const serialize = ctx.get(serializerCtx);
+            const view = ctx.get(editorViewCtx);
+            postChange(serialize(view.state.doc));
+        });
+    });
+    setCodeFenceOnCollapseSync(() => {
         if (!editor) return;
         editor.action((ctx) => {
             const serialize = ctx.get(serializerCtx);

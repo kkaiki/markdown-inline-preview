@@ -1,5 +1,12 @@
 # フェンスコードブロックのフォーカス時マーカー表示（```lang` / ```` ``` ````）
 
+> **2026-07-09 追記: この widget 方式は `code-fence-real-text-edit-fix.md` に置き換えられた。**
+> 「``` の文字自体を1文字ずつ打ち替え・削除したい」というユーザー要望を受け、
+> フェンスは widget 表示ではなく `codeFenceEditPlugin` による実テキスト展開になった。
+> 本ドキュメントは経緯（widget 方式を選んだ理由と、実テキスト化を避けていた背景）の
+> 記録として残す。関連テスト（`codeFenceFocusMarkers.test.ts`）は削除し、
+> `test/browser/focus-expand/codeFenceRealTextEdit.test.ts` に置き換えた。
+
 ## 背景
 
 見出し・箇条書き・引用・インライン記法（`**` `` ` `` `~~` `[..](..)`）は、カーソルが

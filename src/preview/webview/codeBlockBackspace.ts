@@ -9,6 +9,7 @@
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import type { EditorState } from '@milkdown/prose/state';
 import { $prose } from '@milkdown/utils';
+import { isCodeFenceEditActive } from './codeFenceEditPlugin';
 
 /** コードブロックの先頭にカーソルがあれば、その depth を返す。無ければ -1。 */
 export function codeBlockAtContentStart(state: EditorState): number {
@@ -29,6 +30,10 @@ export function createCodeBlockBackspacePlugin() {
         props: {
             handleKeyDown(view, event) {
                 if (event.key !== 'Backspace') return false;
+                // codeFenceEditPlugin が展開中は、実テキストとして挿入したフェンスを
+                // 普通の Backspace で1文字ずつ編集させる（全消去時の段落化は
+                // codeFenceEditPlugin の collapse 側が担当する）。
+                if (isCodeFenceEditActive()) return false;
 
                 const { state } = view;
                 const depth = codeBlockAtContentStart(state);

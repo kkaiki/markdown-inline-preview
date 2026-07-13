@@ -16,16 +16,32 @@ import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 import hljs from 'highlight.js/lib/common';
+import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
+import { getExpandedCodeFence } from './codeFenceEditPlugin';
 
 const TEXT_NODE = 3;
 const ELEMENT_NODE = 1;
 
 /** 1 つの code_block 分のデコレーションを decorations へ push する。 */
-function decorateCodeBlock(node: ProseNode, codeStart: number, decorations: Decoration[]): void {
+function decorateCodeBlock(node: ProseNode, nodePos: number, codeStart: number, decorations: Decoration[]): void {
     const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
     // mermaid は図として描画するのでシンタックス色は付けない。
     if (language === 'mermaid') return;
-    const code = node.textContent;
+
+    let code = node.textContent;
+    let offsetStart = codeStart;
+
+    // codeFenceEditPlugin がこのブロックを展開中（フェンスが実テキストとして
+    // 混ざっている）なら、マーカー部分を除いた実コードだけを hljs へ渡す。
+    // そのままハイライトすると、マーカー行が不正な構文として色付けされてしまう。
+    if (getExpandedCodeFence()?.nodePos === nodePos) {
+        const parsed = parseCodeFenceRealText(code);
+        if (parsed) {
+            code = parsed.code;
+            offsetStart = codeStart + parsed.openLen;
+        }
+    }
+
     if (!code) return;
 
     let html: string;
@@ -48,7 +64,7 @@ function decorateCodeBlock(node: ProseNode, codeStart: number, decorations: Deco
                 const len = child.textContent?.length ?? 0;
                 if (len > 0 && classes.length > 0) {
                     decorations.push(
-                        Decoration.inline(codeStart + offset, codeStart + offset + len, {
+                        Decoration.inline(offsetStart + offset, offsetStart + offset + len, {
                             class: classes.join(' ')
                         })
                     );
@@ -69,7 +85,7 @@ export function buildCodeDecorations(doc: ProseNode): DecorationSet {
     doc.descendants((node, pos) => {
         if (node.type.name === 'code_block') {
             // code_block の中身（テキスト）は pos+1 から始まる。
-            decorateCodeBlock(node, pos + 1, decorations);
+            decorateCodeBlock(node, pos, pos + 1, decorations);
             return false; // コードブロックの中はこれ以上潜らない
         }
         return true;
