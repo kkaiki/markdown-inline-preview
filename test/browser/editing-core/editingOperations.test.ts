@@ -25,15 +25,17 @@ describe('実ブラウザ: Preview 編集操作', function () {
 
     // ── Enter 継続 ───────────────────────────────────────────────
     describe('Enter による継続', () => {
-        it('段落の行末で Enter → 新しい段落ができ、内容は分割されない', async function () {
+        it('段落の行末で Enter → 同じ段落内に単一改行だけ入る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, 'hello world\n\nTAIL\n', 'hello world');
             await h.placeCursorAfterText('hello world');
             await h.press('Enter');
             await h.type('next');
             const m = await h.model();
-            assert.ok(m.outline.includes('paragraph["hello world"]'), m.outline);
-            assert.ok(m.outline.includes('paragraph["next"]'), m.outline);
+            assert.ok(
+                m.outline.includes('paragraph["hello world", hardbreak, "next"]'),
+                `Enter が段落分割ではなく hardbreak になっていない: ${m.outline}`
+            );
             assert.deepStrictEqual(h.errors, []);
         });
 
@@ -116,15 +118,15 @@ describe('実ブラウザ: Preview 編集操作', function () {
 
     // ── 段落の分割と結合 ────────────────────────────────────────
     describe('段落の分割と結合', () => {
-        it('段落途中で Enter 分割 → 先頭 Backspace で元通り結合できる', async function () {
+        it('段落途中で Enter の単一改行 → 行頭 Backspace で元通り結合できる', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, 'hello world\n\nTAIL\n', 'hello world');
             await h.placeCursorAfterText('hello');
             await h.press('Enter');
             let m = await h.model();
-            assert.ok(m.outline.includes('paragraph["hello"]'), `分割されていない: ${m.outline}`);
+            assert.ok(m.outline.includes('hardbreak'), `単一改行になっていない: ${m.outline}`);
             // 先頭 Backspace で結合
-            await h.placeCursorAtLineStart('world');
+            await h.placeCursorBeforeText(' world');
             await h.press('Backspace');
             m = await h.model();
             assert.ok(m.text.includes('helloworld') || m.text.includes('hello world'), `結合されていない: ${m.outline}`);
