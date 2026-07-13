@@ -66,15 +66,22 @@ export function isInlineMarkEditActive(): boolean {
 
 function getFocusedInlineMarkBlock(view: EditorView): { blockPos: number; blockStart: number; ranges: Array<{ from: number; to: number; type: EditableInlineMarkType; href?: string }> } | null {
     const { state } = view;
-    if (!state.selection.empty) return null;
-    const $pos = state.selection.$from;
-    const depth = findFocusedBlockDepth($pos);
+    const { $from, $to } = state.selection;
+    const depth = findFocusedBlockDepth($from);
     if (depth === null) return null;
-    const node = $pos.node(depth);
+
+    if (!state.selection.empty) {
+        // 選択中でも、選択の両端が同一ブロック内に収まっているなら引き続き
+        // フォーカス中とみなし展開を維持する（複数ブロックにまたがる選択のみ収縮させる）。
+        const toDepth = findFocusedBlockDepth($to);
+        if (toDepth === null || $to.before(toDepth) !== $from.before(depth)) return null;
+    }
+
+    const node = $from.node(depth);
     if (node.type.name === 'code_block') return null; // コードフェンスは別プラグインの対象
 
-    const blockPos = $pos.before(depth);
-    const blockStart = $pos.start(depth);
+    const blockPos = $from.before(depth);
+    const blockStart = $from.start(depth);
     const ranges = collectEditableInlineMarkRanges(node, blockStart);
     return { blockPos, blockStart, ranges };
 }
@@ -89,7 +96,7 @@ function expandBlock(view: EditorView, ranges: Array<{ from: number; to: number;
     // 例えば「bold」の直後にカーソルがある状態でその閉じマーカーを挿入すると、
     // 既定のままではカーソルが閉じマーカーの**後ろ**（" です。" の手前）まで
     // 移動してしまい、以降の Backspace がマーカーではなく本文を壊してしまう。
-    const originalSelFrom = state.selection.from;
+    const { empty, from: originalFrom, to: originalTo, anchor: originalAnchor } = state.selection;
     let tr = state.tr;
 
     for (const r of ranges) {
@@ -120,8 +127,24 @@ function expandBlock(view: EditorView, ranges: Array<{ from: number; to: number;
         return range;
     });
 
-    const mappedSelFrom = tr.mapping.map(originalSelFrom, -1);
-    tr = tr.setSelection(TextSelection.create(tr.doc, mappedSelFrom));
+    // 選択が空でない場合（範囲選択の途中でブロックへフォーカスが入った場合）は、
+    // 見えていた選択範囲をそのまま維持する（新しく挿入したマーカー文字を巻き込まない
+    // よう、開始側は bias +1・終了側は bias -1 でマッピングする）。選択が空の場合は
+    // 上記コメントの単一カーソル保存ロジック（bias -1）をそのまま使う。
+    let newAnchor: number;
+    let newHead: number;
+    if (empty) {
+        const mapped = tr.mapping.map(originalFrom, -1);
+        newAnchor = mapped;
+        newHead = mapped;
+    } else {
+        const mappedFrom = tr.mapping.map(originalFrom, 1);
+        const mappedTo = tr.mapping.map(originalTo, -1);
+        const backward = originalAnchor === originalTo;
+        newAnchor = backward ? mappedTo : mappedFrom;
+        newHead = backward ? mappedFrom : mappedTo;
+    }
+    tr = tr.setSelection(TextSelection.create(tr.doc, newAnchor, newHead));
     tr.setMeta('addToHistory', false);
     tr.setMeta(PLUGIN_META, 'expand');
 
