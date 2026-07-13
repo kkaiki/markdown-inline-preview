@@ -1047,3 +1047,15 @@ body.preview-fade-in {
     text-align: center;
     padding: 0.3em 0;
 }
+
+/* ── 空白のみコンテンツの可視化（whitespaceMarkerPlugin） ─────────────
+   空行だけ／表セルの中身だけ／行末に半角・全角スペースだけがある場合、見た目上の
+   空白と区別が付かないため、薄い着色 + ドットパターンで「ここに空白文字がある」と
+   分かるようにする。 */
+.ipreview-whitespace-marker {
+    background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 200, 90, 0.25));
+    background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+    background-size: 1ch 1ch;
+    background-position: center;
+    border-radius: 2px;
+}

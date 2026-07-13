@@ -47,6 +47,7 @@ import { createCodeLanguagePlugin } from './codeLanguagePlugin';
 import { createCodeHighlightPlugin } from './codeHighlightPlugin';
 import { createMermaidDiagramPlugin, setMermaidEnabled } from './mermaidDiagramPlugin';
 import { createMathDecorationPlugin, setMathEnabled } from './mathDecorationPlugin';
+import { createWhitespaceMarkerPlugin } from './whitespaceMarkerPlugin';
 import { createImeEnterGuardPlugin } from './imeEnterGuard';
 import { createCodeBlockTripleClickPlugin } from './codeBlockTripleClick';
 import { createInlineMarkBackspacePlugin } from './inlineMarkBackspace';
@@ -566,6 +567,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createCodeHighlightPlugin())
         .use(createMermaidDiagramPlugin())
         .use(createMathDecorationPlugin())
+        .use(createWhitespaceMarkerPlugin())
         .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
         .use(createMarkerBackspacePlugin())
