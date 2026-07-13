@@ -72,3 +72,86 @@ VS Code はこの webview パネルを破棄して作り直すことがある。
   最終的にPreviewタブ1枚に収束する」（修正前は約 25% の確率で
   `Error: Webview is disposed` の未処理rejectionとタブの恒久的な重複を再現した。
   修正後は連続 9 回の実行で再現しないことを確認済み）。
+
+## 5. 追記（2026-07-09）: クラッシュは直っても、タブの重複自体は低頻度で再発していた
+
+ユーザー報告（「サイドバーから再度開くとPreviewが開くがRawタブが残ったまま」）を受けて
+13.4 を単体で繰り返し実行したところ、**例外は発生しない**が **タブが1枚に収束しない**
+（2枚のまま）ケースが依然として発生することを確認した（13.1〜13.4 を連続実行する
+テストランで概ね数回に1回の頻度）。
+
+### 原因
+
+`switchToPreview` は `openWith(VIEW_TYPE)` の直後に一度だけ
+`closeStaleTabs(findTabs(isTextTabForUri(...)))` を実行して Raw タブを片付けるが、
+これは**その時点のタブ一覧のスナップショット**に対する1回限りの掃除である。
+サイドバー等からの同時実行の再オープン（既定の Raw エディタで開く操作）が、この
+掃除より**後**に新しい Raw タブを作り終えると、そのタブは掃除対象から漏れる。
+
+漏れた Raw タブは通常、次に「Raw エディタがアクティブになる」タイミングで
+`collapseDuplicateRawTabForActiveEditor`（`vscode.window.onDidChangeActiveTextEditor`
+起点）が拾って片付ける設計になっているが、この漏れた Raw タブが一度も
+**アクティブにならない**まま（直後に Preview へフォーカスが戻り、Raw タブは背後に
+残ったまま）だと、そのイベント自体が発火せず、タブが恒久的に残り続ける。
+
+### 修正案1（不採用）: switchToPreview 完了後の時間差リトライ
+
+最初に試したのは、`switchToPreview` の既存の即時 `closeStaleTabs` に加えて、一定時間
+（400ms）後にもう一度だけ同じ掃除をやり直す、という時間差の追試チェックだった。
+`test/extension/preview/tabs-editors.test.ts` 13.4 単体では改善したが、フルスイート
+実行で確認したところ、以下の**既存テストを新たに壊す**ことが分かった（3回連続で
+同じ3件が再現）:
+
+- 12.3 / 12.3b（dirty な Raw 編集を Preview→Raw と往復しても失われない）が
+  `Illegal argument: TextEditor` で失敗する。
+- 9.1（複数ファイルの Preview/Raw トグルを5回連続で繰り返す）が、後半の
+  iteration で Raw へ正しく戻らなくなる。
+
+原因は、`switchToPreview` を短時間に連続で呼ぶ操作（12.3/12.3b の往復、9.1 の
+連続トグル）では、**前の呼び出しの時間差タイマーがまだ発火していない状態で次の
+切替が始まる**ため、`inFlightSwitch`/記憶モードのガードをすり抜けたタイマーが、
+次の切替がまさに作業中のタブへ横から `closeStaleTabs` を実行してしまうこと。
+時間差という「いつ・何に対して安全か」を静的に判断できない仕組みは、この種の
+連続切替と本質的に相性が悪いと判断し、不採用にした。
+
+### 修正案2（採用）: 新規タブの出現イベントに限定した重複解消
+
+`collapseDuplicateRawTabForActiveEditor`（`onDidChangeActiveTextEditor` 起点）が
+拾えない根本原因は、「トリガーが "Raw エディタがアクティブになった" 一択」である
+こと自体にある。そこで、**`vscode.window.tabGroups.onDidChangeTabs` の
+`event.opened`（新規に作られたタブだけ）** に限定した2つ目のトリガーを追加した。
+
+```ts
+vscode.window.tabGroups.onDidChangeTabs(event => {
+    for (const tab of event.opened) {
+        if (!(tab.input instanceof vscode.TabInputText)) continue;
+        if (!isMarkdownResource(tab.input.uri)) continue;
+        void collapseDuplicateRawTabsInGroup(tab.input.uri, tab.group);
+    }
+}),
+```
+
+`collapseDuplicateRawTabForActiveEditor` の中身（`inFlightSwitch` チェック→
+同グループに設定済み Preview タブがあるか→`previewSettledAt` の 500ms 猶予窓→
+古い Raw タブを閉じる）を `collapseDuplicateRawTabsInGroup(uri, group)` として
+切り出し、`editor: TextEditor` からではなく `Tab`（`event.opened` の要素）から
+直接 uri/group を渡せるようにした。**判定ロジック自体は変えていない**——
+「アクティブになった時」だけでなく「新規タブとして出現した時」にも同じ判定を
+行うようになっただけである。
+
+`event.opened` だけを見るのが安全性の要（§2 で述べた過去の "Illegal argument:
+TextEditor" 回帰は、あらゆるタブ変更（アクティブ化・並べ替え・close 等）に
+反応する広い購読が原因だった）。新規タブの出現はタブがまさに作られた瞬間にしか
+発火せず、既存タブの活性化や並べ替えには一切反応しないため、切替処理中の
+一時的な並存状態（`switchToPreview`/`switchToRaw` が意図的に作る、Preview/Raw
+タブが束の間 2 枚になる状態）を「新規出現」と誤検知することがない。
+
+フルスイートを3回連続実行して 9.1/12.3/12.3b の回帰が無いことを確認した上で、
+13.1〜13.4 を6回連続実行して確認したところ、13.4（`togglePreview` の実行中に
+サイドバー再オープンが重なる、という最も極端な同時実行ケース）はなお時折
+（6回中2回）収束しないことがある。これは、この特定のケースでは競合する
+`switchToPreview` 自身の webview 解決（`resolveCustomTextEditor`）がまだ
+完了しておらず `previewSettledAt` が未設定のため、新設した `opened` トリガーも
+500ms 猶予ガードで見送ってしまうため（安全側に倒した結果の既知の残存ギャップ）。
+一方、ユーザーが実際に報告した「安定して開いている Preview を後からサイドバーで
+再度開く」という通常の再現手順（13.1 相当）は、この修正で確実に解消される。

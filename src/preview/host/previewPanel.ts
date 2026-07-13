@@ -959,12 +959,9 @@ async function switchToRaw(
 // inFlightSwitch に登録中の URI は、switchToPreview/switchToRaw が意図的に
 // 切替中（Preview タブと Raw タブが一時的に並存する）なので対象から除外する
 // （自分自身のタブ後始末と競合させないため）。
-async function collapseDuplicateRawTabForActiveEditor(editor: vscode.TextEditor): Promise<void> {
-    const key = editor.document.uri.toString();
+async function collapseDuplicateRawTabsInGroup(uri: vscode.Uri, group: vscode.TabGroup): Promise<void> {
+    const key = uri.toString();
     if (inFlightSwitch.has(key)) return;
-
-    const group = vscode.window.tabGroups.all.find(g => g.viewColumn === editor.viewColumn);
-    if (!group) return;
 
     const hasPreviewTab = group.tabs.some(tab => isPreviewTab(tab)?.toString() === key);
     if (!hasPreviewTab) return;
@@ -983,7 +980,7 @@ async function collapseDuplicateRawTabForActiveEditor(editor: vscode.TextEditor)
     try {
         // 閉じる前に Preview タブへフォーカスを確定させる（アクティブなタブを
         // 先に閉じると VS Code の自動選択で無関係なタブへ飛ぶことがあるため）。
-        await vscode.commands.executeCommand('vscode.openWith', editor.document.uri, VIEW_TYPE, group.viewColumn);
+        await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE, group.viewColumn);
         await closeStaleTabs(staleRawTabs);
     } catch {
         // 対象ファイルが別の非同期処理（テストの後始末等）で既に閉じられた／
@@ -991,8 +988,14 @@ async function collapseDuplicateRawTabForActiveEditor(editor: vscode.TextEditor)
         // 処理であり、失敗しても致命的ではないので closeStaleTabs 同様に例外は
         // 無視する（未処理の Promise rejection として無関係なタイミングで
         // 表面化するのを防ぐため）。
-        debugLog('[preview] collapseDuplicateRawTabForActiveEditor failed, ignoring');
+        debugLog('[preview] collapseDuplicateRawTabsInGroup failed, ignoring');
     }
+}
+
+async function collapseDuplicateRawTabForActiveEditor(editor: vscode.TextEditor): Promise<void> {
+    const group = vscode.window.tabGroups.all.find(g => g.viewColumn === editor.viewColumn);
+    if (!group) return;
+    await collapseDuplicateRawTabsInGroup(editor.document.uri, group);
 }
 
 export function activatePreviewFeature(context: vscode.ExtensionContext): void {
@@ -1043,8 +1046,21 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             supportsMultipleEditorsPerDocument: false
         }),
 
-        vscode.window.tabGroups.onDidChangeTabs(() => {
-            syncEditorContext();
+        // `collapseDuplicateRawTabForActiveEditor`（onDidChangeActiveTextEditor 起点）は、
+        // 新しく出てきた Raw タブが一度も「アクティブ」にならない場合（例: サイドバー等からの
+        // 再オープンと同時に別の操作でフォーカスが Preview 側へ戻る）には発火しない取りこぼしが
+        // あった。ここでは `event.opened`（新規に作られたタブだけ）に限定して同じ重複解消を
+        // 試みることで、そのケースを補う。`opened` だけを見るのは、あらゆるタブ変更
+        // （アクティブ化・並べ替え・close 等）に反応すると無関係な Raw⇄Preview の過渡状態と
+        // 競合し "Illegal argument: TextEditor" を誘発した過去の経緯があるため
+        // （sidebar-reopen-preview-duplicate-tab-fix.md §「トリガーを...にすると」参照）。
+        // 「新規タブの出現」だけに絞ることで、既存タブの活性化・並べ替えには一切反応しない。
+        vscode.window.tabGroups.onDidChangeTabs(event => {
+            for (const tab of event.opened) {
+                if (!(tab.input instanceof vscode.TabInputText)) continue;
+                if (!isMarkdownResource(tab.input.uri)) continue;
+                void collapseDuplicateRawTabsInGroup(tab.input.uri, tab.group);
+            }
         }),
 
         vscode.window.onDidChangeActiveTextEditor(() => {
