@@ -45,6 +45,17 @@ export function attachMermaidNodeLabelEditing(
     getPos: () => number | undefined
 ): void {
     container.addEventListener('dblclick', (event) => {
+        // 連続したダブルクリックで複数の editor を作ると、先に開いた editor の
+        // blur commit と Mermaid 再描画が競合して SVG が崩れるため、常に1つに限定する。
+        const existing = document.querySelector<HTMLInputElement>('.mermaid-node-label-editor');
+        if (existing) {
+            event.preventDefault();
+            event.stopPropagation();
+            existing.focus();
+            existing.select();
+            return;
+        }
+
         const target = event.target as Element | null;
         const nodeEl = target?.closest('.node') ?? null;
         if (!nodeEl || !container.contains(nodeEl)) return;

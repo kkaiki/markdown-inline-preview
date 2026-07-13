@@ -38,6 +38,22 @@ describe('実ブラウザ: Preview の Mermaid ノードラベルのダブルク
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('編集開始後にもう一度ダブルクリックしても編集欄は1つで図は崩れない', async function () {
+        if (!browser) { this.skip(); return; }
+        const md = '```mermaid\ngraph TD;\nA[Start]-->B;\n```\n';
+        h = await openPreview(browser, md, undefined, { enableMermaid: true });
+        await h.page.waitForTimeout(500);
+
+        const node = h.page.locator('.mermaid-diagram .node').first();
+        await node.dblclick();
+        await node.dblclick();
+        await h.page.waitForTimeout(100);
+
+        assert.strictEqual(await h.page.locator('.mermaid-node-label-editor').count(), 1);
+        assert.strictEqual(await h.page.locator('.mermaid-diagram svg').count(), 1, '図が再描画競合で消えてはいけない');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('ラベルを書き換えて Enter で確定すると、ソースへ反映され図も新しいラベルで再描画される', async function () {
         if (!browser) { this.skip(); return; }
         const md = '```mermaid\ngraph TD;\nA[Start]-->B;\n```\n';
