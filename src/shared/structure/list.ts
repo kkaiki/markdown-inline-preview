@@ -172,7 +172,10 @@ export function getListContinuationMarker(line: string): string | null {
         }
         case 'quote':
             return `${indent}> `;
-        default:
+        case 'heading':
+        case 'codeblock':
+        case null:
+            // 見出し・コードブロックはリスト継続の対象にならない。
             return null;
     }
 }

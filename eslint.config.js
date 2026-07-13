@@ -76,17 +76,27 @@ module.exports = tseslint.config(
                 caughtErrorsIgnorePattern: '^_',
             }],
             '@typescript-eslint/no-floating-promises': 'error',
+            // 同期コールバックが期待される箇所（DOMイベントリスナー等）に async 関数を
+            // 渡すミスを検出する。no-floating-promises とセットで使うのが定石。
+            '@typescript-eslint/no-misused-promises': 'error',
             'eqeqeq': ['error', 'always'],
             'no-console': 'warn',
             'prefer-const': 'error',
 
-            '@typescript-eslint/no-explicit-any': 'warn',
+            '@typescript-eslint/no-explicit-any': 'error',
             '@typescript-eslint/prefer-nullish-coalescing': 'warn',
             '@typescript-eslint/no-non-null-assertion': 'warn',
             '@typescript-eslint/consistent-type-imports': ['warn', {
                 prefer: 'type-imports',
                 fixStyle: 'inline-type-imports',
             }],
+            // union 型を switch で分岐する箇所（EditableInlineMarkType 等）で、新しい
+            // ケースを足し忘れるとエラーになる。
+            '@typescript-eslint/switch-exhaustiveness-check': 'error',
+            // 変数シャドーイング検出。base の no-shadow は型を見て誤検知するため
+            // 無効化し、typescript-eslint 版に置き換える。
+            'no-shadow': 'off',
+            '@typescript-eslint/no-shadow': 'error',
 
             '@typescript-eslint/no-unsafe-assignment': 'off',
             '@typescript-eslint/no-unsafe-call': 'off',
@@ -132,6 +142,28 @@ module.exports = tseslint.config(
                         message:
                             'src/shared は純粋コアです。Milkdown/ProseMirror の実体（runtime）に依存できません。' +
                             '型のみ `import type` で参照可。WYSIWYG 連携は src/preview/webview のアダプタ側へ。',
+                    },
+                ],
+            }],
+        },
+    },
+
+    // ヘキサゴナル境界の強制（ADR-0001, 続き）:
+    // src/preview/host は拡張ホスト側アダプタ。webview 側（ブラウザ内で動く Milkdown/
+    // ProseMirror ランタイム）を直接 import してはいけない（プロセス境界が異なるため
+    // 実体を共有できない）。型のみ（PreviewSettings 等のメッセージ型）は許可する。
+    {
+        files: ['src/preview/host/**/*.ts'],
+        rules: {
+            'no-restricted-imports': 'off',
+            '@typescript-eslint/no-restricted-imports': ['error', {
+                patterns: [
+                    {
+                        group: ['../webview/*', '../webview', '**/preview/webview/*', '**/preview/webview'],
+                        allowTypeImports: true,
+                        message:
+                            'src/preview/host は拡張ホスト側アダプタです。webview 側の実体（runtime）を' +
+                            'import できません（別プロセスで動くため）。型のみ `import type` で参照可。',
                     },
                 ],
             }],

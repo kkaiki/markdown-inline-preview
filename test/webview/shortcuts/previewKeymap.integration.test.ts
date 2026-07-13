@@ -461,9 +461,9 @@ describe('webview統合: Cmd/Ctrl+A 2回で文書全体になる（native 任せ
     let h: PreviewEditorHandle;
     afterEach(() => h?.destroy());
 
-    function isWholeDoc(h: PreviewEditorHandle): boolean {
-        const sel = h.view.state.selection;
-        return sel.from === 0 && sel.to === h.view.state.doc.content.size;
+    function isWholeDoc(handle: PreviewEditorHandle): boolean {
+        const sel = handle.view.state.selection;
+        return sel.from === 0 && sel.to === handle.view.state.doc.content.size;
     }
 
     it('段落: 1回目=その行, 2回目=文書全体', async () => {
