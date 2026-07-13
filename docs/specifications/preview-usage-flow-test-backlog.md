@@ -199,6 +199,21 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   （約 25% の確率で再現）。`disposed` フラグで非同期継続をガードして修正
   （`webview-disposed-race-fix.md`）。
 
+- ~~サイドバーから再度開くとPreviewが開くがRawタブが残ったまま（ユーザー報告、2026-07-09）~~ →
+  **一部消化（2026-07-09）**: 上記の修正はクラッシュを直しただけで、タブの重複自体は
+  低頻度（フルスイートで概ね数回に1回）で再発していた。原因は `switchToPreview` の
+  即時 `closeStaleTabs` が「その時点のスナップショット」への1回限りの掃除で、
+  サイドバー等からの同時実行の再オープンがそれより後に新しい Raw タブを作ると
+  取りこぼすこと。`vscode.window.tabGroups.onDidChangeTabs` の `event.opened`
+  （新規タブの出現だけ）に限定した2つ目のトリガーを追加して解消した
+  （`collapseDuplicateRawTabsInGroup`、詳細は `webview-disposed-race-fix.md` §5）。
+  フルスイート3回連続で 9.1/12.3/12.3b の回帰無しを確認。ただし 13.4
+  （`togglePreview` 実行中の重なりという最も極端なケース）は6回中2回、なお収束
+  しないことがある（`previewSettledAt` の 500ms 猶予ガードが `opened` トリガー
+  にも掛かるため、既知の残存ギャップとして記録するに留める）。ユーザーが実際に
+  報告した「安定して開いている Preview を後からサイドバーで再度開く」という
+  通常の再現手順は確実に解消される。
+
 - **`preview-external-write-race-fix.md` の e2e カバレッジの偽装**:
   同ドキュメント自身が「webview の中身は実 VS Code テストから駆動できないため、実際の
   レース（外部書き込みと Preview 側の keystroke-save の競合）の e2e 検証は現状不可能」と
@@ -257,6 +272,38 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
   `clickTextAt`/`doubleClickTextAt` を追加した。テストは
   `test/browser/cursor-focus/codeBlockArrowUpJumpToTop.test.ts`（5ケース、境界越え・
   ブロック内移動の両方を検証）。
+
+- ~~展開中のインラインマーク（`**bold**` 等）内でテキストを選択すると view モードへ収縮する（ユーザー報告、2026-07-08）~~ →
+  **消化済み（2026-07-08）、実バグ発見・修正**: フォーカス中のインラインマーク（太字・斜体・
+  インラインコード・取り消し線・リンク）が実テキスト展開（`**bold**` のように `**` が見える
+  focus-expand 表示）されている状態で、その範囲内のテキストを選択（ドラッグ選択）すると、
+  カーソルを動かしていないのに widget 表示（`**` が隠れた太字レンダリングの view モード）へ
+  収縮してしまい、選択中だけ見た目が変わって見づらいという報告。原因は
+  `inlineMarkEditPlugin.ts` の `getFocusedInlineMarkBlock` が `!state.selection.empty` の
+  場合に無条件で「フォーカス対象ブロックなし」を返していたこと。選択の両端が同一ブロック内に
+  収まっている場合は展開を維持し、複数ブロックにまたがる選択のみ収縮させるよう修正
+  （詳細: `inline-mark-focus-edit-fix.md` §3.1）。テストは
+  `test/browser/focus-expand/inlineMarkFocusEdit.test.ts` に1件追加。
+  なお `blockPrefixEditPlugin.ts`（見出し・箇条書き・blockquote のプレフィックス展開）の
+  `getFocusedBlockInfo` にも同型の `!state.selection.empty` 早期リターンがあり、同じ症状が
+  起きる可能性が高いが未確認・未修正（次回セッションで確認推奨）。
+
+- ~~コードフェンスの \`\`\` 自体が編集できない（ユーザー要望、2026-07-09）~~ →
+  **消化済み（2026-07-09）、新機能実装**: 「見出しの `#` や太字の `**` と同じように、
+  コードフェンスの \`\`\` の文字自体も1文字ずつ打ち替え・削除したい」という要望
+  （AskUserQuestion で「文字自体を1文字ずつ打ち替え・削除したい」を明示的に選択）を
+  受け、`code-fence-focus-markers.md` の widget 方式（`contenteditable="false"`、
+  編集不可）を `blockPrefixEditPlugin` 相当の実テキスト展開方式へ置き換えた
+  （`codeFenceEditPlugin.ts`、詳細: `code-fence-real-text-edit-fix.md`）。
+  フォーカスを外すと開き・閉じフェンスを解析し、正しい形なら `language` 属性へ反映して
+  マーカーを削除、崩れていればコードブロックをやめて段落へ変換する（崩れていない側の
+  マーカーは独立して除去し、区切り文字の残骸を残さない）。副作用として
+  `codeBlockArrowUpJumpToTop.test.ts`（コードブロック内 ↑/↓）の期待値が変わった
+  （フェンス行も「ブロック内の1行」になったため、コード最初/最後の行から抜けるまでに
+  もう1回矢印キーが必要になった）ため、7件に再構成して更新。`codeHighlightPlugin.ts`
+  は展開中、マーカー部分を除いた実コードだけを hljs へ渡すよう調整。既存のフロート
+  言語入力欄（`codeLanguagePlugin.ts`）は変更せずそのまま並行動作させている
+  （同時編集時は最後の変更が勝つ、単純な後勝ち）。
 
 - **`typedCheckboxConversion.test.ts` の日本語ケースが実 IME を通していない**:
   同ファイルの「日本語本文」ケースは `h.type()` の文字送りであり、`imeEnterRace.test.ts` が
