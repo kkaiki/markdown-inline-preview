@@ -523,4 +523,255 @@ suite('Preview: tabs-editors', () => {
                 `操作が重なった後、最終的にタブが1枚に収束しなかった（${tabs.length} 枚）`);
         });
     });
+
+    suite('14. Previewから標準操作で開いた先が同じ列に留まる', () => {
+        // アクティブな Preview（Webview カスタムエディタ）から通常のテキストエディタは
+        // vscode.window.activeTextEditor に現れないため、viewColumn を指定せずに
+        // showTextDocument するとリンク先が新しいエディタグループ（サイドバー分割）に
+        // 開かれてしまう不具合の回帰テスト。webview 側 JS はこのテスト層から駆動できないため、
+        // openLink メッセージ受信と同じ経路をテスト専用コマンドで直接叩く。
+        let tmpDir: string | undefined;
+
+        teardown(() => {
+            if (tmpDir) {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+                tmpDir = undefined;
+            }
+        });
+
+        function sleep(ms: number): Promise<void> {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        test('14.1 Previewでリンクを開くと、新しいエディタグループを作らず同じ列に新しいタブとして開く', async function () {
+            this.timeout(20000);
+
+            tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-14-'));
+            const targetPath = path.join(tmpDir, 'target.md');
+            fs.writeFileSync(targetPath, '# Target\n', 'utf-8');
+            const sourcePath = path.join(tmpDir, 'source.md');
+            fs.writeFileSync(sourcePath, '# Source\n\n[link](./target.md)\n', 'utf-8');
+            const sourceUri = vscode.Uri.file(sourcePath);
+
+            const doc = await vscode.workspace.openTextDocument(sourceUri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await sleep(500);
+            assert.strictEqual(
+                vscode.window.activeTextEditor,
+                undefined,
+                `前提条件: Preview(Custom Editor)がアクティブなのに activeTextEditor が残っている: ${vscode.window.activeTextEditor?.document.uri.toString()}`
+            );
+
+            const groupCountBefore = vscode.window.tabGroups.all.length;
+
+            const injected = await vscode.commands.executeCommand(
+                'markdownInline.__test.injectOpenLink',
+                sourceUri.toString(),
+                './target.md'
+            );
+            assert.strictEqual(injected, true, '前提条件: リンクを注入するテスト用フックが見つからない（Previewが開けていない）');
+            await sleep(500);
+
+            assert.strictEqual(
+                vscode.window.tabGroups.all.length,
+                groupCountBefore,
+                `リンクを開いたら新しいエディタグループ（サイドバー分割）が作られた（${groupCountBefore} → ${vscode.window.tabGroups.all.length}）`
+            );
+
+            const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+            const input = activeTab?.input;
+            // 開いた瞬間の実際のタブ種別（Raw/Preview）は「最後に使ったモードを記憶する」
+            // 機能次第で変わりうる（このテストの関心はどちらでもなく、同じ列に開かれたか）。
+            const activeUri = input instanceof vscode.TabInputText
+                ? input.uri
+                : input instanceof vscode.TabInputCustom
+                    ? input.uri
+                    : undefined;
+            assert.strictEqual(
+                activeUri?.toString(),
+                vscode.Uri.file(targetPath).toString(),
+                `リンク先が新しいタブとしてアクティブになっていない（アクティブタブ: ${activeUri?.toString()}）`
+            );
+        });
+
+        test('14.2 Preview中に列指定なしで別ファイルを続けて開いても同じ列の新規タブになる', async function () {
+            this.timeout(20000);
+
+            tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-14-sidebar-'));
+            const testDir = tmpDir;
+            const sourceUri = vscode.Uri.file(path.join(testDir, 'source.md'));
+            fs.writeFileSync(sourceUri.fsPath, '# Source\n', 'utf-8');
+            const targetUris = ['target-a.md', 'target-b.md'].map(name => {
+                const uri = vscode.Uri.file(path.join(testDir, name));
+                fs.writeFileSync(uri.fsPath, `# ${name}\n`, 'utf-8');
+                return uri;
+            });
+
+            const sourceDocument = await vscode.workspace.openTextDocument(sourceUri);
+            await vscode.window.showTextDocument(sourceDocument, {
+                viewColumn: vscode.ViewColumn.One,
+                preview: false
+            });
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await sleep(500);
+
+            assert.strictEqual(
+                vscode.window.tabGroups.all.length,
+                1,
+                `前提条件: 1分割で開始していない（${vscode.window.tabGroups.all.length}分割）`
+            );
+            assert.ok(
+                vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom,
+                '前提条件: PreviewのCustom Editorがアクティブではない'
+            );
+
+            for (const [index, targetUri] of targetUris.entries()) {
+                await vscode.commands.executeCommand(
+                    'vscode.openWith',
+                    sourceUri,
+                    PREVIEW_VIEW_TYPE,
+                    vscode.ViewColumn.One
+                );
+                await sleep(200);
+                // ExplorerやCLIがURIだけを渡すVS Code標準経路。列選択はVS Codeに任せる。
+                await vscode.commands.executeCommand('vscode.open', targetUri);
+                await sleep(800);
+
+                assert.strictEqual(
+                    vscode.window.tabGroups.all.length,
+                    1,
+                    `${index + 1}個目のファイルを開いたらエディタグループが増殖した（現在${vscode.window.tabGroups.all.length}分割）`
+                );
+
+                const activeInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+                const activeUri = activeInput instanceof vscode.TabInputText
+                    ? activeInput.uri
+                    : activeInput instanceof vscode.TabInputCustom
+                        ? activeInput.uri
+                        : undefined;
+                assert.strictEqual(
+                    activeUri?.toString(),
+                    targetUri.toString(),
+                    `${index + 1}個目のファイルが同じ列の新規アクティブタブになっていない`
+                );
+            }
+        });
+
+        test('14.3 右側に既存グループがあってもPreviewから列指定なしで非Markdownを開くとPreview列の新規タブになる', async function () {
+            this.timeout(20000);
+
+            // 同じVS Codeセッションで直前ケースのCustom Editor破棄が完了するのを待ち、
+            // 右グループ作成時に前ケースのPreviewを起点と誤認しないようにする。
+            await closeAllEditors();
+            await sleep(500);
+
+            tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-14-non-markdown-'));
+            const leftPlaceholderUri = vscode.Uri.file(path.join(tmpDir, 'left-placeholder.txt'));
+            const sourceUri = vscode.Uri.file(path.join(tmpDir, 'source.md'));
+            const existingRightUri = vscode.Uri.file(path.join(tmpDir, 'agent-placeholder.txt'));
+            const targetUri = vscode.Uri.file(path.join(tmpDir, 'eslint.config.js'));
+            fs.writeFileSync(leftPlaceholderUri.fsPath, 'left placeholder\n', 'utf-8');
+            fs.writeFileSync(sourceUri.fsPath, '# Source\n', 'utf-8');
+            fs.writeFileSync(existingRightUri.fsPath, 'existing right group\n', 'utf-8');
+            fs.writeFileSync(targetUri.fsPath, 'module.exports = {};\n', 'utf-8');
+
+            const leftPlaceholderDocument = await vscode.workspace.openTextDocument(leftPlaceholderUri);
+            await vscode.window.showTextDocument(leftPlaceholderDocument, {
+                viewColumn: vscode.ViewColumn.One,
+                preview: false
+            });
+
+            const rightDocument = await vscode.workspace.openTextDocument(existingRightUri);
+            await vscode.window.showTextDocument(rightDocument, {
+                viewColumn: vscode.ViewColumn.Two,
+                preview: false
+            });
+            await vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+
+            await vscode.commands.executeCommand(
+                'vscode.openWith',
+                sourceUri,
+                PREVIEW_VIEW_TYPE,
+                vscode.ViewColumn.One
+            );
+            await sleep(500);
+            assert.strictEqual(vscode.window.tabGroups.all.length, 2, '前提条件: 左Preview＋右既存グループの2分割ではない');
+            assert.ok(
+                vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom,
+                '前提条件: 左列のPreviewがアクティブではない'
+            );
+
+            await vscode.commands.executeCommand('vscode.open', targetUri);
+            await sleep(800);
+
+            assert.strictEqual(
+                vscode.window.tabGroups.all.length,
+                2,
+                `非Markdownを開いたら3分割へ増殖した（現在${vscode.window.tabGroups.all.length}分割）`
+            );
+            const leftGroup = vscode.window.tabGroups.all.find(group => group.viewColumn === vscode.ViewColumn.One);
+            const activeInput = leftGroup?.activeTab?.input;
+            const activeUri = activeInput instanceof vscode.TabInputText
+                ? activeInput.uri
+                : activeInput instanceof vscode.TabInputCustom
+                    ? activeInput.uri
+                    : undefined;
+            assert.strictEqual(
+                activeUri?.toString(),
+                targetUri.toString(),
+                '非Markdownが作業中のPreview列の新規タブとして開かれていない'
+            );
+        });
+
+    });
+
+    suite('15. VS Code標準のファイルオープン先を妨げない', () => {
+        test('15.1 左Previewと右ロック済みCLIグループがあるとき列指定なしで開いたファイルは左の新規タブになる', async function () {
+            this.timeout(20000);
+            await closeAllEditors();
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-15-cli-'));
+            try {
+                const leftUri = vscode.Uri.file(path.join(tmpDir, 'left.md'));
+                const rightUri = vscode.Uri.file(path.join(tmpDir, 'terminal-placeholder.txt'));
+                const targetUri = vscode.Uri.file(path.join(tmpDir, 'opened-from-cli.js'));
+                fs.writeFileSync(leftUri.fsPath, '# Left\n', 'utf-8');
+                fs.writeFileSync(rightUri.fsPath, 'terminal\n', 'utf-8');
+                fs.writeFileSync(targetUri.fsPath, 'export {};\n', 'utf-8');
+
+                await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(rightUri), {
+                    viewColumn: vscode.ViewColumn.One,
+                    preview: false
+                });
+                await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(leftUri), {
+                    viewColumn: vscode.ViewColumn.One,
+                    preview: false
+                });
+                await vscode.commands.executeCommand('vscode.open', rightUri, vscode.ViewColumn.Beside);
+                await vscode.commands.executeCommand('workbench.action.lockEditorGroup');
+                await vscode.commands.executeCommand('vscode.openWith', leftUri, PREVIEW_VIEW_TYPE, vscode.ViewColumn.One);
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await vscode.commands.executeCommand('vscode.open', rightUri, vscode.ViewColumn.Two);
+                assert.strictEqual(
+                    vscode.window.tabGroups.activeTabGroup.viewColumn,
+                    vscode.ViewColumn.Two,
+                    '前提条件: CLI相当の右グループがアクティブではない'
+                );
+
+                // CLI/AIツールがURIだけをVS Codeへ渡す経路。列は拡張機能から指定しない。
+                await vscode.commands.executeCommand('vscode.open', targetUri);
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                assert.strictEqual(vscode.window.tabGroups.all.length, 2, '列指定なしのopenでグループ数が増えた');
+                const leftGroup = vscode.window.tabGroups.all.find(group => group.viewColumn === vscode.ViewColumn.One);
+                const input = leftGroup?.activeTab?.input;
+                assert.ok(input instanceof vscode.TabInputText, '左列のアクティブタブが通常ファイルではない');
+                assert.strictEqual(input.uri.toString(), targetUri.toString(), 'CLIから開いたファイルが左列に開かれていない');
+            } finally {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+            }
+        });
+    });
 });

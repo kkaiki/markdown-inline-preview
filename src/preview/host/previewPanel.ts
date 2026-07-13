@@ -106,11 +106,21 @@ const DUPLICATE_COLLAPSE_SETTLE_MS = 500;
 // 本番では未使用（`activatePreviewFeature` が `ExtensionMode.Test` の時だけコマンドとして
 // 公開する。src/preview/webview/milkdownApp.ts の `__IPREVIEW_TEST_HOOK__` と同じ発想）。
 const testChangeInjectors = new Map<string, (markdown: string) => Promise<void>>();
+// 同様に、webview からの `openLink` メッセージ受信と同じ経路（openLinkFromPreview、
+// webviewPanel.viewColumn を含む）を直接呼び出すためのテスト専用シーム。
+const testOpenLinkInjectors = new Map<string, (href: string) => Promise<void>>();
 
 export async function injectWebviewChangeForTesting(uri: vscode.Uri, markdown: string): Promise<boolean> {
     const inject = testChangeInjectors.get(uri.toString());
     if (!inject) return false;
     await inject(markdown);
+    return true;
+}
+
+export async function injectWebviewOpenLinkForTesting(uri: vscode.Uri, href: string): Promise<boolean> {
+    const inject = testOpenLinkInjectors.get(uri.toString());
+    if (!inject) return false;
+    await inject(href);
     return true;
 }
 
@@ -449,6 +459,8 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
 
         // テスト専用シーム（このファイル冒頭の testChangeInjectors 参照）。
         testChangeInjectors.set(key, (markdown: string) => enqueueWebviewChange(() => applyMarkdownFromWebview(markdown)));
+        // テスト専用シーム（このファイル冒頭の testOpenLinkInjectors 参照）。
+        testOpenLinkInjectors.set(key, (href: string) => openLinkFromPreview(href, document.uri, webviewPanel.viewColumn));
 
         const changeSub = vscode.workspace.onDidChangeTextDocument(event => {
             if (event.document.uri.toString() !== key || applyingRemoteEdit) return;
@@ -540,7 +552,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 return;
             }
             if (message.type === 'openLink' && typeof message.href === 'string') {
-                void openLinkFromPreview(message.href, document.uri);
+                void openLinkFromPreview(message.href, document.uri, webviewPanel.viewColumn);
                 return;
             }
             if (message.type === 'insertImage' && typeof message.dataUrl === 'string') {
@@ -575,6 +587,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             if (pushTimer) clearTimeout(pushTimer);
             pendingWebviewFlush.delete(key);
             testChangeInjectors.delete(key);
+            testOpenLinkInjectors.delete(key);
             this.imageUriMaps.delete(key);
             this.frontmatterMaps.delete(key);
             this.baseBodyCache.delete(key);
@@ -615,7 +628,11 @@ function findPreviewUri(): vscode.Uri | undefined {
     return picked ? uriByString.get(picked) : undefined;
 }
 
-async function openLinkFromPreview(href: string, documentUri: vscode.Uri): Promise<void> {
+async function openLinkFromPreview(
+    href: string,
+    documentUri: vscode.Uri,
+    viewColumn: vscode.ViewColumn | undefined
+): Promise<void> {
     const trimmed = href.trim();
     if (!trimmed) return;
 
@@ -634,7 +651,12 @@ async function openLinkFromPreview(href: string, documentUri: vscode.Uri): Promi
     const targetUri = vscode.Uri.file(targetPath);
 
     try {
-        await vscode.window.showTextDocument(targetUri, { preview: false });
+        // viewColumn を省略すると、リンクをクリックした時点でアクティブなのが
+        // Webview パネル（activeTextEditor が undefined）のため VS Code が基準列を
+        // 見失い、新しいエディタグループ（サイドバー分割）を作ってしまう。リンクを
+        // クリックした Preview 自身の列を明示することで、同じ列に新しいタブとして
+        // 開かれるようにする。詳細: docs/specifications/preview-link-open-same-column-fix.md
+        await vscode.window.showTextDocument(targetUri, { preview: false, viewColumn });
     } catch {
         vscode.window.showWarningMessage(`Could not open link: ${trimmed}`);
     }
@@ -991,6 +1013,10 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             vscode.commands.registerCommand(
                 'markdownInline.__test.injectWebviewChange',
                 (uriString: string, markdown: string) => injectWebviewChangeForTesting(vscode.Uri.parse(uriString), markdown)
+            ),
+            vscode.commands.registerCommand(
+                'markdownInline.__test.injectOpenLink',
+                (uriString: string, href: string) => injectWebviewOpenLinkForTesting(vscode.Uri.parse(uriString), href)
             )
         );
     }
