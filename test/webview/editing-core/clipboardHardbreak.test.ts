@@ -74,4 +74,36 @@ describe('Preview: セル内改行を含む範囲のコピーで <br> が漏れ�
 
         h.destroy();
     });
+
+    it('フォーカス中コードフェンスの実テキストをコピーしてもフェンスを二重化しない', async () => {
+        const h = await mkEditor('```bash\n# 実LLM（VE\n```\n');
+
+        let codePos = -1;
+        h.view.state.doc.descendants((n, p) => {
+            if (codePos < 0 && n.type.name === 'code_block') {
+                codePos = p;
+                return false;
+            }
+            return true;
+        });
+        assert.ok(codePos >= 0, 'code_block が見つからない');
+
+        const codeNode = h.view.state.doc.nodeAt(codePos);
+        assert.ok(codeNode, 'code_block node が取得できない');
+        const contentStart = codePos + 1;
+        let tr = h.view.state.tr.insert(contentStart + codeNode.textContent.length, h.view.state.schema.text('\n```'));
+        tr = tr.insert(contentStart, h.view.state.schema.text('```bash\n'));
+        h.view.dispatch(tr);
+
+        const expandedNode = h.view.state.doc.nodeAt(codePos);
+        assert.ok(expandedNode, '展開後 code_block node が取得できない');
+        const selection = TextSelection.create(h.view.state.doc, codePos, codePos + expandedNode.nodeSize);
+        const slice = selection.content();
+        const text = h.view.someProp('clipboardTextSerializer', (f) => f(slice, h.view));
+
+        assert.ok(text !== undefined, 'clipboardTextSerializer が結果を返さなかった');
+        assert.strictEqual(text, '```bash\n# 実LLM（VE\n```');
+
+        h.destroy();
+    });
 });

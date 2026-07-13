@@ -86,6 +86,50 @@ export function getCodeFenceMarkers(node: ProseNode): { open: string; close: str
     return { open: '```' + language, close: '```' };
 }
 
+/**
+ * code_block の内容自体の1行目または最終行が既にフェンス行（`` ``` `` で始まる行）か
+ * どうかを判定する。true のブロック（典型例: ネストフェンス）は preview の時点で
+ * 内容のフェンス行が見えているため、`codeFenceEditPlugin` が外側フェンスを実テキスト
+ * 挿入すると同一に見えるフェンス行が2行並んでしまう。展開のスコープ外判定に使う
+ * （`code-fence-real-text-edit-fix.md`）。中間行の `` ``` `` は開き・閉じマーカーの
+ * 隣に並ばず二重表示の混乱が起きないため対象にしない。
+ */
+export function hasBoundaryFenceLine(text: string): boolean {
+    const lines = text.split('\n');
+    return lines[0].startsWith('```') || lines[lines.length - 1].startsWith('```');
+}
+
+export interface ParsedCodeFenceRealText {
+    /** 開きフェンスから読み取った言語名（無ければ空文字）。 */
+    language: string;
+    /** マーカーを除いた実コード部分。 */
+    code: string;
+    /** 開きマーカー（`` ```lang\n ``）の文字数。 */
+    openLen: number;
+    /** 閉じマーカー（`` \n``` ``）の文字数。 */
+    closeLen: number;
+}
+
+/**
+ * `codeFenceEditPlugin` がフォーカス中に実テキストとして挿入したフェンス
+ * （`` ```lang\n `` 〜 `` \n``` ``）を含む code_block の全文を解析する。
+ * 開き・閉じの両方が完全な形で揃っている場合のみ値を返す。どちらか一方でも
+ * 壊れている（`#` を全部消した見出しと同じ状況）場合は null を返す
+ * （呼び出し側はコードブロックとして成立しないと判断し、段落へ変換する）。
+ */
+export function parseCodeFenceRealText(fullText: string): ParsedCodeFenceRealText | null {
+    const openMatch = /^```(\S*)\n/.exec(fullText);
+    const closeMatch = /\n```$/.exec(fullText);
+    if (!openMatch || !closeMatch) return null;
+    if (openMatch[0].length + closeMatch[0].length > fullText.length) return null;
+    return {
+        language: openMatch[1],
+        code: fullText.slice(openMatch[0].length, fullText.length - closeMatch[0].length),
+        openLen: openMatch[0].length,
+        closeLen: closeMatch[0].length
+    };
+}
+
 export function findFocusedBlockDepth($pos: ResolvedPos): number | null {
     for (let depth = $pos.depth; depth > 0; depth--) {
         const name = $pos.node(depth).type.name;

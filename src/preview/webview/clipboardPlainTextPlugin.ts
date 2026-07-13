@@ -17,6 +17,7 @@ import type { Node as ProseNode } from '@milkdown/prose/model';
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import type { Slice } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
+import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
 
 const INLINE_BR_RE = /<br\s*\/?>/gi;
 
@@ -32,6 +33,27 @@ function isPureText(content: unknown): boolean {
     return (content as { type?: string }).type === 'text';
 }
 
+function normalizeExpandedCodeFences(node: ProseNode): ProseNode {
+    if (node.type.name === 'code_block') {
+        const parsed = parseCodeFenceRealText(node.textContent);
+        if (parsed) {
+            return node.type.create(
+                { ...node.attrs, language: parsed.language },
+                parsed.code ? node.type.schema.text(parsed.code) : undefined,
+                node.marks
+            );
+        }
+    }
+
+    if (!node.content.size) return node;
+
+    const children: ProseNode[] = [];
+    node.forEach((child) => {
+        children.push(normalizeExpandedCodeFences(child));
+    });
+    return node.type.create(node.attrs, children, node.marks);
+}
+
 export function createClipboardPlainTextPlugin() {
     return $prose((ctx) => new Plugin({
         key: new PluginKey('clipboardPlainText'),
@@ -44,7 +66,7 @@ export function createClipboardPlainTextPlugin() {
                 const doc: ProseNode | null = schema.topNodeType.createAndFill(undefined, slice.content);
                 if (!doc) return '';
                 const serializer = ctx.get(serializerCtx);
-                return serializer(doc).replace(INLINE_BR_RE, '\n');
+                return serializer(normalizeExpandedCodeFences(doc)).replace(INLINE_BR_RE, '\n');
             }
         }
     }));

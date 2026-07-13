@@ -5,7 +5,9 @@ import {
     getBlockPrefix,
     getCodeFenceMarkers,
     getHeadingPrefix,
-    getInlineMarkMarker
+    getInlineMarkMarker,
+    hasBoundaryFenceLine,
+    parseCodeFenceRealText
 } from '../../../../src/shared/markdown/focusSyntaxHelpers';
 import { filterSlashMenuItems } from '../../../../src/shared/slash/slashMenuItems';
 import { detectSlashMatch } from '../../../../src/shared/slash/slashMatch';
@@ -60,6 +62,74 @@ describe('focusSyntaxHelpers', () => {
     it('getCodeFenceMarkers returns null for non-code_block nodes', () => {
         const node = { type: { name: 'paragraph' }, attrs: {} };
         assert.strictEqual(getCodeFenceMarkers(node as never), null);
+    });
+
+    it('parseCodeFenceRealText parses a well-formed expanded fence with a language', () => {
+        const result = parseCodeFenceRealText('```js\nconst x = 1;\n```');
+        assert.deepStrictEqual(result, {
+            language: 'js',
+            code: 'const x = 1;',
+            openLen: '```js\n'.length,
+            closeLen: '\n```'.length
+        });
+    });
+
+    it('parseCodeFenceRealText parses a well-formed expanded fence without a language', () => {
+        const result = parseCodeFenceRealText('```\nhello\n```');
+        assert.deepStrictEqual(result, {
+            language: '',
+            code: 'hello',
+            openLen: '```\n'.length,
+            closeLen: '\n```'.length
+        });
+    });
+
+    it('parseCodeFenceRealText handles genuinely empty code content between the markers', () => {
+        const result = parseCodeFenceRealText('```\n\n```');
+        assert.deepStrictEqual(result, {
+            language: '',
+            code: '',
+            openLen: '```\n'.length,
+            closeLen: '\n```'.length
+        });
+    });
+
+    it('parseCodeFenceRealText returns null when the opening fence is broken', () => {
+        assert.strictEqual(parseCodeFenceRealText('``js\nconst x = 1;\n```'), null);
+    });
+
+    it('parseCodeFenceRealText returns null when the closing fence is broken', () => {
+        assert.strictEqual(parseCodeFenceRealText('```js\nconst x = 1;\n``'), null);
+    });
+
+    it('parseCodeFenceRealText returns null when both fences have been fully deleted', () => {
+        assert.strictEqual(parseCodeFenceRealText('const x = 1;'), null);
+    });
+
+    it('parseCodeFenceRealText returns null for the degenerate case where open/close markers would overlap (no room for real code)', () => {
+        assert.strictEqual(parseCodeFenceRealText('```\n```'), null);
+    });
+
+    it('hasBoundaryFenceLine detects a content whose first line is itself a fence line (nested fence)', () => {
+        assert.strictEqual(hasBoundaryFenceLine('```tsx\nuseMouseEvents\nshowPageCorners'), true);
+    });
+
+    it('hasBoundaryFenceLine detects a content whose last line is itself a fence line', () => {
+        assert.strictEqual(hasBoundaryFenceLine('hello\n```'), true);
+    });
+
+    it('hasBoundaryFenceLine detects a content that is a single fence line', () => {
+        assert.strictEqual(hasBoundaryFenceLine('```'), true);
+    });
+
+    it('hasBoundaryFenceLine ignores fence lines in the middle of the content (no visual doubling at the boundaries)', () => {
+        assert.strictEqual(hasBoundaryFenceLine('foo\n```bar\nbaz'), false);
+    });
+
+    it('hasBoundaryFenceLine returns false for ordinary code content', () => {
+        assert.strictEqual(hasBoundaryFenceLine('const x = 1;'), false);
+        assert.strictEqual(hasBoundaryFenceLine(''), false);
+        assert.strictEqual(hasBoundaryFenceLine('``\nnot a fence'), false);
     });
 
     it('findFocusedBlockDepth resolves a position inside a code_block', () => {

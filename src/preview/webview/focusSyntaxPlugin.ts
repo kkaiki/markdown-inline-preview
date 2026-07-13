@@ -5,8 +5,7 @@ import { $prose } from '@milkdown/utils';
 
 import {
     findFocusedBlockDepth,
-    getBlockPrefix,
-    getCodeFenceMarkers
+    getBlockPrefix
 } from '../../shared/markdown/focusSyntaxHelpers';
 import { getExpandedBlock } from './blockPrefixEditPlugin';
 
@@ -67,27 +66,10 @@ function blockMarkerDecoration($from: ResolvedPos): Decoration[] {
     const depth = findFocusedBlockDepth($from);
     if (depth === null) return [];
 
-    // フェンスコードブロックは実テキスト展開（blockPrefixEditPlugin）の対象外なので、
-    // getExpandedBlock() のガードより先に判定する。開始行（```lang）と終了行（```）の
-    // 2 つの widget を、実文書には何も挿入せず表示する（Obsidian の Live Preview 相当）。
-    if ($from.node(depth).type.name === 'code_block') {
-        const node = $from.node(depth);
-        const markers = getCodeFenceMarkers(node);
-        if (!markers) return [];
-        const nodeStart = $from.before(depth);
-        const contentStart = nodeStart + 1;
-        const contentEnd = nodeStart + node.nodeSize - 1;
-        return [
-            Decoration.widget(contentStart, mkMarker(`${markers.open}\n`, contentStart), {
-                side: -1,
-                key: `fence-open-${nodeStart}`
-            }),
-            Decoration.widget(contentEnd, mkMarker(`\n${markers.close}`, contentEnd), {
-                side: 1,
-                key: `fence-close-${nodeStart}`
-            })
-        ];
-    }
+    // フェンスコードブロックは codeFenceEditPlugin が実テキストとしてフェンスを展開する
+    // ため、ここでは何もしない（かつては widget 表示のみだったが、
+    // code-fence-real-text-edit-fix.md でこの widget は不要になった）。
+    if ($from.node(depth).type.name === 'code_block') return [];
 
     // blockPrefixEditPlugin が実テキストとしてプレフィックスを展開中は
     // 二重表示を防ぐためスキップする。
