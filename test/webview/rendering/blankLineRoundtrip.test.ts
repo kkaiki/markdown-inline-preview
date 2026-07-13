@@ -13,25 +13,25 @@ import { createPreviewEditor } from '../milkdownHarness';
 import { normalizePreviewMarkdown } from '../../../src/shared/markdown/lineBreaks';
 
 describe('webview統合: 連続する空行の復元とround-trip', () => {
-    it('空行1つは従来どおり2段落のまま（空 paragraph は増やさない）', async () => {
+    it('空行1つも空 paragraph として復元される', async () => {
         const h = await createPreviewEditor('para A\n\npara B\n');
-        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph']);
+        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph']);
         const out = normalizePreviewMarkdown(h.serialize()).trimEnd();
         assert.deepStrictEqual(out.split('\n'), ['para A', '', 'para B']);
         h.destroy();
     });
 
-    it('空行2つは間に空 paragraph が1つ復元される', async () => {
+    it('空行2つは間に空 paragraph が2つ復元される', async () => {
         const h = await createPreviewEditor('para A\n\n\npara B\n');
-        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph']);
+        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph', 'paragraph']);
         const out = normalizePreviewMarkdown(h.serialize()).trimEnd();
         assert.deepStrictEqual(out.split('\n'), ['para A', '', '', 'para B']);
         h.destroy();
     });
 
-    it('空行3つは間に空 paragraph が2つ復元される', async () => {
+    it('空行3つは間に空 paragraph が3つ復元される', async () => {
         const h = await createPreviewEditor('para A\n\n\n\npara B\n');
-        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph', 'paragraph']);
+        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph']);
         const out = normalizePreviewMarkdown(h.serialize()).trimEnd();
         assert.deepStrictEqual(out.split('\n'), ['para A', '', '', '', 'para B']);
         h.destroy();
@@ -39,7 +39,7 @@ describe('webview統合: 連続する空行の復元とround-trip', () => {
 
     it('見出しと本文の間の空行2つも復元される（段落以外の組み合わせ）', async () => {
         const h = await createPreviewEditor('# Title\n\n\nbody\n');
-        assert.deepStrictEqual(h.topLevelTypes(), ['heading', 'paragraph', 'paragraph']);
+        assert.deepStrictEqual(h.topLevelTypes(), ['heading', 'paragraph', 'paragraph', 'paragraph']);
         const out = normalizePreviewMarkdown(h.serialize()).trimEnd();
         assert.deepStrictEqual(out.split('\n'), ['# Title', '', '', 'body']);
         h.destroy();

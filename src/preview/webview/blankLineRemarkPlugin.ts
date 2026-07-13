@@ -1,6 +1,6 @@
 /**
  * ソース Markdown のトップレベルにある連続した空行を、隣接ブロック間に
- * 空の paragraph ノード（本数 = 空行数 - 1）として復元する remark プラグイン。
+ * 空の paragraph ノード（本数 = 空行数）として復元する remark プラグイン。
  *
  * remark-parse は空行そのものをノード化しないため、blank-line-preservation.md の
  * 仕様（連続する空行の本数を実体のある空段落として往復させる）を満たすには、
@@ -30,9 +30,7 @@ function insertBlankLineParagraphs(tree: Root): void {
         if (endLine === null || endLine === undefined || startLine === null || startLine === undefined) continue;
 
         const blankLines = startLine - endLine - 1;
-        // 空行1行は既定のブロック間セパレータで表現されるため、追加ノードは不要。
-        const extraParagraphs = blankLines - 1;
-        for (let k = 0; k < extraParagraphs; k++) {
+        for (let k = 0; k < blankLines; k++) {
             result.push({ type: 'paragraph', children: [] });
         }
     }
