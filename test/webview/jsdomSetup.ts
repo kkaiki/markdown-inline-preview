@@ -18,7 +18,11 @@ const w = dom.window as unknown as Record<string, unknown>;
 
 g.window = dom.window;
 g.document = dom.window.document;
-g.navigator = dom.window.navigator;
+Object.defineProperty(g, 'navigator', {
+    value: dom.window.navigator,
+    configurable: true,
+    writable: true
+});
 g.HTMLElement = dom.window.HTMLElement;
 g.customElements = dom.window.customElements;
 g.Node = dom.window.Node;

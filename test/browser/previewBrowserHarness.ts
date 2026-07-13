@@ -126,12 +126,22 @@ export interface ModelSnapshot {
     selParentText: string;
     /** 選択の from 位置。 */
     selFrom: number;
+    /** 選択の to 位置。 */
+    selTo: number;
+    /** 選択がcollapseしているか。 */
+    selEmpty: boolean;
+    /** 選択先頭が属する親ノードの型。 */
+    selParentType: string;
+    /** 選択先頭の親ノード内オフセット。 */
+    selParentOffset: number;
 }
 
 export interface PreviewHandle {
     page: Page;
     /** ページ内で発生した未捕捉エラー（空であることをアサートする）。 */
     readonly errors: string[];
+    /** ページが `console.error` に出した内容（空であることをアサートできる）。 */
+    readonly consoleErrors: string[];
     /** 指定テキストを含む行をクリックし、Home で行頭へカーソルを移動。 */
     placeCursorAtLineStart(lineText: string): Promise<void>;
     /** 指定テキストを含む行をクリックし、End で行末へカーソルを移動。 */
@@ -144,6 +154,12 @@ export interface PreviewHandle {
     caretTop(): Promise<number | null>;
     /** ドキュメント構造・選択のスナップショットを返す。 */
     model(): Promise<ModelSnapshot>;
+    /**
+     * 現在のカーソルが属するテキストブロック内で、カーソルのある「行」（`\n` 区切り）の
+     * テキストだけを返す。`model().selParentText` はブロック全体（複数行にまたがる
+     * code_block 等では全行分）を返すため、特定の行にいるかどうかの判定には使えない。
+     */
+    currentLineText(): Promise<string>;
     /**
      * doc 全体のプレーンテキストをブロック区切り `\n` で返す（`model().text` は
      * ProseMirror の `textContent` をそのまま使うためブロック間の区切りが無く、
@@ -174,6 +190,10 @@ export interface PreviewHandle {
     moveToEnd(): Promise<void>;
     /** ホストへ送られた最新の change Markdown（無ければ null）。 */
     lastChangeMarkdown(): Promise<string | null>;
+    /** ホストへ送られた全change Markdownを送信順で返す。 */
+    changeMessages(): Promise<string[]>;
+    /** 指定Markdownがchangeとして送られるまで条件待機する。 */
+    waitForMarkdown(expected: string, timeoutMs?: number): Promise<void>;
     /**
      * 現在のカーソル位置へ、markdown テキストの `paste` イベントを合成して発火させる
      * （実クリップボード API は file:// では権限制約があるため使わず、
@@ -225,7 +245,11 @@ export async function openPreview(
 ): Promise<PreviewHandle> {
     const page = await browser.newPage({ viewport: { width: 900, height: 700 } });
     const errors: string[] = [];
+    const consoleErrors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message.split('\n')[0]));
+    page.on('console', (message) => {
+        if (message.type() === 'error') consoleErrors.push(message.text());
+    });
 
     await page.goto(fixtureUrl());
     await page.evaluate(
@@ -250,6 +274,7 @@ export async function openPreview(
     return {
         page,
         errors,
+        consoleErrors,
         async placeCursorAtLineStart(lineText: string) {
             await page.getByText(lineText, { exact: false }).first().click({ position: { x: 3, y: 6 } });
             await page.keyboard.press('Home');
@@ -307,8 +332,27 @@ export async function openPreview(
                     text: doc.textContent,
                     outline: tops.join(' | '),
                     selParentText: state.selection.$from.parent.textContent,
-                    selFrom: state.selection.from
+                    selFrom: state.selection.from,
+                    selTo: state.selection.to,
+                    selEmpty: state.selection.empty,
+                    selParentType: state.selection.$from.parent.type.name,
+                    selParentOffset: state.selection.$from.parentOffset
                 };
+                /* eslint-enable @typescript-eslint/no-explicit-any */
+            });
+        },
+        async currentLineText() {
+            return page.evaluate(() => {
+                /* eslint-disable @typescript-eslint/no-explicit-any */
+                const view = (window as any).__view;
+                if (!view) throw new Error('__view 未設定（テストフックが呼ばれていない）');
+                const $from = view.state.selection.$from;
+                const parentText: string = $from.parent.textContent;
+                const offset: number = $from.parentOffset;
+                const lineStart = parentText.lastIndexOf('\n', offset - 1) + 1;
+                const nextBreak = parentText.indexOf('\n', offset);
+                const lineEnd = nextBreak < 0 ? parentText.length : nextBreak;
+                return parentText.slice(lineStart, lineEnd);
                 /* eslint-enable @typescript-eslint/no-explicit-any */
             });
         },
@@ -441,6 +485,28 @@ export async function openPreview(
                 return null;
             });
             /* eslint-enable @typescript-eslint/no-explicit-any */
+        },
+        async changeMessages() {
+            /* eslint-disable @typescript-eslint/no-explicit-any */
+            return page.evaluate(() => {
+                const sent = (window as any).__sent || [];
+                return sent
+                    .filter((message: any) => message && message.type === 'change')
+                    .map((message: any) => String(message.markdown));
+            });
+            /* eslint-enable @typescript-eslint/no-explicit-any */
+        },
+        async waitForMarkdown(expected: string, timeoutMs = 3000) {
+            await page.waitForFunction(
+                (expectedMarkdown) => {
+                    /* eslint-disable @typescript-eslint/no-explicit-any */
+                    const sent = (window as any).__sent || [];
+                    return sent.some((message: any) => message?.type === 'change' && message.markdown === expectedMarkdown);
+                    /* eslint-enable @typescript-eslint/no-explicit-any */
+                },
+                expected,
+                { timeout: timeoutMs }
+            );
         },
         async screenshot(name: string) {
             fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
