@@ -132,6 +132,24 @@ describe('webview統合: 行頭マーカーの段階的削除（markerBackspace�
         assert.ok(topTypes(h.view).includes('bullet_list'), 'まだリストのはず');
     });
 
+    it('空チェックボックス → Backspace 1回で空段落になり、行自体とカーソルを維持する', async () => {
+        h = await mkEditor('- [ ] \n');
+        let paragraphStart = -1;
+        h.view.state.doc.descendants((node, pos) => {
+            if (paragraphStart < 0 && node.type.name === 'paragraph') {
+                paragraphStart = pos + 1;
+                return false;
+            }
+            return true;
+        });
+        h.view.dispatch(h.view.state.tr.setSelection(TextSelection.create(h.view.state.doc, paragraphStart)));
+        pressBackspace(h.view);
+
+        assert.deepStrictEqual(topTypes(h.view), ['paragraph'], '空の箇条書きを経由せず空段落になるべき');
+        assert.strictEqual(h.view.state.doc.firstChild?.textContent, '', '空行自体は残るべき');
+        assert.strictEqual(h.view.state.selection.$from.parent.type.name, 'paragraph');
+    });
+
     it('箇条書き → Backspace で段落（リストから外れる）', async () => {
         h = await mkEditor('- item\n');
         cursorAtTextStart(h.view, 'item');

@@ -15,7 +15,11 @@ import { liftListItem } from '@milkdown/prose/schema-list';
 import { $prose } from '@milkdown/utils';
 
 import { headingDowngradeLevel } from '../../shared/markdown/headingBackspace';
-import { getExpandedBlock, markRecentCheckboxDemotion } from './blockPrefixEditPlugin';
+import {
+    collapseCurrentExpandedBlock,
+    getExpandedBlock,
+    markRecentCheckboxDemotion
+} from './blockPrefixEditPlugin';
 
 /**
  * 変換後に選択位置を「固定」する。
@@ -50,14 +54,28 @@ export function createMarkerBackspacePlugin() {
         props: {
             handleKeyDown(view, event) {
                 if (event.key !== 'Backspace') return false;
-                const { state } = view;
-                const { $from, empty } = state.selection;
+                let state = view.state;
+                let { $from, empty } = state.selection;
                 if (!empty) return false;
 
                 // blockPrefixEditPlugin が展開中はプレフィックスが実テキストになっている。
                 // Backspace でプレフィックス文字を 1 文字ずつ削除するのが自然な挙動なので、
-                // ここではスキップして ProseMirror 既定の文字削除に委ねる。
-                if (getExpandedBlock() !== null) return false;
+                // 原則スキップする。ただし本文が空のタスク項目だけは、見えている
+                // "- [ ] " を1文字ずつ壊さず、先に折りたたんで空タスク削除として扱う。
+                const expanded = getExpandedBlock();
+                if (expanded !== null) {
+                    const expandedNode = state.doc.nodeAt(expanded.nodePos);
+                    const isEmptyExpandedTask =
+                        expanded.nodeType === 'list_item' &&
+                        /^- \[[ xX]\] $/.test(expanded.prefix) &&
+                        expandedNode?.firstChild?.textContent === expanded.prefix;
+                    if (!isEmptyExpandedTask) return false;
+
+                    collapseCurrentExpandedBlock(view);
+                    state = view.state;
+                    ({ $from, empty } = state.selection);
+                    if (!empty) return false;
+                }
 
                 // 1) 見出し: 行頭で 1 レベル降格 → 最後は段落
                 for (let depth = $from.depth; depth > 0; depth--) {
@@ -96,6 +114,17 @@ export function createMarkerBackspacePlugin() {
                 const listItem = $from.node(liDepth);
                 const checked = listItem.attrs.checked;
                 if (checked === true || checked === false) {
+                    // 空のタスク項目では中間状態の「空の箇条書き」を作らず、その場で
+                    // リストから抜けて空段落にする。行自体とカーソル位置は維持する。
+                    if (/^(?:\[[ xX]\])?$/.test(listItem.textContent.trim())) {
+                        const listItemType = state.schema.nodes.list_item;
+                        if (listItemType && liftListItem(listItemType)(state, view.dispatch)) {
+                            pinSelection(view, view.state.selection.from);
+                            event.preventDefault();
+                            return true;
+                        }
+                    }
+
                     // チェックボックス → 箇条書き（チェック属性を外す）。
                     // setNodeMarkup 直後、この list_item は checked=null（＝普通の箇条書き）
                     // になり、まだカーソルもその中にある。blockPrefixEditPlugin はこれを
