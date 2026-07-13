@@ -115,7 +115,7 @@ describe('実ブラウザ: タイプ中・確定後の文字忠実性', function
             h = await openPreview(browser, '# H\n\nbody\n', 'body');
             await h.moveToEnd();
             const typed = 'tail-append';
-            await typeCharByCharExact(h, typed, () => h.docText(), (typedSoFar) => `H\nbody\n${typedSoFar}`);
+            await typeCharByCharExact(h, typed, () => h.docText(), (typedSoFar) => `H\n\nbody\n${typedSoFar}`);
             assert.deepStrictEqual(h.errors, []);
         });
     });
@@ -285,7 +285,7 @@ describe('実ブラウザ: タイプ中・確定後の文字忠実性', function
             await h.placeCursorAfterText('BETA-1');
             await h.type('-2');
             const actual = await h.docText();
-            assert.strictEqual(actual, 'ALPHA-1-2\nBETA-1-2');
+            assert.strictEqual(actual, 'ALPHA-1-2\n\nBETA-1-2');
             assert.deepStrictEqual(h.errors, []);
         });
     });

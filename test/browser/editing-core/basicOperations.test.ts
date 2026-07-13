@@ -32,7 +32,7 @@ describe('実ブラウザ: Preview 基本操作の網羅', function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, '# One\n\n## Two\n\n### Three\n', 'Three');
             const m = await h.model();
-            assert.deepStrictEqual(m.topTypes, ['heading', 'heading', 'heading']);
+            assert.deepStrictEqual(m.topTypes, ['heading', 'paragraph', 'heading', 'paragraph', 'heading']);
             assert.ok(m.outline.includes('heading(1)["One"]'), m.outline);
             assert.ok(m.outline.includes('heading(2)["Two"]'), m.outline);
             assert.ok(m.outline.includes('heading(3)["Three"]'), m.outline);

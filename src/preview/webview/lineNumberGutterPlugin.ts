@@ -1,26 +1,54 @@
 /**
- * 各行（トップレベルブロック＋リスト項目）の左ガターに「表示要素の連番」を出す。
+ * 各行（トップレベルブロック＋リスト項目）の左ガターに「ソース Markdown 上の実際の行番号」を出す。
  *
- * ソース Markdown の行番号とは対応しない。1, 2, 3, ... と隙間なく振るだけ
- * （blank-line-preservation.md）。「行番号を出すべき要素」＝トップレベルブロックと、
- * その中のリスト項目（再帰）。ソースの空行は blankLineRemarkPlugin により実体のある
- * 空 paragraph としてトップレベルブロックに復元されるため、このループが自然に拾い、
- * 連番の中に含まれる。
+ * Raw モード（CodeMirror）が表示する行番号と一致させる（blank-line-preservation.md 3節）。
+ * 「行番号を出すべき要素」＝トップレベルブロックと、その中のリスト項目（再帰）。ソースの
+ * 空行は blankLineRemarkPlugin により実体のある空 paragraph としてトップレベルブロックに
+ * 復元されるため、このループが自然に拾い、その空行自身の実ソース行番号を表示する
+ * （合成ノードのため mdast 上 position を持たず、周囲の実ノードから補間する）。
+ * 表（table）・コードブロック（code_block）のように複数の物理行にまたがる要素は、
+ * ブロック全体で1個ではなく、実際に表示される行ごとに1個の番号を出す
+ * （blank-line-preservation.md 4節）。
+ *
+ * 行番号の取得方法: milkdown が内部でドキュメントを ProseMirror doc に変換する際に使う
+ * `remarkCtx`（gfm・blankLineRemarkPlugin を含む、登録済み全 remark プラグインが反映された
+ * 単一の unified プロセッサ）を再利用し、現在の doc から `serializerCtx` で得た Markdown
+ * テキストをもう一度パースし直すことで、mdast ノードの `.position`（行番号）を取得する。
+ * milkdown 組み込みの `parseMarkdown` ランナーは `.position` を ProseMirror ノードの attrs
+ * に伝播しないため、doc→ProseMirror 変換パイプラインとは別に、この「並行パース」で行番号
+ * だけを取り出し、既存の ProseMirror 走査（computeLineAnchors）と文書順のインデックス対応
+ * でzipする。
  *
  * - 行番号は `Decoration.widget`（side:-1）で各要素の先頭に挿入する。
  *   focusSyntaxPlugin / blockPrefixEditPlugin が使う `::before` と衝突しないようにするため。
- * - docChanged 時のみ再計算してキャッシュする（decorations は選択変更でも呼ばれるため）。
+ * - docChanged 時のみ再計算してキャッシュする（decorations は選択変更でも呼ばれるため。
+ *   remark の再パースもこのキャッシュ判定の内側でのみ行う）。
  */
 import { Plugin, PluginKey } from '@milkdown/prose/state';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
+import { remarkCtx, serializerCtx } from '@milkdown/kit/core';
+import type { Ctx } from '@milkdown/ctx';
+import type { Code, List, Root, RootContent } from 'mdast';
+import { stripListItemPlaceholderBr, stripPlaceholderLineBreaks, tightenListSpacing } from '../../shared/markdown/lineBreaks';
+import { getExpandedCodeFence } from './codeFenceEditPlugin';
 
 /** 行番号を出す位置と番号。pos は widget を置くドキュメント位置。 */
 export interface LineAnchor {
     pos: number;
     line: number;
+    /** コードフェンス行として常時表示する文字列。 */
+    fence?: string;
 }
+
+/**
+ * mdast 側の「1要素（トップレベルブロック or リスト項目）につき1エントリ」の実行番号。
+ * 表・コードブロックのみ、1エントリが複数の物理行分の番号をまとめて持つ（'multi'）。
+ */
+type RealLineEntry =
+    | { kind: 'single'; line: number }
+    | { kind: 'multi'; lines: number[] };
 
 function isListNode(node: ProseNode): boolean {
     const n = node.type.name;
@@ -28,20 +56,134 @@ function isListNode(node: ProseNode): boolean {
 }
 
 /**
- * doc 内の「行番号を出す要素」を文書順に集め、1 から連番を振る。
- * トップレベルブロックに加え、リストの直下項目（再帰）にも番号を付ける。
+ * フェンス付きコードブロックの本文各行の実ソース行番号。
+ * 本 Preview の code_block シリアライズは常にフェンス形式になるため
+ * （blank-line-preservation.md 4節）、本文1行目 = フェンス開始行 + 1 で確定する。
  */
-export function computeLineAnchors(doc: ProseNode): LineAnchor[] {
-    const anchors: LineAnchor[] = [];
-    let line = 1;
+function codeContentLineNumbers(code: Code): number[] {
+    const startLine = code.position?.start.line;
+    if (startLine === undefined || startLine === null) return [];
+    const value = code.value ?? '';
+    const bodyLines = value.split('\n').map((_, i) => startLine + 1 + i);
+    const endLine = code.position?.end.line ?? startLine + bodyLines.length + 1;
+    return [startLine, ...bodyLines, endLine];
+}
 
-    // リスト項目（再帰）に連番を振る。
+/**
+ * remark で再パースした mdast ツリーを、computeLineAnchors がたどる順序
+ * （トップレベル要素＋リスト項目の再帰。リスト項目内部の複数行ブロックは対象外）と
+ * 1エントリずつ対応する「実行番号エントリ」の配列に変換する。
+ *
+ * 空行から復元された空 paragraph（blankLineRemarkPlugin、position 無し）は、直前の実ノード
+ * （position を持つ最後のノード）の終了行から補間する。この区間内 k 番目（0始まり）の
+ * 空 paragraph の行番号は「直前の実ノードの終了行 + 1 + k」。
+ */
+export function computeRealLineEntries(tree: Root): RealLineEntry[] {
+    const entries: RealLineEntry[] = [];
+    let lastRealEndLine: number | undefined;
+    let blankRunIndex = 0;
+
+    const trackReal = (endLine: number | undefined): void => {
+        if (endLine === undefined) return;
+        lastRealEndLine = endLine;
+        blankRunIndex = 0;
+    };
+
+    const singleLineFor = (node: RootContent): number => {
+        const pos = node.position;
+        if (pos) {
+            trackReal(pos.end.line);
+            return pos.start.line;
+        }
+        const line = (lastRealEndLine ?? 0) + 1 + blankRunIndex;
+        blankRunIndex++;
+        return line;
+    };
+
+    const walkList = (list: List): void => {
+        for (const item of list.children) {
+            entries.push({ kind: 'single', line: singleLineFor(item) });
+            for (const child of item.children) {
+                if (child.type === 'list') walkList(child);
+            }
+        }
+    };
+
+    for (const node of tree.children) {
+        if (node.type === 'list') {
+            walkList(node);
+        } else if (node.type === 'table') {
+            entries.push({
+                kind: 'multi',
+                lines: node.children.map((row) => row.position?.start.line ?? 0)
+            });
+            trackReal(node.position?.end.line);
+        } else if (node.type === 'code') {
+            entries.push({ kind: 'multi', lines: codeContentLineNumbers(node) });
+            trackReal(node.position?.end.line);
+        } else if (node.type === 'paragraph' && node.position && node.position.end.line > node.position.start.line) {
+            const startLine = node.position.start.line;
+            entries.push({
+                kind: 'multi',
+                lines: Array.from(
+                    { length: node.position.end.line - startLine + 1 },
+                    (_, i) => startLine + i
+                )
+            });
+            trackReal(node.position.end.line);
+        } else {
+            entries.push({ kind: 'single', line: singleLineFor(node) });
+        }
+    }
+
+    return entries;
+}
+
+/**
+ * doc 内の「行番号を出す要素」を文書順に集め、対応する実ソース行番号（realLines）を割り当てる。
+ * トップレベルブロックに加え、リストの直下項目（再帰）にも番号を付ける。表・コードブロックは
+ * 1ブロックにつき複数の widget（行ごと）を出す。
+ *
+ * realLines は computeRealLineEntries が返す、この関数の走査と同じ順序のエントリ配列。
+ * 万一エントリが不足する場合（realLines と doc の構造が食い違う想定外のケース）は連番へ
+ * フォールバックする（クラッシュを避けるための保険であり、通常は発生しない）。
+ *
+ * expandedNodePos は codeFenceEditPlugin が現在実テキスト展開中の code_block の nodePos
+ * （展開が無ければ null）。展開中のブロックはフェンスが実テキストとして見えているので、
+ * 常時表示フェンス widget を重ねない。内容の文字列からの推定（`` ^``` ``〜`` ```$ `` の
+ * 正規表現）は使わない — 内容自体が完全なネストフェンス形を持つブロックで誤発動し、
+ * 非フォーカス時に外側フェンスが消えてしまうため。
+ */
+export function computeLineAnchors(
+    doc: ProseNode,
+    realLines: RealLineEntry[] = [],
+    expandedNodePos: number | null = null
+): LineAnchor[] {
+    if (realLines.length === 0 && doc.childCount === 1) {
+        const first = doc.firstChild;
+        if (first?.type.name === 'paragraph' && first.content.size === 0) return [];
+    }
+
+    const anchors: LineAnchor[] = [];
+    let cursor = 0;
+    let fallbackLine = realLines.reduce((max, entry) => {
+        if (entry.kind === 'single') return Math.max(max, entry.line);
+        return Math.max(max, ...entry.lines);
+    }, 0) + 1;
+
+    const nextEntry = (): RealLineEntry | undefined => realLines[cursor++];
+    const singleLineOf = (entry: RealLineEntry | undefined): number =>
+        entry && entry.kind === 'single' ? entry.line : fallbackLine++;
+    const multiLinesOf = (entry: RealLineEntry | undefined): number[] =>
+        entry && entry.kind === 'multi' ? entry.lines : [];
+
+    // リスト項目（再帰）に実ソース行番号を振る。
     const walkList = (listNode: ProseNode, listOffset: number): void => {
         listNode.forEach((child, childRelOffset) => {
             if (child.type.name === 'list_item') {
                 // list_item の中身先頭（最初の子の中）に widget を置く。
                 const itemAbsOffset = listOffset + 1 + childRelOffset;
-                anchors.push({ pos: itemAbsOffset + 1, line: line++ });
+                anchors.push({ pos: itemAbsOffset + 1, line: singleLineOf(nextEntry()) });
 
                 // 項目内にネストしたリストがあれば再帰。
                 child.forEach((grand, grandRelOffset) => {
@@ -57,39 +199,136 @@ export function computeLineAnchors(doc: ProseNode): LineAnchor[] {
     doc.forEach((node, offset) => {
         if (isListNode(node)) {
             walkList(node, offset);
+        } else if (node.type.name === 'table') {
+            const lines = multiLinesOf(nextEntry());
+            node.forEach((row, rowRelOffset, rowIndex) => {
+                const rowAbsOffset = offset + 1 + rowRelOffset;
+                const line = lines[rowIndex] ?? fallbackLine++;
+                anchors.push({ pos: rowAbsOffset + 1, line });
+            });
+        } else if (node.type.name === 'code_block') {
+            const lines = multiLinesOf(nextEntry());
+            const contentStart = offset + 1;
+            const physicalLines = node.textContent.split('\n');
+            const expandedAsRealText = offset === expandedNodePos;
+            let runningOffset = 0;
+
+            if (expandedAsRealText) {
+                // フォーカス中は codeFenceEditPlugin がフェンスを実テキスト化している。
+                // 常時表示 widget は重ねず、実テキスト各行にだけ番号を付ける。
+                physicalLines.forEach((lineText, i) => {
+                    const line = lines[i] ?? fallbackLine++;
+                    anchors.push({ pos: contentStart + runningOffset, line });
+                    runningOffset += lineText.length + 1;
+                });
+            } else {
+                const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
+                anchors.push({
+                    pos: contentStart,
+                    line: lines[0] ?? fallbackLine++,
+                    fence: `\`\`\`${language}`
+                });
+                physicalLines.forEach((lineText, i) => {
+                    const line = lines[i + 1] ?? fallbackLine++;
+                    anchors.push({ pos: contentStart + runningOffset, line });
+                    runningOffset += lineText.length + 1;
+                });
+                anchors.push({
+                    pos: contentStart + node.textContent.length,
+                    line: lines[physicalLines.length + 1] ?? fallbackLine++,
+                    fence: '```'
+                });
+            }
         } else {
-            anchors.push({ pos: offset + 1, line: line++ });
+            const entry = nextEntry();
+            if (entry?.kind === 'multi' && node.isTextblock) {
+                anchors.push({ pos: offset + 1, line: entry.lines[0] ?? fallbackLine++ });
+                let lineIndex = 1;
+                node.forEach((child, childOffset) => {
+                    if (child.type.name !== 'hardbreak') return;
+                    anchors.push({
+                        pos: offset + 1 + childOffset + child.nodeSize,
+                        line: entry.lines[lineIndex] ?? fallbackLine++
+                    });
+                    lineIndex++;
+                });
+            } else if (node.isLeaf) {
+                // hr などの leaf ブロックは `offset + 1` がノードの外側（次位置）になり、
+                // widget が表示対象行に紐付かないため、ノード直前へ置く。
+                anchors.push({ pos: offset, line: singleLineOf(entry) });
+            } else {
+                anchors.push({ pos: offset + 1, line: singleLineOf(entry) });
+            }
         }
     });
 
     return anchors;
 }
 
-function lineNumberWidget(n: number): () => HTMLElement {
+function lineNumberWidget(n: number, fence?: string): () => HTMLElement {
     return () => {
         const el = document.createElement('span');
-        el.className = 'line-number-gutter';
-        el.textContent = String(n);
+        if (fence !== undefined) {
+            el.className = 'code-fence-display';
+            const gutter = document.createElement('span');
+            gutter.className = 'line-number-gutter';
+            gutter.textContent = String(n);
+            gutter.setAttribute('aria-hidden', 'true');
+            el.append(gutter, document.createTextNode(fence));
+        } else {
+            el.className = 'line-number-gutter';
+            el.textContent = String(n);
+            el.setAttribute('aria-hidden', 'true');
+        }
         el.contentEditable = 'false';
         el.setAttribute('aria-hidden', 'true');
         return el;
     };
 }
 
+/**
+ * 現在の doc を、milkdown が使っているのと同じ remark パイプラインで再パースする。
+ *
+ * `serializerCtx` の素の出力は、milkdown の commonmark preset が loose リスト形式
+ * （項目間に空行）や空 paragraph の `<br />` プレースホルダを使って直列化するため、
+ * そのままではソースの tight リストや実際の空行本数と行番号が対応しない。
+ * `postChange`（milkdownApp.ts）がファイルへ書き戻す際に使っているのと同じ正規化
+ * （`tightenListSpacing` → `stripPlaceholderLineBreaks` → `stripListItemPlaceholderBr`）
+ * を適用してから再パースすることで、Raw モードが実際に表示するテキストと同じ行番号を得る。
+ */
+function parseCurrentDocAsMdast(ctx: Ctx, doc: ProseNode): Root {
+    const serialize = ctx.get(serializerCtx);
+    const remark = ctx.get(remarkCtx);
+    const rawMarkdown = serialize(doc);
+    const markdown = stripListItemPlaceholderBr(stripPlaceholderLineBreaks(tightenListSpacing(rawMarkdown)));
+    return remark.runSync(remark.parse(markdown), markdown) as Root;
+}
+
 export function createLineNumberGutterPlugin() {
-    return $prose(() => {
+    return $prose((ctx) => {
         let cache: { doc: ProseNode; anchors: LineAnchor[] } | null = null;
         return new Plugin({
             key: new PluginKey('lineNumberGutter'),
             props: {
                 decorations(state) {
                     if (!cache || cache.doc !== state.doc) {
-                        cache = { doc: state.doc, anchors: computeLineAnchors(state.doc) };
+                        const tree = parseCurrentDocAsMdast(ctx, state.doc);
+                        const realLines = computeRealLineEntries(tree);
+                        // 展開・collapse は必ず docChanged を伴うため、doc をキーにした
+                        // このキャッシュで展開状態の変化も漏れなく再計算される。
+                        cache = {
+                            doc: state.doc,
+                            anchors: computeLineAnchors(state.doc, realLines, getExpandedCodeFence()?.nodePos ?? null)
+                        };
                     }
                     const decorations = cache.anchors.map((a, i) =>
-                        Decoration.widget(a.pos, lineNumberWidget(a.line), {
+                        // key にフェンス文字列も含める。純粋な行番号 widget とフェンス widget が
+                        // 同一 (i, pos, line) になり得る（例: フォーカスでフェンスが実テキスト
+                        // 展開された直後）ため、key が衝突すると ProseMirror が古いフェンス
+                        // DOM を使い回し、実テキストのフェンスの上に widget が重なって見える。
+                        Decoration.widget(a.pos, lineNumberWidget(a.line, a.fence), {
                             side: -1,
-                            key: `ln-${i}-${a.pos}-${a.line}`
+                            key: `ln-${i}-${a.pos}-${a.line}-${a.fence ?? ''}`
                         })
                     );
                     return DecorationSet.create(state.doc, decorations);

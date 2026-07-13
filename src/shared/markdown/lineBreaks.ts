@@ -14,9 +14,9 @@ const LIST_ITEM_TRAILING_BR = /^([ \t]*[-*+][ \t]+(?:\[[x ]\][ \t]*)?)<br\s*\/?>
 
 // 連続する空 paragraph（blankLineRemarkPlugin.ts が復元したもの）の連鎖。
 // remark-stringify は各空 paragraph を前後 1 空行のセパレータで囲んで出力するため、
-// N-1 個の空 paragraph は素の出力で `\n\n<br />` が (N-1) 回連なる形になる
+// N 個の空 paragraph は素の出力で `\n\n<br />` が N 回連なる形になる
 // （前後のセパレータと重なり合うため、単純に <br /> を取り除くだけでは
-// 2*(N-1)+1 行の空行になってしまい、元の N 行と本数が合わない）。
+// 2*N-1 行の空行になってしまい、元の N 行と本数が合わない）。
 // ここで連鎖の長さ（<br /> の個数）から逆算し、正しい本数の空行に一括で戻す。
 const BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n\n/g;
 
@@ -27,8 +27,8 @@ const BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n\n/g;
 export function collapseBlankLineChains(markdown: string): string {
     return markdown.replace(BLANK_PARAGRAPH_CHAIN, (chain) => {
         const brCount = (chain.match(/<br\s*\/?>/gi) ?? []).length;
-        // brCount 個の空 paragraph → (brCount + 1) 行の空行 → (brCount + 2) 個の改行文字。
-        return '\n'.repeat(brCount + 2);
+        // brCount 個の空 paragraph → brCount 行の空行 → (brCount + 1) 個の改行文字。
+        return '\n'.repeat(brCount + 1);
     });
 }
 

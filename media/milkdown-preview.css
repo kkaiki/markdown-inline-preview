@@ -101,7 +101,10 @@ html, body {
 /* 段落の下に余白を入れ、**空行で区切られた段落（`A\n\nB`）はその空行ぶんの隙間**を
    見せる。単一改行（ソフトブレイク `A\nB`）は同じ段落内の改行なので隙間は出ない。
    リスト項目内の段落は詰めたままにする（下の li.list-item p で margin:0 に上書き）。 */
-.milkdown p { margin: 0 0 0.85em; }
+.milkdown p {
+    margin: 0;
+    min-height: 1.6em;
+}
 
 /* ── Git HEAD との差分ガター（previewDiffPlugin） ──────────────
    追加=緑・変更=青のバーをブロック左の余白に出す。削除はその位置に赤い線。 */
@@ -135,12 +138,12 @@ html, body {
 .milkdown .line-number-gutter { display: none; }
 /* 単位は rem（ルート基準）。em だと見出し等の大きいフォント内で値が複合して
    行番号が画面外へ押し出されるため、ブロックのフォントサイズに依存しない rem を使う。 */
-body.show-line-numbers .milkdown { padding-left: 3.8rem; }
+body.show-line-numbers .milkdown { padding-left: 4.4rem; }
 body.show-line-numbers .milkdown .editor > * { position: relative; }
 body.show-line-numbers .milkdown .line-number-gutter {
     display: inline-block;
     position: absolute;
-    left: -3.5rem;
+    left: -4.1rem;
     width: 2.8rem;
     text-align: right;
     color: var(--vscode-editorLineNumber-foreground, #858585);
@@ -156,6 +159,17 @@ body.show-line-numbers .milkdown .line-number-gutter {
    （code は widget の包含ブロック=pre の子孫なので、code の overflow は widget を切らない）。 */
 body.show-line-numbers .milkdown pre { overflow-x: visible; }
 body.show-line-numbers .milkdown pre code { display: block; overflow-x: auto; }
+
+/* 開閉フェンスはフォーカス外でも実際の1行として常時表示する。
+   フォーカス時は codeFenceEditPlugin の実テキストへ切り替わるため高さは変わらない。 */
+.milkdown .code-fence-display {
+    display: block;
+    position: relative;
+    color: var(--preview-code-fg);
+    opacity: 0.75;
+    font-family: var(--vscode-editor-font-family, monospace);
+    white-space: pre;
+}
 
 /* ── フォーカス行の行頭マーカー（focusSyntaxPlugin） ──────────────
    フォーカス中の行だけ `## ` `- ` `1. ` `- [ ] ` `> ` を ::before で表示。
