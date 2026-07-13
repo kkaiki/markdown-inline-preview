@@ -518,6 +518,30 @@ export function createBlockPrefixEditPlugin() {
             if (nodePos !== expandedBlock.nodePos || contentStart !== expandedBlock.contentStart) {
                 expandedBlock = { ...expandedBlock, nodePos, contentStart };
             }
+
+            // 見出しはフォーカスを外す前でも、"#" の実テキストを編集するたびに
+            // 見た目のレベル（h1〜h6 のサイズ）をリアルタイムで反映する
+            // （heading-prefix-live-level-update-fix.md）。collapse 相当のレベル決定
+            // 正規表現 `/^(#{1,6})\s/` と同じ判定を使い、マッチしないうちは
+            // 何もしない（レベル固定・段落への変換は従来どおり collapse 時のみ行う）。
+            if (expandedBlock.nodeType === 'heading' &&
+                transactions.some(tr => tr.docChanged && !tr.getMeta(PLUGIN_META))) {
+                const node = newState.doc.nodeAt(expandedBlock.nodePos);
+                if (node && node.type.name === 'heading') {
+                    const prefixText = newState.doc.textBetween(
+                        expandedBlock.contentStart,
+                        Math.min(newState.doc.content.size, expandedBlock.contentStart + 7)
+                    );
+                    const m = /^(#{1,6})\s/.exec(prefixText);
+                    if (m && m[1].length !== node.attrs.level) {
+                        return newState.tr
+                            .setNodeMarkup(expandedBlock.nodePos, undefined, { ...node.attrs, level: m[1].length })
+                            .setMeta('addToHistory', false)
+                            .setMeta(PLUGIN_META, 'liveLevel');
+                    }
+                }
+            }
+
             return null;
         },
 

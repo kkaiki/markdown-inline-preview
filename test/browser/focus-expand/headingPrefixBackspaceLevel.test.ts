@@ -89,6 +89,26 @@ describe('実ブラウザ: 見出しプレフィックスの Backspace 編集後
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('"#" を Backspace で削除した直後（フォーカスを外す前）に、見出しの実レベルがリアルタイムで更新される', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '### 見出し\n\n本文\n', '見出し');
+
+        await h.placeCursorAfterText('見出し');
+        await h.page.waitForTimeout(150);
+        let model = await h.model();
+        assert.ok(model.outline.includes('heading(3)'), `展開直後はまだ元のレベル(3)のはず: ${model.outline}`);
+
+        // "###" の直後（区切り空白の直前）で Backspace → "## " になるが、まだフォーカスは
+        // 外していない（本文へは移動していない）。
+        await h.placeCursorAfterText('###');
+        await h.press('Backspace');
+        model = await h.model();
+        assert.strictEqual(countLeadingHashes(model.text), 2, `Backspace 直後の # 個数が2でない: ${JSON.stringify(model.text)}`);
+        assert.ok(model.outline.includes('heading(2)'), `フォーカスを外す前でも見出しレベルはリアルタイムで2になるはず: ${model.outline}`);
+
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('さらにもう一度 unfocus→focus を繰り返してもレベルは3のまま安定する（累積しない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, '#### 見出し\n\n本文\n', '見出し');
