@@ -67,7 +67,9 @@ describe('実ブラウザ: Cmd+A 括弧の中身優先選択（本番バンド�
         assert.strictEqual(await selectedText(h), text);
 
         await h.press('Meta+a'); // 3回目: 文書全体
-        assert.strictEqual(await selectedText(h), `${text}\nsecond paragraph`);
+        // 段落間の空行1つは blankLineRemarkPlugin により空 paragraph として実体化されるため、
+        // 選択テキストにも区切りとして改行がもう1つ挟まる。
+        assert.strictEqual(await selectedText(h), `${text}\n\nsecond paragraph`);
     });
 
     it('ネストした括弧では最も内側の中身を1回目のCmd+Aで選択する', async function () {
