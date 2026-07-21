@@ -476,6 +476,15 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 順序依存に加えタイミング依存（`config.update` Global 書き込みと 500–700ms 固定待ちの
 レース）の性格も持つ。）
 
+### 4.1c 新規発見（2026-07-16）: `11.2`（ネストリストの空行を跨ぐ再採番のUndo）の単独実行でも再現する flake
+
+`test/extension/raw/lists-tables.test.ts` の「11.2 ネストリストの空行を跨ぐ再採番を Undo
+で1段階戻すと、番号と空行の両方が元通りになる」が、フルスイート実行時だけでなく
+`MOCHA_GREP` による単独実行でも失敗することがあった（"Illegal argument:
+TextEditor(...)" という警告と共に、再採番自体が起きていない症状）。ただしその直後に
+同じ単独実行を再試行したところ成功しており、`8.5`/`8.22`（4.1b）と同様にタイミング
+依存の flake と見られる。原因未特定・未修正。
+
 ### 4.3 構造上の注意（テスト基盤そのものの弱点）
 
 `test/suite/raw/` の複数ファイル（`smartNavigation.test.ts`、`selectionEdgeCases.test.ts`、
@@ -490,6 +499,27 @@ TDD で 1 件ずつ: 失敗するテストを書く → 失敗を確認 → 直�
 コードフェンス内での Smart Select All progression）。今後 `test/suite/raw/` にテストを
 追加する際は「実装をコピーした関数だけをテストして満足しない」よう注意し、可能な限り
 `test/extension/raw/navigation.test.ts` 側で実コマンドの統合テストも併設すること。
+
+## 4.4 消化済み（2026-07-16: hardbreak化によるMarkdown自動変換の広範囲な機能退行を発見・修正）
+
+`7d0e907`（"通常段落のEnterを段落分割から単一改行(hardbreak)へ変更"）で「usage-flows等の
+既存期待値8件は未更新」と記録されていたのを消化する目的で `npm run test:browser` の
+フルスイートを実行したところ、実際には**31件**が失敗していた。詳細な原因切り分けと修正は
+`hardbreak-line-markdown-conversion-fix.md` を参照。要点:
+
+- 約26件は単一原因（Enter直後の行がテキストブロック先頭ではなくなったため、見出し/引用/
+  リスト/チェックボックス/スラッシュメニューのMarkdown自動変換が軒並み発火しなくなって
+  いた）。`hardbreakLineInputRulesPlugin`（新規）で解消。
+- 約9件は別の既に完了済みの機能（`blank-line-preservation.md`、コミット595bb30の空行実体化）
+  による段落インデックスのズレ。一部は期待値更新、一部（Delete/Backspace/矢印キーでの
+  ブロック脱出が空行プレースホルダで1回余分になる）は`blankLinePlaceholderSkipPlugin`
+  （新規）＋`codeBlockArrowKeymap.ts`の修正で解消。
+- 副次的に発見: `markerBackspace.ts`で、本文の無いチェックボックス（`- [ ] `）への
+  Backspaceでリテラル`"[ ]"`テキストが段落に残るバグ（GFMパーサが`checked`属性へ
+  変換しきれないケース）。
+
+`npm run test:unit`（926件）・`npm run test:browser`（308件）・`npm test`（実VS Code、
+110件、既知の順序依存flake2件を除き全green）で確認済み。
 
 ## 5. 実施方針
 

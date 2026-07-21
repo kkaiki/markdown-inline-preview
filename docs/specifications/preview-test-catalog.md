@@ -2,13 +2,13 @@
 
 <!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->
 
-最終生成: 2026-07-13
+最終生成: 2026-07-20
 
 テストのタイトルは「この操作をしたら、こう動く」という仕様文として書かれている。
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1312 件**
+**総テスト数: 1335 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 114 件
 
@@ -107,8 +107,8 @@
     - 12.5 markdown 以外のファイルで togglePreview を実行してもエラーにならず、タブはテキストのまま
   - **13. サイドバー（Explorer）からの再オープンで Preview タブが重複しない**
     - 13.1 同じグループでPreview中のファイルをサイドバーから再度開いても、Rawタブが重複せずPreviewだけが残る
-    - 13.2 別のビューカラム（右側）に同じファイルを開く場合はPreviewと統一されず両方開いたままになる
-    - 13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンすると、その時点ではRawタブの重複解消が見送られ、後でアクティブエディタが変化すると解消される
+    - 13.2 別のビューカラム（右側）に同じファイルを開く場合はそれぞれ独立した Preview インスタンスになる
+    - 13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンしても、Rawタブは一度も作られずPreviewのまま
     - 13.4 togglePreviewの実行中にサイドバー再オープンが重なっても例外にならず、最終的にPreviewタブ1枚に収束する
   - **14. Previewから標準操作で開いた先が同じ列に留まる**
     - 14.1 Previewでリンクを開くと、新しいエディタグループを作らず同じ列に新しいタブとして開く
@@ -293,7 +293,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 294 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 304 件
 
 実行: `npm run test:browser`
 
@@ -1113,6 +1113,30 @@
   - 見出しの直後でタイプしても、見出しへ文字が誤って書き込まれない（原因B）
   - 回帰確認: 通常の箇条書き（チェックボックスでない）は今まで通りフォーカス中に "- " が展開される
 
+### `test/browser/rendering/codeFenceBrokenBackground.test.ts`（3 件）
+
+> 実ブラウザ回帰テスト（本番バンドル）: フォーカス中のコードブロックで開き/閉じフェンス
+> （```lang` / ```）の文字を1つでも削って記法として壊れた瞬間、コードブロックの背景
+> （`.milkdown pre` の `background`）を動的に解除する。
+>
+> ## 背景
+>
+> `codeFenceEditPlugin.ts` は元々「フォーカスを外したとき」だけ `parseCodeFenceRealText`
+> でフェンスの完全性を判定し、壊れていれば `code_block` を `paragraph` へ変換していた。
+> しかしフォーカスしたまま編集している間は、フェンスをどれだけ壊しても見た目
+> （コードブロックらしい背景）が変わらず、「もうコードブロックとして保存されない」ことに
+> 気づきにくいというユーザー要望があった。ここでは `codeHighlightPlugin.ts` に、
+> 展開中のブロックで `parseCodeFenceRealText` が失敗している間だけ `code-fence-broken`
+> クラスを付与するデコレーションを追加し、`media/milkdown-preview.css` 側でこのクラスに
+> 対して背景を透明化する。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: フェンス崩壊時のコードブロック背景の動的解除**
+  - 正常なフェンスのままなら code-fence-broken は付かない
+  - 閉じフェンスの ` を1文字消すと、フォーカスを外す前から code-fence-broken が付く
+  - 壊れたフェンスを打ち直して完全な形に戻すと code-fence-broken が外れる
+
 ### `test/browser/rendering/frontmatterPanel.test.ts`（4 件）
 
 > 実ブラウザ・仕様カバレッジテスト: frontmatter パネルの表示。
@@ -1130,7 +1154,7 @@
   - 外部編集（update メッセージ）で frontmatter が変わるとパネルも追従する
   - frontmatter が無いファイルではパネルは出ない（showFrontmatter: true でも）
 
-### `test/browser/rendering/lineNumberGutter.test.ts`（18 件）
+### `test/browser/rendering/lineNumberGutter.test.ts`（19 件）
 
 > 実ブラウザ回帰テスト: 行番号ガター（lineNumberGutterPlugin）。
 >
@@ -1153,6 +1177,7 @@
   - showLineNumbers=true で各ブロックに実ソース行番号が出る
   - 新規空ページの編集用プレースホルダーには行番号を出さない
   - Rawの単一改行をPreviewでも改行表示し、改行後の行番号も出す
+  - 段落内でEnterを連続で押しても、行番号は昇順のまま・後続ブロックより手前の番号にならない
   - 実ソース行番号が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）
   - コードブロックの非フォーカス時も開閉フェンスとその行番号を表示する
   - コードブロックにフォーカスして実テキスト展開中は、フェンス widget が消えて ``` は1組だけ表示される（二重表示しない）
@@ -1194,6 +1219,26 @@
   - "$ 100" のような $ 直後が空白の金額表記は数式化されない
   - ハードブレイクを挟んで $$ が分割される（複数行にまたがる）場合は数式として描画されず、ソースのまま残る
   - enableMath を設定メッセージで true → false → true と動的に切り替えると、都度すぐに反映される
+
+### `test/browser/rendering/mediaEmbeds.test.ts`（4 件）
+
+> 実ブラウザ・仕様カバレッジテスト: 動画・音声・webp 画像の埋め込み表示。
+>
+> `![alt](path)` という通常の Markdown 画像記法を、拡張子に応じて
+> `<img>`（画像）/ `<video controls>`（動画）/ `<audio controls>`（音声）の
+> いずれかで描画する（imageMediaView.ts / classifyMediaKind）。
+>
+> webp は元々 `<img>` へ変換する経路（markdownTransform.ts）が拡張子非依存のため
+> 実は元から動作していたはずだが、明示的なテストが無かったので回帰防止として追加する。
+> mp4/mp3 はこれまで `<img>` としてしか描画されず再生できなかった（新機能）。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: 動画・音声・画像の埋め込み表示**
+  - .mp4 は <video controls> で描画される
+  - .mp3 は <audio controls> で描画される
+  - .webp は引き続き <img> で描画される（既存動作の回帰防止）
+  - 動画ノードを選択して Backspace で削除しても他のノードは壊れない
 
 ### `test/browser/rendering/mermaidNodeLabelEdit.test.ts`（5 件）
 
@@ -1332,6 +1377,27 @@
   - 括弧の中身→行全体→文書全体と3回のCmd+Aで段階的に広がる
   - ネストした括弧では最も内側の中身を1回目のCmd+Aで選択する
 
+### `test/browser/shortcuts/selectAllCodeFence.test.ts`（2 件）
+
+> 実ブラウザ回帰テスト（本番バンドル）: フォーカス中のコードブロックで Cmd/Ctrl+A したとき、
+> `codeFenceEditPlugin` が実テキストとして挿入した開き/閉じフェンス（```lang` / ```）を
+> 選択範囲に含めない。
+>
+> ## 背景
+>
+> `codeFenceEditPlugin.ts` はフォーカス中のコードブロックの開き・閉じフェンスを実テキスト
+> として挿入する（`code-fence-real-text-edit-fix.md`）。`previewKeymapPlugin.ts` の
+> `handleSelectAll` は `code_block` 内では `$from.start(depth)`〜`$from.end(depth)`
+> （ノードの中身全体）を選択していたため、フォーカス中はこの実テキスト化されたフェンスも
+> 選択に含まれてしまい、ユーザーが Cmd+A → コピー したときにコード本文だけでなく
+> ```` ```lang ```` 〜 ```` ``` ```` まで含まれてしまっていた（ユーザー報告）。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: コードブロックの Cmd+A がフェンス自体を選択に含まない**
+  - フォーカス中（フェンスが実テキスト化された状態）でも Cmd+A はコード本文だけを選択する
+  - フォーカス中の Cmd+A → もう一度で文書全体になる（フェンス実テキスト化中でも段階選択が壊れない）
+
 ### `test/browser/shortcuts/slashMenuDom.test.ts`（6 件）
 
 > 実ブラウザ・仕様カバレッジテスト: Preview スラッシュメニューの実 DOM 操作。
@@ -1383,7 +1449,7 @@
     - チェックボックス入力後にフォーカスを外して戻っても、続きは同じ項目に入力される
   - **編集の往復**
     - チェック済み/未チェックの行をまとめて選択削除 → Undo で checked 状態ごと復元される
-    - 段落の途中で Enter して分割し、Backspace で結合すると元の段落に戻る
+    - 段落の途中で Enter すると同じ段落内の改行(hardbreak)になり、Backspace で1行に戻る
     - 見出しの末尾で Enter すると、次の行は本文（段落）になり見出しは汚れない
     - 箇条書き項目の途中で Enter すると項目が2つに分割される
   - **テーブルでの境界操作**
@@ -1392,7 +1458,7 @@
     - チェックボックス項目をコピーして別の場所にペーストすると、同じ内容の未チェック項目として挿入される
     - チェックボックスをペーストした直後に別の行で [ ] を追記しても、両方の項目が正しいまま残る
 
-## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 243 件
+## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 245 件
 
 実行: `npm run test:unit`
 
@@ -1438,7 +1504,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 > Raw ⇄ Preview のカーソル引き継ぎの中核（往復で同じ位置に戻ること）。
 
 - **webview統合: カーソル ⇄ ブロックアンカー**
-  - 2 番目の段落のカーソルは block=1, offset=その位置
+  - 2 番目の段落のカーソルは block=2, offset=その位置
   - アンカー → カーソル復元で元の位置に戻る（往復）
   - オフセットが行末を超えてもクランプして落ちない
   - 範囲外ブロックはクランプ（最後のブロックへ）
@@ -1877,7 +1943,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - mermaid ブロックにはシンタックス色を付けない
   - コードブロックが無い文書ではデコレーション 0
 
-### `test/webview/rendering/imageCopy.test.ts`（10 件）
+### `test/webview/rendering/imageCopy.test.ts`（12 件）
 
 > Preview 画像コピープラグイン（imageCopyPlugin.ts）のユニットテスト。
 >
@@ -1894,6 +1960,9 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - JPEG data URL を image/jpeg Blob に変換する
   - MIME type が無い場合は image/png にフォールバックする
   - base64 のバイト数が元データと一致する
+- **imageCopyPlugin: isCopyableImageSrc（動画・音声はコピー対象外）**
+  - 画像拡張子は true（従来通りコピー対象）
+  - 動画・音声拡張子は false（動画/音声バイトを画像として誤コピーしないため）
 - **imageCopyPlugin: writeDataUrlToClipboard**
   - PNG dataUrl をクリップボードに image/png として書き込む
   - image に加えて text/html(<img data:>) も書き込む（Notion 等で画像として貼れる）
@@ -2058,7 +2127,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 661 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 672 件
 
 実行: `npm run test:unit`
 
@@ -2197,7 +2266,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **scrollSync: 行 ↔ 比率 の往復が安定している**
   - 行 → 比率 → 行 で元に戻る（代表値）
 
-### `test/suite/preview/external-sync/serialQueue.test.ts`（2 件）
+### `test/suite/preview/external-sync/serialQueue.test.ts`（5 件）
 
 > createSerialQueue（Webview → ドキュメント書き込みの直列化）のユニットテスト。
 >
@@ -2212,6 +2281,10 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **createSerialQueue**
   - 後から積んだタスクは、先行タスクが完了してから実行される（早く積んでも追い越さない）
   - 先行タスクが失敗しても、後続タスクは実行される
+- **reportRejection**
+  - タスクが失敗したとき、onError にそのエラーが渡る（webview からの編集保存失敗を気づけるようにする）
+  - タスクが成功したときは onError が呼ばれない
+  - onError 自体が例外を投げても、元の Promise の reject 伝播やテストランナーを壊さない
 
 ### `test/suite/preview/rendering/imageUriRoundtrip.test.ts`（7 件）
 
@@ -2230,6 +2303,16 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - rewrites relative image paths and restores them
   - leaves absolute URLs unchanged
 
+### `test/suite/preview/rendering/mediaKind.test.ts`（6 件）
+
+- **classifyMediaKind（画像/動画/音声の拡張子判定）**
+  - mp4・webm は video と判定する
+  - mp3・wav・ogg・m4a は audio と判定する
+  - png・jpg・gif・webp・svg は image と判定する（既存動作の回帰防止）
+  - 拡張子が無い・未知の場合は image にフォールバックする
+  - webview URI のクエリ文字列・フラグメントを無視して判定する
+  - 拡張子の大文字小文字を区別しない
+
 ### `test/suite/preview/rendering/mermaidNodeLabelEdit.test.ts`（6 件）
 
 > `updateMermaidNodeLabel`（純関数）: Mermaid ソーステキスト中の、指定ノード ID の
@@ -2245,6 +2328,12 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 波括弧（ひし形）ノードの形状を維持したままラベルを置き換える
   - 同じ ID が複数箇所に出現しても最初の宣言（形状/ラベルを持つ箇所）だけを書き換える
   - 存在しないノード ID を指定した場合はソースをそのまま返す
+
+### `test/suite/preview/rendering/previewCsp.test.ts`（2 件）
+
+- **buildPreviewCsp（webview CSP 文字列組み立て）**
+  - media-src に cspSource（ローカルリソース）と https: を含む
+  - 既存の img-src・script-src・default-src は維持される（回帰防止）
 
 ### `test/suite/preview/rendering/webviewI18n.test.ts`（8 件）
 
