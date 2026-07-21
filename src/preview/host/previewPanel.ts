@@ -20,6 +20,7 @@ import { exportToPdfLocal } from './localExport';
 
 import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';
+import { buildPreviewCsp } from './csp';
 import { splitFrontmatter, mergeFrontmatter } from '../../shared/markdown/frontmatter';
 import { findScrollAnchor, findLineBySlug } from '../../shared/structure/scrollAnchor';
 import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/scrollSync';
@@ -181,13 +182,7 @@ function buildHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'milkdown-preview.css'));
     const hljsStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'hljs-github.css'));
     const katexStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'media', 'katex.min.css'));
-    const csp = [
-        "default-src 'none'",
-        `style-src ${webview.cspSource} 'unsafe-inline'`,
-        `font-src ${webview.cspSource}`,
-        `img-src ${webview.cspSource} https: data:`,
-        `script-src 'nonce-${nonce}'`
-    ].join('; ');
+    const csp = buildPreviewCsp(webview.cspSource, nonce);
 
     return `<!DOCTYPE html>
 <html lang="ja">

@@ -15,6 +15,7 @@ import {
     dataUrlToBlob,
     writeDataUrlToClipboard,
     createImageCopyPlugin,
+    isCopyableImageSrc,
 } from '../../../src/preview/webview/imageCopyPlugin';
 import { createPreviewEditor } from '../milkdownHarness';
 import type { PreviewEditorHandle } from '../milkdownHarness';
@@ -124,6 +125,19 @@ describe('imageCopyPlugin: dataUrlToBlob', () => {
         const url = `data:text/plain;base64,${b64}`;
         const blob = dataUrlToBlob(url);
         assert.strictEqual(blob.size, original.length);
+    });
+});
+
+describe('imageCopyPlugin: isCopyableImageSrc（動画・音声はコピー対象外）', () => {
+    it('画像拡張子は true（従来通りコピー対象）', () => {
+        assert.strictEqual(isCopyableImageSrc('assets/pic.png'), true);
+        assert.strictEqual(isCopyableImageSrc('assets/pic.webp'), true);
+        assert.strictEqual(isCopyableImageSrc(RED_PNG_DATA_URL), true);
+    });
+
+    it('動画・音声拡張子は false（動画/音声バイトを画像として誤コピーしないため）', () => {
+        assert.strictEqual(isCopyableImageSrc('assets/clip.mp4'), false);
+        assert.strictEqual(isCopyableImageSrc('assets/clip.mp3'), false);
     });
 });
 
