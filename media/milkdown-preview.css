@@ -381,18 +381,26 @@ body.theme-dark {
 }
 
 .milkdown img { max-width: 100%; border-radius: 4px; }
+.milkdown video { max-width: 100%; border-radius: 4px; }
+.milkdown audio { width: 100%; }
 
-/* 画像のみの段落: 複数画像を横並び表示 */
-.milkdown p:has(> img):not(:has(> :not(img))) {
+/* 画像/動画/音声のみの段落: 複数まとめて横並び表示 */
+.milkdown p:has(> img):not(:has(> :not(img))),
+.milkdown p:has(> video):not(:has(> :not(video))),
+.milkdown p:has(> audio):not(:has(> :not(audio))) {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: flex-start;
 }
-.milkdown p:has(> img):not(:has(> :not(img))) img {
+.milkdown p:has(> img):not(:has(> :not(img))) img,
+.milkdown p:has(> video):not(:has(> :not(video))) video {
     flex: 0 1 auto;
     max-width: 100%;
     height: auto;
+}
+.milkdown p:has(> audio):not(:has(> :not(audio))) audio {
+    flex: 1 1 auto;
 }
 
 .milkdown table {

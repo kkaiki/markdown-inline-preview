@@ -15,8 +15,19 @@
 import { Plugin, PluginKey, NodeSelection } from '@milkdown/prose/state';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
+import { classifyMediaKind } from '../../shared/preview/mediaKind';
 
 const imageCopyKey = new PluginKey<undefined>('imageCopy');
+
+/**
+ * 動画・音声として描画されているノード（`classifyMediaKind` 参照）はコピー対象外。
+ * host 側（`handleCopyImageRequest`）は拡張子から画像 mime を推定するだけで動画/音声を
+ * 扱えないため、そのまま通すと動画/音声の生バイトを画像として誤ラベルしたデータを
+ * クリップボードへ書き込んでしまう。
+ */
+export function isCopyableImageSrc(src: string): boolean {
+    return classifyMediaKind(src) === 'image';
+}
 
 export interface ImageCopyPluginOptions {
     /** Host にメッセージを送る関数（vscodeApi.postMessage）。 */
@@ -156,7 +167,7 @@ export function createImageCopyPlugin(options: ImageCopyPluginOptions) {
                     if (selection.node.type.name !== 'image') return false;
 
                     const src = selection.node.attrs.src as string | undefined;
-                    if (!src) return false;
+                    if (!src || !isCopyableImageSrc(src)) return false;
 
                     event.preventDefault();
                     requestCopy(view, src);

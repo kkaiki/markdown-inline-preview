@@ -58,6 +58,7 @@ import { PreviewFindBar } from './previewFindBar';
 import { setLanguage, t } from './i18n';
 import { createImageCopyPlugin, writeDataUrlToClipboard } from './imageCopyPlugin';
 import { imageIsolationPlugin } from './imageIsolationPlugin';
+import { imageMediaView } from './imageMediaView';
 import { trailingNbspFixPlugin } from './trailingNbspFixPlugin';
 import { applyExternalContent } from './applyExternalContent';
 import { getPreviewCursorAnchor, applyPreviewCursorAnchor } from './cursorAnchor';
@@ -550,6 +551,8 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         }))
         // 画像とテキストの混在を防ぐ。文書変更後に混在段落を自動分離する。
         .use(imageIsolationPlugin)
+        // 画像リンク先の拡張子に応じて <img>/<video controls>/<audio controls> を出し分ける。
+        .use(imageMediaView)
         // ブロック末尾に紛れ込んだ NBSP（ブラウザの行末スペース代替措置由来）を
         // 通常スペースへ正規化する（trailing-space-nbsp-corruption-fix.md）。
         .use(trailingNbspFixPlugin)
