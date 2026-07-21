@@ -276,7 +276,7 @@ code --install-extension markdown-inline-preview-*.vsix
 
 ### 2. デバッグログを確認
 
-- Output パネル → 「Markdown Table Debug」
+- Output パネル → 「Markdown Inline Preview」
 - Developer Tools → Console
 
 ### 3. 問題の切り分け

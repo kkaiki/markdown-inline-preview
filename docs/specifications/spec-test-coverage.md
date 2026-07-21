@@ -1,6 +1,6 @@
 # 仕様 ⇄ テスト対応表
 
-最終更新: 2026-07-15
+最終更新: 2026-07-21
 
 各仕様書（機能仕様・fix 仕様）がどのテストで担保されているかを一覧する。新しい仕様書を追加・
 変更したら、この表に対応行を追加/更新すること（CLAUDE.md の運用ルール）。既知の未消化ギャップは
@@ -60,6 +60,8 @@
 | `stale-external-push-cursor-jump-fix.md` | `test/suite/preview/external-sync/externalEcho.test.ts` | 修正済み・回帰防止済み |
 | `typed-checkbox-conversion-fix.md` | `test/browser/lists-tables/typedCheckboxConversion.test.ts` | 修正済み。**既知のギャップ**: 日本語ケースが `h.type()` の文字送りであり実 IME composition を通していない（backlog §4.1 参照） |
 | `untitled-preview-content-loss-fix.md` | `test/extension/preview/external-sync.test.ts` 12.6 | 修正済み。**既知のギャップ**: 副作用として指摘された「複数 untitled ファイルの高速トグル」シナリオは未検証（backlog §4.1 参照） |
+| `webview-save-failure-visibility.md` | `test/suite/preview/external-sync/serialQueue.test.ts`（`reportRejection` の純関数テスト） | 修正済み（2026-07-14）。webview→document 保存失敗の可視化。呼び出し側（`previewPanel.ts`）の配線自体は環境依存性が高く自動テスト対象外（§4） |
+| `preview-handler-error-boundary.md` | `test/suite/preview/external-sync/serialQueue.test.ts`（`reportRejection`）+ `test:unit`/`test` フルスイートでの回帰確認 | 修正済み（2026-07-21）。`webview-save-failure-visibility.md` の対象外だった `switchToPreview`/`switchToRaw`/外部リンク起動の無防備な fire-and-forget を一律エラーバウンダリ化。Vditor 移行 No-Go（`vditor-base-migration-plan.md`）を受けた案Bの実装 |
 
 ## 網羅監査による未消化ギャップ
 

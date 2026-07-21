@@ -671,7 +671,12 @@ async function openLinkFromPreview(
     if (!trimmed) return;
 
     if (/^https?:/i.test(trimmed)) {
-        await vscode.env.openExternal(vscode.Uri.parse(trimmed));
+        try {
+            await vscode.env.openExternal(vscode.Uri.parse(trimmed));
+        } catch (error) {
+            debugLog(`[preview] openExternal failed: ${String(error)}`);
+            void vscode.window.showWarningMessage(`Could not open link: ${trimmed}`);
+        }
         return;
     }
 
@@ -735,9 +740,13 @@ async function handleExportRequest(
         later
     );
     if (choice === upgrade) {
-        await vscode.env.openExternal(
-            vscode.Uri.parse('https://github.com/kkaiki/markdown-inline-preview#pro')
-        );
+        try {
+            await vscode.env.openExternal(
+                vscode.Uri.parse('https://github.com/kkaiki/markdown-inline-preview#pro')
+            );
+        } catch (error) {
+            debugLog(`[preview] openExternal failed: ${String(error)}`);
+        }
     }
 }
 
@@ -932,6 +941,11 @@ async function switchToPreview(
             edit.insert(document.uri, new vscode.Position(0, 0), untitledTextBeforeClose);
             await vscode.workspace.applyEdit(edit);
         }
+    } catch (error) {
+        debugLog(`[preview] switchToPreview failed: ${String(error)}`);
+        void vscode.window.showErrorMessage(
+            `Markdown Inline Preview: Preview への切り替えに失敗しました (${String(error)})`
+        );
     } finally {
         inFlightSwitch.delete(key);
     }
@@ -987,6 +1001,11 @@ async function switchToRaw(
         if (ratio !== undefined) {
             revealRatio(editor, ratio);
         }
+    } catch (error) {
+        debugLog(`[preview] switchToRaw failed: ${String(error)}`);
+        void vscode.window.showErrorMessage(
+            `Markdown Inline Preview: Raw への切り替えに失敗しました (${String(error)})`
+        );
     } finally {
         inFlightSwitch.delete(key);
     }
