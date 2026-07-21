@@ -22,3 +22,25 @@ export function createSerialQueue(): (task: () => Promise<void>) => Promise<void
         return run;
     };
 }
+
+/**
+ * Promise の reject を onError へ確実に転送する。
+ *
+ * createSerialQueue が返す Promise は個々の呼び出し元に reject を正しく伝播するが、
+ * previewPanel.ts の `void enqueueWebviewChange(...)` のような fire-and-forget 呼び出しでは
+ * 誰も catch しないため、webview からの編集保存の失敗が誰にも気づかれないまま消える
+ * （docs/specifications/webview-save-failure-visibility.md 参照）。reportRejection は
+ * その catch を一箇所に集約する。元の Promise はそのまま返すので、呼び出し元が引き続き
+ * await/catch することもできる（二重の安全網）。onError 自体が例外を投げても、それ以上は
+ * 伝播させない（webview 破棄後の postMessage 失敗などで新たな未処理例外を生まないため）。
+ */
+export function reportRejection<T>(promise: Promise<T>, onError: (error: unknown) => void): Promise<T> {
+    promise.catch((error: unknown) => {
+        try {
+            onError(error);
+        } catch {
+            // onError 自体の失敗はこれ以上伝播させない。
+        }
+    });
+    return promise;
+}

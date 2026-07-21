@@ -263,7 +263,7 @@
             "filenamePattern": "*.markdown"
           }
         ],
-        "priority": "option"
+        "priority": "default"
       }
     ],
     "menus": {
@@ -583,7 +583,7 @@
         },
         "markdownInline.preview.defaultMode": {
           "type": "string",
-          "default": "raw",
+          "default": "preview",
           "enum": [
             "raw",
             "preview"
