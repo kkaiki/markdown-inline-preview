@@ -12,6 +12,7 @@ import { filterSlashMenuItems, type SlashMenuItemDef } from '../../shared/slash/
 import { t } from './i18n';
 import { detectSlashMatch, type SlashMatch } from '../../shared/slash/slashMatch';
 import { getSlashLineBlockRange } from '../../shared/slash/applyPreviewSlash';
+import { virtualLineStart, splitAtPrecedingHardbreak } from './hardbreakLine';
 
 /** table > table_header_row > table_header > paragraph > (content start) */
 function findFirstTableCellPos(doc: ProseNode, from: number): number | null {
@@ -33,6 +34,21 @@ let menuEnabled = true;
 
 export function setSlashMenuEnabled(value: boolean): void {
     menuEnabled = value;
+}
+
+/**
+ * スラッシュメニューが開いているか（`previewKeymapPlugin.ts` から参照）。
+ *
+ * メニュー表示中は、Enter は「候補を確定する」操作として優先されるべきで、
+ * `handleParagraphEnter`（通常段落での hardbreak 挿入）等の他の Enter ハンドラより
+ * 先に横取りしてはいけない。`createPreviewKeymapPlugin` はメニュー本体
+ * （`createSlashMenuPlugin`）より前に登録されているため、プラグイン登録順だけでは
+ * メニュー側の `handleKeyDown` に Enter が届かない。
+ */
+let menuVisible = false;
+
+export function isSlashMenuOpen(): boolean {
+    return menuVisible;
 }
 
 export class PreviewSlashMenuController {
@@ -144,8 +160,18 @@ export class PreviewSlashMenuController {
 
         this.editor.action((ctx) => {
             const view = ctx.get(editorViewCtx);
-            const { state } = view;
-            const $from = state.selection.$from;
+            let state = view.state;
+            let $from = state.selection.$from;
+
+            // Enter \u3067\u4f5c\u3089\u308c\u305f hardbreak \u306e\u7d9a\u304d\u306b "/" \u3092\u66f8\u3044\u3066\u3044\u308b\u5834\u5408\u3001\u307e\u305a\u305d\u306e hardbreak \u3092
+            // \u53d6\u308a\u9664\u3044\u3066\u672c\u7269\u306e\u6bb5\u843d\u5206\u5272\u306b\u3057\u3066\u304b\u3089\u7d9a\u884c\u3059\u308b\uff08\u305d\u3046\u3057\u306a\u3044\u3068 getSlashLineBlockRange \u304c
+            // \u6bb5\u843d\u5168\u4f53\uff1dhardbreak \u3088\u308a\u524d\u306e\u30c6\u30ad\u30b9\u30c8\u307e\u3067\u542b\u3081\u3066\u7f6e\u63db\u3057\u3066\u3057\u307e\u3046\uff09\u3002
+            if (virtualLineStart($from) > $from.start()) {
+                splitAtPrecedingHardbreak(view, $from.pos);
+                state = view.state;
+                $from = state.selection.$from;
+            }
+
             const lineText = $from.parent.textBetween(0, $from.parent.content.size, undefined, '\ufffc');
             const isSlashOnlyLine = lineText.trimStart().startsWith('/');
 
@@ -202,12 +228,14 @@ export class PreviewSlashMenuController {
 
     private show(): void {
         this.visible = true;
+        menuVisible = true;
         this.menuEl.hidden = false;
         this.menuEl.dataset.show = 'true';
     }
 
     hide(): void {
         this.visible = false;
+        menuVisible = false;
         this.menuEl.hidden = true;
         this.menuEl.dataset.show = 'false';
         this.selectedIndex = 0;

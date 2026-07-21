@@ -82,8 +82,11 @@ describe('実ブラウザ: チェックボックスの編集・削除', function
         await h.press('Backspace');
         await h.page.waitForTimeout(100);
 
+        // 'above'/'x'/'below' を挟む空行2つ（前後1つずつ）は blankLineRemarkPlugin により
+        // それぞれ空 paragraph として実体化されるため、リフト後の空段落と合わせて
+        // 合計5段落になる。
         const m = await h.model();
-        assert.deepStrictEqual(m.topTypes, ['paragraph', 'paragraph', 'paragraph'], `空行として残っていない: ${m.outline}`);
+        assert.deepStrictEqual(m.topTypes, ['paragraph', 'paragraph', 'paragraph', 'paragraph', 'paragraph'], `空行として残っていない: ${m.outline}`);
         assert.ok(!m.outline.includes('bullet_list'), `空の箇条書きが残っている: ${m.outline}`);
         assert.deepStrictEqual(h.errors, []);
     });

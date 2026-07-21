@@ -35,6 +35,20 @@ import {
  * 競合し、コンポーネント側が「内容は同じだが別インスタンスの doc」に対して setSelection して
  * RangeError を投げる。コンポーネントの復元（または break）が済んだ次フレームで補正する。
  */
+/**
+ * `liftListItem` 直後、カーソルを含む段落の中身がリテラルな "[ ]" / "[x]" / "[X]"
+ * プレースホルダのままなら削除し、真に空の段落にする（GFM パーサが本文の無い
+ * チェックボックスを `checked` 属性へ変換しきれないケースの後始末。
+ * `isEmptyExpandedTask`/上の判定に "[ ]" 文字列も含めている以上、結果も
+ * 本当に空にする）。
+ */
+function clearPlaceholderCheckboxText(view: EditorView): void {
+    const $sel = view.state.selection.$from;
+    if ($sel.parent.type.name !== 'paragraph' || !/^\[[\sxX]\]$/.test($sel.parent.textContent)) return;
+    const paraStart = $sel.before();
+    view.dispatch(view.state.tr.delete(paraStart + 1, paraStart + 1 + $sel.parent.content.size));
+}
+
 function pinSelection(view: EditorView, pos: number): void {
     requestAnimationFrame(() => requestAnimationFrame(() => {
         if (view.isDestroyed) return;
@@ -119,6 +133,7 @@ export function createMarkerBackspacePlugin() {
                     if (/^(?:\[[ xX]\])?$/.test(listItem.textContent.trim())) {
                         const listItemType = state.schema.nodes.list_item;
                         if (listItemType && liftListItem(listItemType)(state, view.dispatch)) {
+                            clearPlaceholderCheckboxText(view);
                             pinSelection(view, view.state.selection.from);
                             event.preventDefault();
                             return true;
@@ -153,8 +168,14 @@ export function createMarkerBackspacePlugin() {
                 }
 
                 // 箇条書き/番号付き → 段落（リストから持ち上げ）
+                //
+                // GFM パーサは本文の無いチェックボックス（`- [ ] ` に文字が続かない）を
+                // task list として認識できず、`checked: null` の普通の箇条書き項目として
+                // パースし、段落の中身にリテラルな "[ ]" テキストを残すことがある
+                // （このため checked===true/false ではなくこの分岐に来る）。
                 const listItemType = state.schema.nodes.list_item;
                 if (listItemType && liftListItem(listItemType)(state, view.dispatch)) {
+                    clearPlaceholderCheckboxText(view);
                     pinSelection(view, view.state.selection.from);
                     event.preventDefault();
                     return true;

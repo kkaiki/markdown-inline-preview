@@ -64,6 +64,8 @@ import { applyExternalContent } from './applyExternalContent';
 import { getPreviewCursorAnchor, applyPreviewCursorAnchor } from './cursorAnchor';
 import type { CursorAnchor } from '../../shared/preview/cursorAnchor';
 import { blankLineRemarkPlugin } from './blankLineRemarkPlugin';
+import { createHardbreakLineInputRulesPlugin } from './hardbreakLineInputRules';
+import { createBlankLinePlaceholderSkipPlugin } from './blankLinePlaceholderSkip';
 
 const vscodeApi = acquireVsCodeApi();
 const root = document.getElementById('milkdown-root');
@@ -542,6 +544,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         // 同じ理由で元から機能していなかった）。
         .use(updateCodeBlockLanguageCommand)
         .use(gfm)
+        .use(createHardbreakLineInputRulesPlugin())
         .use(blankLineRemarkPlugin)
         .use(history)
         // 画像ノード選択時の Cmd+C / 右クリック「Copy Image」を処理する。
@@ -577,7 +580,12 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createBlockPrefixEditPlugin())
         .use(createInlineMarkEditPlugin())
         .use(createCodeFenceEditPlugin())
-        .use(createLineNumberGutterPlugin());
+        .use(createLineNumberGutterPlugin())
+        // 他の全ての Backspace/Delete 系ハンドラ（チェックボックス降格・コード/インライン
+        // マーク等）が「自分の担当ではない」と判断して素通りした後の、最後の受け皿として
+        // 登録する。より具体的な既存ハンドラより先に横取りしてはいけない
+        // （blockPrefixEditPlugin.ts が使う checked===false でのタスク降格などを壊すため）。
+        .use(createBlankLinePlaceholderSkipPlugin());
 
     if (settings.showToolbar) {
         const isMac = /mac/i.test(navigator.platform || navigator.userAgent || '');

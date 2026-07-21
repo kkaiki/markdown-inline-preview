@@ -83,8 +83,10 @@ describe('webview統合: whitespaceMarkerPlugin（空白のみコンテンツの
     });
 
     it('blankLineRemarkPluginが作る真に空の段落（空行保持用）は対象外', async () => {
+        // 'foo' と 'bar' の間の空行2つがそれぞれ空 paragraph として実体化するため、
+        // 合計4段落（foo, 空, 空, bar）になる。
         h = await createPreviewEditor('foo\n\n\nbar\n');
-        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph']);
+        assert.deepStrictEqual(h.topLevelTypes(), ['paragraph', 'paragraph', 'paragraph', 'paragraph']);
         assert.strictEqual(whitespaceDecorations(h).length, 0);
     });
 

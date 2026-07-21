@@ -61,6 +61,9 @@ describe('webview統合: チェックボックスの編集・削除・インデ�
         h = await createPreviewEditor('- [x] task\n\nnext paragraph\n');
         const textEndPos = nthTextPos(h, 1) + 'task'.length;
         h.setCursor(textEndPos);
+        // 'task' と 'next paragraph' の間の空行1つは blankLineRemarkPlugin により
+        // 空 paragraph として実体化されているが、blankLinePlaceholderSkipPlugin が
+        // これを透過的に読み飛ばすため、Delete 1回で 'next paragraph' まで届く。
         h.pressKey({ key: 'Delete', code: 'Delete' });
 
         assert.deepStrictEqual(h.topLevelTypes(), ['bullet_list'],

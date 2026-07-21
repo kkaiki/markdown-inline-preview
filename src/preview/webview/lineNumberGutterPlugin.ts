@@ -246,9 +246,19 @@ export function computeLineAnchors(
                 let lineIndex = 1;
                 node.forEach((child, childOffset) => {
                     if (child.type.name !== 'hardbreak') return;
+                    // 何も文字を打っていない末尾の hardbreak は、直列化した Markdown の
+                    // 時点で「その行」が消える（改行を続ける対象が無いため）。そのため
+                    // remark 再パースの entry.lines がこの hardbreak 分だけ足りないことが
+                    // ある（Enter を連打した直後、まだ何も入力していない状態）。この場合、
+                    // 文書全体の最大行 + 1 という「グローバルな」フォールバックを使うと、
+                    // 直後の実ブロック（既に実ソース行番号を持つ）より大きい保証が無く、
+                    // 番号の前後関係が崩れる（例: 5, 3, 4 のように後退する）。同じ段落内の
+                    // 直前の実行番号から連番で補うことで、少なくとも単調増加を保つ。
+                    const line = entry.lines[lineIndex]
+                        ?? entry.lines[entry.lines.length - 1] + (lineIndex - (entry.lines.length - 1));
                     anchors.push({
                         pos: offset + 1 + childOffset + child.nodeSize,
-                        line: entry.lines[lineIndex] ?? fallbackLine++
+                        line
                     });
                     lineIndex++;
                 });
