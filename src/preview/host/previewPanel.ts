@@ -966,6 +966,7 @@ async function switchToRaw(
     const cursor = lastKnownCursor.get(key);
     rememberMode(context, 'raw');
     inFlightSwitch.add(key);
+    let editor: vscode.TextEditor;
     try {
         await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
 
@@ -976,11 +977,29 @@ async function switchToRaw(
         // 漂流することがある。先にフォーカスを移しておけば、閉じるのは非アクティブなタブに
         // なるため、この自動選択は発生しない。
         const doc = await vscode.workspace.openTextDocument(uri);
-        const editor = await vscode.window.showTextDocument(doc, { viewColumn, preserveFocus: false });
+        editor = await vscode.window.showTextDocument(doc, { viewColumn, preserveFocus: false });
 
         // Re-query after openWith (see switchToPreview): avoids closing a stale handle.
         await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
+    } catch (error) {
+        // ここでの失敗は「切替そのもの」が成立していない（Raw タブが開けていない等）ため、
+        // ユーザーに見せる価値がある。
+        debugLog(`[preview] switchToRaw failed: ${String(error)}`);
+        void vscode.window.showErrorMessage(
+            `Markdown Inline Preview: Raw への切り替えに失敗しました (${String(error)})`
+        );
+        inFlightSwitch.delete(key);
+        return;
+    }
+    inFlightSwitch.delete(key);
 
+    // ここから先はカーソル/スクロール位置の復元のみ（切替自体は上で既に成功している）。
+    // これらは体感を良くするための付随処理であり、失敗しても「切替が失敗した」わけではない。
+    // 全体を1つの catch にまとめてしまうと、ここだけの失敗（例: 保存済みアンカーが古い内容と
+    // ズレて解決できない）でも毎回「切替に失敗しました」という誤解を招くエラーダイアログが出て
+    // しまう（実際に高頻度の切替操作でこの種の失敗が起きうることをユーザー報告で確認）。
+    // そのためログのみに留め、ユーザーには通知しない。
+    try {
         // カーソル位置の引き継ぎ（Preview → Raw）。同じ場所で編集を続けられるように、
         // カーソルを置いてその行を見せる（スクロール同期より優先）。
         if (cursor) {
@@ -1002,12 +1021,7 @@ async function switchToRaw(
             revealRatio(editor, ratio);
         }
     } catch (error) {
-        debugLog(`[preview] switchToRaw failed: ${String(error)}`);
-        void vscode.window.showErrorMessage(
-            `Markdown Inline Preview: Raw への切り替えに失敗しました (${String(error)})`
-        );
-    } finally {
-        inFlightSwitch.delete(key);
+        debugLog(`[preview] switchToRaw cursor/scroll restore failed: ${String(error)}`);
     }
 }
 
