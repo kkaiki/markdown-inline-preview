@@ -186,7 +186,7 @@ Preview から Raw に戻すとき（`Cmd+Shift+.` / タイトルバー）は、
 
 ```jsonc
 // モード
-"markdownInline.preview.defaultMode": "raw",     // raw | preview
+"markdownInline.preview.defaultMode": "preview", // raw | preview（2026-07-16: 機能の認知度向上のため既定を preview に変更）
 "markdownInline.preview.rememberMode": true,
 "markdownInline.preview.editable": true,
 

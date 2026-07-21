@@ -10,7 +10,7 @@
  * 必ず先行タスクが完了している（＝最新のドキュメント状態を読める）ことを保証する。
  */
 import * as assert from 'assert';
-import { createSerialQueue } from '../../../../src/preview/host/serialQueue';
+import { createSerialQueue, reportRejection } from '../../../../src/preview/host/serialQueue';
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -65,5 +65,55 @@ describe('createSerialQueue', () => {
         await second;
 
         assert.deepStrictEqual(order, ['first', 'second']);
+    });
+});
+
+describe('reportRejection', () => {
+    it('タスクが失敗したとき、onError にそのエラーが渡る（webview からの編集保存失敗を気づけるようにする）', async () => {
+        // 背景: previewPanel.ts の onDidReceiveMessage は `void enqueueWebviewChange(...)` と
+        // fire-and-forget で呼んでおり、保存（applyEdit/document.save）が失敗しても
+        // createSerialQueue 自体は後続タスクを止めないよう設計されている（上のテスト参照）ため、
+        // 呼び出し元が明示的に catch しない限り失敗が握りつぶされて誰にも気づかれない。
+        // reportRejection はその catch を一箇所に集約し、onError へ確実に転送する。
+        const enqueue = createSerialQueue();
+        const reported: unknown[] = [];
+
+        const task = enqueue(() => Promise.reject(new Error('save failed')));
+        reportRejection(task, (error) => reported.push(error));
+
+        // reportRejection 自身は失敗を握りつぶさない（呼び出し元が await している場合は
+        // 引き続き reject を検知できる＝二重に安全網になる）。
+        await assert.rejects(task, /save failed/);
+
+        assert.strictEqual(reported.length, 1);
+        assert.ok(reported[0] instanceof Error);
+        assert.strictEqual(reported[0].message, 'save failed');
+    });
+
+    it('タスクが成功したときは onError が呼ばれない', async () => {
+        const enqueue = createSerialQueue();
+        const reported: unknown[] = [];
+
+        const task = enqueue(() => Promise.resolve());
+        reportRejection(task, (error) => reported.push(error));
+
+        await task;
+
+        assert.deepStrictEqual(reported, []);
+    });
+
+    it('onError 自体が例外を投げても、元の Promise の reject 伝播やテストランナーを壊さない', async () => {
+        // debugLog や showErrorMessage の呼び出し失敗（例: webview 破棄後の postMessage 失敗）が
+        // さらに別の未処理例外を生まないようにする防御。
+        const enqueue = createSerialQueue();
+
+        const task = enqueue(() => Promise.reject(new Error('original')));
+        assert.doesNotThrow(() => {
+            reportRejection(task, () => {
+                throw new Error('onError itself failed');
+            });
+        });
+
+        await assert.rejects(task, /original/);
     });
 });

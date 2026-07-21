@@ -361,6 +361,18 @@ suite('Preview: tabs-editors', () => {
         // Raw の2枚タブになってしまう不具合の回帰テスト。
         // 同じグループ内での重複だけを解消対象とし、意図的に別のエディタ
         // グループ（右側など）に開いた場合は統一しない。
+        //
+        // **2026-07-20 追記**: `preview-default-editor-fix.md` で customEditor の
+        // priority を "option" → "default" に変更したため、この 13.1/13.3 が検証していた
+        // 「Raw が一瞬作られてから重複解消される」という経路自体が、同じ列への再オープンでは
+        // 発生しなくなった（`vscode.open` は最初から Preview を解決し、
+        // `supportsMultipleEditorsPerDocument: false` により既存の Preview タブがそのまま
+        // 再利用されるため）。13.1/13.3 はこの「そもそも重複が起きない」新しい仕様を検証する
+        // 形に更新した。13.2（別カラム）は各カラムが独立した Preview インスタンスを持つ
+        // （Raw にはならない）ことを検証する形に更新した。
+        // 一方、明示的に「Reopen Editor With > Text Editor」等で Raw を強制した場合の
+        // 重複解消ロジック自体（collapseDuplicateRawTabsInGroup・previewSettledAt の猶予窓）は
+        // 引き続き有効で、13.4 で検証を続ける。
         let tmpDir: string | undefined;
 
         teardown(() => {
@@ -415,7 +427,9 @@ suite('Preview: tabs-editors', () => {
             );
 
             // サイドバー（Explorer）からの再オープンを模す。customEditor は
-            // priority: "option" のため、既定では Raw（テキストエディタ）で開かれる。
+            // priority: "default" のため、既定でも直接 Preview が解決される
+            // （`supportsMultipleEditorsPerDocument: false` により既存の Preview タブが
+            // そのまま再利用され、Raw タブは一度も作られない）。
             await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
             await sleep(800);
 
@@ -428,7 +442,7 @@ suite('Preview: tabs-editors', () => {
             );
         });
 
-        test('13.2 別のビューカラム（右側）に同じファイルを開く場合はPreviewと統一されず両方開いたままになる', async function () {
+        test('13.2 別のビューカラム（右側）に同じファイルを開く場合はそれぞれ独立した Preview インスタンスになる', async function () {
             this.timeout(20000);
 
             const uri = await createRealMdFile('dup2.md', '# 別カラムは統一しない\n');
@@ -439,24 +453,30 @@ suite('Preview: tabs-editors', () => {
             await sleep(600);
             assert.strictEqual(allTabsForUri(uri).length, 1, '前提条件: Previewタブが1枚開いていない');
 
-            // 右側（別のエディタグループ）に同じファイルを開く。
+            // 右側（別のエディタグループ）に同じファイルを開く。priority: "default" のため
+            // こちらも直接 Preview が解決されるが、左のタブと統一されず（グループが違うため
+            // collapseDuplicateRawTabsInGroup の対象外）、独立した2枚目の Preview インスタンス
+            // になる。
             await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.Two);
             await sleep(800);
 
             const tabs = allTabsForUri(uri);
             assert.strictEqual(tabs.length, 2,
                 `別カラムで開いたのに Preview 側と統一されて1枚になってしまった（${tabs.length} 枚）`);
-            const hasPreview = tabs.some(t => t.input instanceof vscode.TabInputCustom && t.input.viewType === PREVIEW_VIEW_TYPE);
-            const hasRaw = tabs.some(t => t.input instanceof vscode.TabInputText);
-            assert.ok(hasPreview && hasRaw, '左にPreview・右にRawの2枚構成になっていない');
+            const previewCount = tabs.filter(t => t.input instanceof vscode.TabInputCustom && t.input.viewType === PREVIEW_VIEW_TYPE).length;
+            assert.strictEqual(previewCount, 2, `両カラムとも Preview になっていない: ${JSON.stringify(tabs.map(t => t.input))}`);
         });
 
         // sidebar-reopen-preview-duplicate-tab-fix.md が説明する2つの排他ガード
-        // （previewSettledAt の 500ms 猶予・inFlightSwitch）は、13.1/13.2 がどちらも
-        // sleep(600) で猶予窓を過ぎてから操作しているため実際には検証されていなかった
-        // （preview-usage-flow-test-backlog.md §4.1 のギャップ）。
+        // （previewSettledAt の 500ms 猶予・inFlightSwitch）は、priority: "option" 時代の
+        // 「Raw が一瞬作られてから重複解消される」という reactive な経路のためのものだった。
+        // priority: "default" 化（preview-default-editor-fix.md）後は、同じ列への
+        // サイドバー再オープンで Raw が作られること自体が無くなったため、13.3 はこの
+        // 「猶予窓の内側でも外側でも、そもそも Raw タブは1枚も作られない」という
+        // 新しい仕様を検証する形に更新した（旧仕様の猶予窓の挙動自体は 13.4 が別途カバーする、
+        // 明示的に Raw を強制するケースで引き続き有効）。
 
-        test('13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンすると、その時点ではRawタブの重複解消が見送られ、後でアクティブエディタが変化すると解消される', async function () {
+        test('13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンしても、Rawタブは一度も作られずPreviewのまま', async function () {
             this.timeout(20000);
 
             const uri = await createRealMdFile('dup3.md', '# 猶予窓レース\n');
@@ -470,26 +490,27 @@ suite('Preview: tabs-editors', () => {
 
             await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
             await sleep(150); // 500ms 猶予窓の内側（合計 300ms 経過時点）
+            const tabsWithinWindow = allTabsForUri(uri);
             assert.strictEqual(
-                allTabsForUri(uri).length, 2,
-                '猶予窓内なのに即座に重複解消された（作られたばかりのPreviewタブがモード記憶の自動切替と競合しうる）'
+                tabsWithinWindow.length, 1,
+                `猶予窓の内側でも Raw タブが作られてしまった（${tabsWithinWindow.length} 枚）`
+            );
+            assert.ok(
+                tabsWithinWindow[0].input instanceof vscode.TabInputCustom && tabsWithinWindow[0].input.viewType === PREVIEW_VIEW_TYPE,
+                '猶予窓の内側でタブが Preview 以外になっている'
             );
 
-            // 猶予窓が過ぎた後、別ファイルへ切替→戻ることで onDidChangeActiveTextEditor を
-            // 再度発火させる（重複解消はこのイベント駆動のため、何もイベントが起きなければ
-            // 猶予窓を過ぎても自動では解消されない設計）。
-            const otherUri = await createRealMdFile('other3.md', '# 別ファイル\n');
-            await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(otherUri));
+            // 猶予窓が過ぎた後にもう一度再オープンしても、引き続き Raw は作られない。
             await sleep(500); // 合計 800ms 経過、猶予窓(500ms)を確実に超える
             await vscode.commands.executeCommand('vscode.open', uri, vscode.ViewColumn.One);
             await sleep(800);
 
             const tabs = allTabsForUri(uri);
             assert.strictEqual(tabs.length, 1,
-                `猶予窓を過ぎた後の再アクティブ化でRawタブの重複が解消されなかった（${tabs.length} 枚）`);
+                `猶予窓を過ぎた後の再オープンで Raw タブが作られた（${tabs.length} 枚）`);
             assert.ok(
                 tabs[0].input instanceof vscode.TabInputCustom && tabs[0].input.viewType === PREVIEW_VIEW_TYPE,
-                '重複解消後に残ったタブがPreviewになっていない'
+                'タブがPreviewになっていない'
             );
         });
 

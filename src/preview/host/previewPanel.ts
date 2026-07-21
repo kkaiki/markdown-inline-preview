@@ -27,7 +27,7 @@ import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/s
 import { rawToCursorAnchor, cursorAnchorToRaw, type CursorAnchor } from '../../shared/preview/cursorAnchor';
 import { pickPreviewUri, type PreviewTabInfo } from './previewTabs';
 import { decidePreviewToggle } from './toggleDecision';
-import { createSerialQueue } from './serialQueue';
+import { createSerialQueue, reportRejection } from './serialQueue';
 import { resolveExternalPush, resolveWebviewSaveDecision } from './externalEcho';
 import { resolveShowLineNumbers } from '../../core';
 
@@ -99,6 +99,16 @@ const inFlightSwitch = new Set<string>();
 // 開閉を繰り返してしまう。詳細: docs/specifications/sidebar-reopen-preview-duplicate-tab-fix.md
 const previewSettledAt = new Map<string, number>();
 const DUPLICATE_COLLAPSE_SETTLE_MS = 500;
+
+// 「このセッションで既に開いた（=モードを尊重すべき既存の）Markdown ファイル」の URI。
+// 拡張機能の起動時点で開いていたタブと、その後アクティブになった／resolveCustomTextEditor
+// で解決されたファイルを記録する。ここに含まれない URI が初めて解決/アクティブになった
+// ときだけ「新規オープン」とみなし、記憶した最後のモード（または既定設定）を適用する。
+// 既存ファイルにはモードを強制しない。
+// `PreviewEditorProvider.resolveCustomTextEditor`（customEditors priority: "default" 化に伴う
+// Raw への跳ね返し判定）と `activatePreviewFeature` 内の `onDidChangeActiveTextEditor` の
+// 両方から参照するため、モジュールスコープに置く。
+const seenMarkdownUris = new Set<string>();
 
 // テスト専用シーム: webview の中身（Milkdown/JS）は @vscode/test-electron のテストから
 // 駆動できない（実 DOM・実 IME に触れる手段が無い）ため、webview からの `change` メッセージ
@@ -335,6 +345,25 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         _token: vscode.CancellationToken
     ): void {
         const key = document.uri.toString();
+
+        // customEditors の priority が "default" のため、通常オープン（サイドバー等）は
+        // 常にこの Custom Editor（Preview）を経由するようになった。記憶モード/既定設定が
+        // "raw" を指す場合は、ここで即座に Raw エディタへ跳ね返す（このタブはまだ webview
+        // の中身を何も描画していないので、そのまま dispose して閉じる）。
+        // 「未確認」の URI だけを対象にする判定基準は、下の onDidChangeActiveTextEditor
+        // ハンドラ（既存ファイルにはモードを強制しない）と揃えるため、モジュール
+        // スコープの seenMarkdownUris を共有する。
+        // 詳細: docs/specifications/preview-default-editor-fix.md
+        if (!seenMarkdownUris.has(key)) {
+            seenMarkdownUris.add(key);
+            const remembered = getRememberedMode(this.context);
+            const mode = remembered ?? getConfig<string>('preview.defaultMode', 'preview');
+            if (mode === 'raw') {
+                void bounceToRawEditor(document.uri, webviewPanel);
+                return;
+            }
+        }
+
         const documentDir = path.dirname(document.uri.fsPath);
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
         const localResourceRoots = [
@@ -532,7 +561,17 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (message.type === 'change' && typeof message.markdown === 'string') {
                 const markdown = message.markdown;
-                void enqueueWebviewChange(() => applyMarkdownFromWebview(markdown));
+                // 保存（applyEdit/document.save）の失敗を確実に可視化する。
+                // 詳細: docs/specifications/webview-save-failure-visibility.md
+                void reportRejection(
+                    enqueueWebviewChange(() => applyMarkdownFromWebview(markdown)),
+                    (error: unknown) => {
+                        debugLog(`[preview] change apply failed: ${String(error)}`);
+                        void vscode.window.showErrorMessage(
+                            `Markdown Inline Preview: 編集の保存に失敗しました (${String(error)})`
+                        );
+                    }
+                );
                 return;
             }
             if (message.type === 'scroll' && typeof message.ratio === 'number') {
@@ -820,6 +859,26 @@ async function closeStaleTabs(tabs: vscode.Tab[]): Promise<void> {
     }
 }
 
+/**
+ * `PreviewEditorProvider.resolveCustomTextEditor` から、記憶モード/既定設定が "raw" の
+ * 場合に呼ばれる。まだ何も描画していない Preview の webviewPanel を dispose し、
+ * 同じ位置へ Raw（既定のテキストエディタ）を開き直す。
+ *
+ * `rememberMode` は呼ばない — ここは「既に raw が選ばれている」ことを尊重して跳ね返す
+ * だけであり、ユーザーが今まさに raw へ切り替えたわけではないため、記憶を上書きする
+ * 必要が無い（switchToRaw と異なる点）。
+ */
+async function bounceToRawEditor(uri: vscode.Uri, webviewPanel: vscode.WebviewPanel): Promise<void> {
+    const viewColumn = webviewPanel.viewColumn;
+    webviewPanel.dispose();
+    try {
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
+    } catch {
+        // パネルが既に破棄されている等、跳ね返し中の競合は致命的ではないので無視する。
+        debugLog('[preview] bounceToRawEditor failed, ignoring');
+    }
+}
+
 async function switchToPreview(
     context: vscode.ExtensionContext,
     document: vscode.TextDocument,
@@ -973,9 +1032,15 @@ async function collapseDuplicateRawTabsInGroup(uri: vscode.Uri, group: vscode.Ta
     if (staleRawTabs.length === 0) return;
 
     try {
-        // 閉じる前に Preview タブへフォーカスを確定させる（アクティブなタブを
-        // 先に閉じると VS Code の自動選択で無関係なタブへ飛ぶことがあるため）。
-        await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE, group.viewColumn);
+        // 閉じる前に Preview タブを「そのグループのアクティブなタブ」に確定させる
+        // （アクティブなタブを先に閉じると VS Code の自動選択で無関係なタブへ飛ぶ
+        // ことがあるため）。`preserveFocus: true` はこの「アクティブタブにする」効果は
+        // 保ったまま、キーボードフォーカスまでは奪わない（サイドバー等、この重複解消が
+        // 走った時点でフォーカスがあった場所を尊重する）。
+        await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE, {
+            viewColumn: group.viewColumn,
+            preserveFocus: true
+        });
         await closeStaleTabs(staleRawTabs);
     } catch {
         // 対象ファイルが別の非同期処理（テストの後始末等）で既に閉じられた／
@@ -1019,11 +1084,8 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
         );
     }
 
-    // 「このセッションで既に開いた（=モードを尊重すべき既存の）Markdown ファイル」の URI。
-    // 拡張機能の起動時点で開いていたタブと、その後アクティブになったファイルを記録する。
-    // ここに含まれない URI が初めてアクティブになったときだけ「新規オープン」とみなし、
-    // 記憶した最後のモードを適用する。既存ファイルにはモードを強制しない。
-    const seenMarkdownUris = new Set<string>();
+    // 拡張機能の起動時点で既に開いていたタブを「既存ファイル」として記録する
+    // （モジュールスコープの seenMarkdownUris の初期値。宣言側のコメント参照）。
     for (const group of vscode.window.tabGroups.all) {
         for (const tab of group.tabs) {
             const input = tab.input;
@@ -1127,7 +1189,7 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             }
             seenMarkdownUris.add(key);
             const remembered = getRememberedMode(context);
-            const mode = remembered ?? getConfig<string>('preview.defaultMode', 'raw');
+            const mode = remembered ?? getConfig<string>('preview.defaultMode', 'preview');
             if (mode === 'preview') {
                 void switchToPreview(context, editor.document, editor.viewColumn, editor);
             }
