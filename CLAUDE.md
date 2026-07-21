@@ -16,6 +16,12 @@
 
 このワークフローの詳細版（テスト種別の選び方、VS Code 拡張ホスト統合テストの手順、タブ・フォーカス系バグの再現のコツ、バグ修正の具体的な手順、ブラウザテストの道具箱など）は skill `tdd-browser-preview` にまとめてある: `.claude/skills/tdd-browser-preview/SKILL.md`（プロジェクトローカル）
 
+「この症状を直したい」ではなく「まだ何が壊れているか分からないので網羅的に調べたい」という
+探索的な監査（audit）は skill `preview-exploratory-audit` を使う:
+`.claude/skills/preview-exploratory-audit/SKILL.md`（プロジェクトローカル）。実 VS Code / 実
+Chromium を実際に起動してカテゴリ横断でシナリオを総当たりし、見つけたバグ疑いは
+`tdd-browser-preview` の TDD ループへ引き継ぐ。
+
 ---
 
 ## テスト体系
