@@ -25,6 +25,17 @@ const ELEMENT_NODE = 1;
 /** 1 つの code_block 分のデコレーションを decorations へ push する。 */
 function decorateCodeBlock(node: ProseNode, nodePos: number, codeStart: number, decorations: Decoration[]): void {
     const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
+
+    // codeFenceEditPlugin がこのブロックを展開中（フェンスが実テキストとして
+    // 混ざっている）場合、開き・閉じの両方が完全な形で揃っているかを都度判定する。
+    // どちらか一方でも崩れていれば、まだ code_block ノードのまま（変換は
+    // フォーカスを外したときにしか起きない）でも「もうコードブロックとして
+    // 保存されない」ことが分かるよう、`code-fence-broken` クラスを付けて
+    // `.milkdown pre` の背景を動的に解除する（ユーザー要望）。
+    if (getExpandedCodeFence()?.nodePos === nodePos && !parseCodeFenceRealText(node.textContent)) {
+        decorations.push(Decoration.node(nodePos, nodePos + node.nodeSize, { class: 'code-fence-broken' }));
+    }
+
     // mermaid は図として描画するのでシンタックス色は付けない。
     if (language === 'mermaid') return;
 

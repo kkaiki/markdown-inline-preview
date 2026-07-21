@@ -272,6 +272,13 @@ body.show-line-numbers .milkdown pre code { display: block; overflow-x: auto; }
     padding: 0;
 }
 
+/* codeHighlightPlugin が、フォーカス中に開き/閉じフェンス（```lang` / ```）の文字を
+   壊した瞬間に付与するクラス（フォーカスを外すまでは code_block のままだが、もう
+   コードブロックとして保存されないことを動的に示す）。 */
+.milkdown pre.code-fence-broken {
+    background: transparent;
+}
+
 /* コードのシンタックスカラー（hljs クラス）。
    色は codeHighlightPlugin が inline decoration として hljs-* クラスを付与し、ここで色を当てる。
    media/hljs-github.css は GitHub Light 固定なので、ここで `.milkdown` スコープ＋テーマ変数で
@@ -879,6 +886,10 @@ body.preview-fade-in {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* .preview-toolbar-scroll が狭いとき、ボタン自体が潰れて文字/アイコンが読めなく
+       ならないよう幅を固定し、代わりにコンテナ側の横スクロールで辿れるようにする。 */
+    flex: none;
+    white-space: nowrap;
 }
 
 .preview-toolbar-btn:hover {

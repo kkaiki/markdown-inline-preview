@@ -210,3 +210,39 @@ remark-stringify が内容の `` ``` `` を検出して4連バッククォート
 ただし widget 方式が担っていた「フォーカス中にフェンスを見せる」という役割は
 本仕様（実テキスト展開）に置き換わったため、`code-fence-focus-markers.md` の
 「スコープ外」ではなくなったことを両ドキュメントに追記する。
+
+## 6. 追記（2026-07-16）: フェンス実テキスト化に伴う副作用2件の修正
+
+フェンスが実テキストとしてノードの中身に混ざるようになったことで、以下2つの副作用が
+ユーザー報告により見つかった。
+
+### 6.1 Cmd/Ctrl+A がフェンス自体を選択に含んでしまう
+
+`previewKeymapPlugin.ts` の `handleSelectAll` はコードブロック内で
+`$from.start(depth)`〜`$from.end(depth)`（ノードの中身全体）を選択していたため、
+フォーカス中（フェンスが実テキスト化された状態）で Cmd/Ctrl+A すると、コード本文だけで
+なく ```` ```lang ```` 〜 ```` ``` ```` まで選択・コピーされてしまっていた。
+
+`parseCodeFenceRealText(codeNode.textContent)` が成功する（＝フェンスが完全な形で
+存在する）間は、その `openLen`/`closeLen` の分だけ選択範囲を狭めるよう修正した。
+フェンスが崩れている場合は元通りノード全体を選択する（フェンスとして機能していない
+以上、除外すべき範囲が定まらないため）。
+
+回帰テスト: `test/browser/shortcuts/selectAllCodeFence.test.ts`
+
+### 6.2 フェンスを壊してもフォーカスしたままだと見た目が変わらない
+
+これまで `parseCodeFenceRealText` によるフェンスの完全性判定は「フォーカスを外した
+とき」（collapse 時）にしか行っておらず、壊れていれば `code_block` を `paragraph` へ
+変換していた。しかしフォーカスしたまま編集している間は、フェンスをどれだけ壊しても
+コードブロックらしい背景が変わらず、「もう保存時にコードブロックとして扱われない」
+ことに気づきにくいという要望があった。
+
+`codeHighlightPlugin.ts` の `decorateCodeBlock` に、展開中のブロックで
+`parseCodeFenceRealText` が失敗している間だけ `Decoration.node` で
+`code-fence-broken` クラスを付与する処理を追加し、`media/milkdown-preview.css` で
+このクラスに対して `.milkdown pre` の `background` を透明化した。ノードの型自体は
+まだ `code_block` のまま（実際の `paragraph` への変換は従来どおりフォーカスを
+外したときにのみ起きる）だが、見た目だけ即座にフィードバックする。
+
+回帰テスト: `test/browser/rendering/codeFenceBrokenBackground.test.ts`
