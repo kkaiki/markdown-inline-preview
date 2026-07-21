@@ -240,14 +240,14 @@ describe('実ブラウザ: 実利用フロー（日常操作のユースケー�
             assert.deepStrictEqual(h.errors, []);
         });
 
-        it('段落の途中で Enter して分割し、Backspace で結合すると元の段落に戻る', async function () {
+        it('段落の途中で Enter すると同じ段落内の改行(hardbreak)になり、Backspace で1行に戻る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, 'こんにちは世界\n\nTAIL\n', 'こんにちは世界');
             await h.placeCursorAfterText('こんにちは');
             await h.press('Enter');
             const split = await h.model();
-            assert.ok(split.outline.includes('paragraph["こんにちは"]') && split.outline.includes('paragraph["世界"]'),
-                `段落が分割されていない: ${split.outline}`);
+            assert.ok(split.outline.includes('paragraph["こんにちは", hardbreak, "世界"]'),
+                `段落が分割されずhardbreakになっていない: ${split.outline}`);
 
             await h.press('Backspace');
             await h.moveToEnd();

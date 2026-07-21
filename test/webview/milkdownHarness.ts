@@ -16,6 +16,8 @@ import type { Ctx } from '@milkdown/ctx';
 
 import { createPreviewKeymapPlugin } from '../../src/preview/webview/previewKeymapPlugin';
 import { blankLineRemarkPlugin } from '../../src/preview/webview/blankLineRemarkPlugin';
+import { createHardbreakLineInputRulesPlugin } from '../../src/preview/webview/hardbreakLineInputRules';
+import { createBlankLinePlaceholderSkipPlugin } from '../../src/preview/webview/blankLinePlaceholderSkip';
 
 export interface PreviewEditorHandle {
     editor: Editor;
@@ -61,7 +63,10 @@ export async function createPreviewEditor(
         .use(createPreviewKeymapPlugin())
         .use(commonmark)
         .use(gfm)
+        .use(createHardbreakLineInputRulesPlugin())
         .use(blankLineRemarkPlugin)
+        // 他の Backspace/Delete 系ハンドラより後に登録する（milkdownApp.ts と同じ理由）。
+        .use(createBlankLinePlaceholderSkipPlugin())
         .create();
 
     let view!: EditorView;

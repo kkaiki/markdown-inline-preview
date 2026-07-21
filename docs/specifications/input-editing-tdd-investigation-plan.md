@@ -320,6 +320,14 @@ EDIT-009とEDIT-010は既存テストの期待仕様と矛盾し得るため、R
 ユーザー操作として「Enter=段落分割」「Enter=hardbreak」のどちらを採るかを1つに統一し、
 同じ位置で両方を期待するテストは残さない。
 
+**採用結果（`7d0e907` で決定・以降のセッションで確認）**: 「Enter=hardbreak」を採用した
+（EDIT-010: 通常段落の途中/先頭/末尾でのEnterは常にhardbreak、段落分割はしない）。
+ただしこの決定だけでは、hardbreakで継続している行に見出し/リスト/チェックボックス等の
+Markdown記法を続けてタイプしても自動変換されない（`customInputRules`がテキストブロック
+全体基準でマッチ判定するため）という広範囲の副作用があり、`hardbreak-line-markdown-
+conversion-fix.md` で別途対応した（`hardbreakLineInputRulesPlugin`が、既定でマッチしない
+場合のみhardbreak境界を本物の段落分割にしてから既存のinput ruleを適用する）。
+
 ### 8.2 P0: 範囲選択、置換、クリップボード
 
 | ID       | 初期状態                                 | 実操作                     | 期待結果と必須確認                                          |

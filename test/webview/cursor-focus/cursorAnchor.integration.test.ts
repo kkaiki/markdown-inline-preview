@@ -25,13 +25,16 @@ describe('webview統合: カーソル ⇄ ブロックアンカー', () => {
     let h: PreviewEditorHandle;
     afterEach(() => h?.destroy());
 
-    it('2 番目の段落のカーソルは block=1, offset=その位置', async () => {
+    it('2 番目の段落のカーソルは block=2, offset=その位置', async () => {
+        // blankLineRemarkPlugin により空行1つごとに空 paragraph が実体化されるため、
+        // "first para" と "second para" の間にも空段落（block=1）が入り、
+        // "second para" 自体は block=2 になる。
         h = await createPreviewEditor('first para\n\nsecond para\n\nthird');
         const starts = paragraphStarts(h);
-        assert.ok(starts.length >= 3, '段落が3つ未満');
-        setCursor(h, starts[1] + 3); // 2番目の段落、3文字目
+        assert.ok(starts.length >= 5, '段落が5つ未満');
+        setCursor(h, starts[2] + 3); // 2番目の実段落（"second para"）、3文字目
         const anchor = getPreviewCursorAnchor(h.view);
-        assert.strictEqual(anchor.block, 1);
+        assert.strictEqual(anchor.block, 2);
         assert.strictEqual(anchor.offset, 3);
     });
 

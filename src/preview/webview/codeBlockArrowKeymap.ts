@@ -22,6 +22,7 @@
  */
 import { Plugin, PluginKey, Selection, TextSelection } from '@milkdown/prose/state';
 import type { EditorState, Selection as PMSelection } from '@milkdown/prose/state';
+import type { Node as ProseNode } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 import { lineRangeAt } from '../../shared/preview/codeBlockLines';
 
@@ -32,6 +33,33 @@ function codeBlockDepthOf(state: EditorState): number {
         if ($head.node(d).type.name === 'code_block') return d;
     }
     return -1;
+}
+
+/**
+ * `blankLineRemarkPlugin.ts` が空行1つごとに作る「真に空の段落」は見た目には存在しない
+ * 透明な区切りだが、実ノードとして挟まると、ブロックの外へ抜ける ArrowUp/Down が
+ * 直前/直後の実際の段落ではなく、まずこの空段落自身に着地してしまう
+ * （blank-line-preservation.md）。トップレベルの隣接ノードを辿って、連続する空
+ * プレースホルダをすべて読み飛ばした先の位置を返す。
+ */
+function skipBlankPlaceholders(state: EditorState, pos: number, dir: 1 | -1): number {
+    const doc = state.doc;
+    let cur = pos;
+    for (;;) {
+        if (dir < 0) {
+            let start = -1;
+            let node: ProseNode | null = null;
+            doc.forEach((n, offset) => {
+                if (offset + n.nodeSize === cur) { start = offset; node = n; }
+            });
+            if (!node || node.type.name !== 'paragraph' || node.content.size !== 0) return cur;
+            cur = start;
+        } else {
+            const node = doc.nodeAt(cur);
+            if (!node || node.type.name !== 'paragraph' || node.content.size !== 0) return cur;
+            cur += node.nodeSize;
+        }
+    }
 }
 
 /**
@@ -56,13 +84,19 @@ export function codeBlockVerticalTarget(state: EditorState, dir: 1 | -1): PMSele
     const column = offset - lineStart;
 
     if (dir < 0) {
-        if (lineStart === 0) return Selection.near(state.doc.resolve(nodeStart), -1);
+        if (lineStart === 0) {
+            const target = skipBlankPlaceholders(state, nodeStart, -1);
+            return Selection.near(state.doc.resolve(target), -1);
+        }
         const prev = lineRangeAt(text, lineStart - 1);
         const targetOffset = prev.start + Math.min(column, prev.end - prev.start);
         return TextSelection.create(state.doc, contentStart + targetOffset);
     }
 
-    if (lineEnd === text.length) return Selection.near(state.doc.resolve(nodeEnd), 1);
+    if (lineEnd === text.length) {
+        const target = skipBlankPlaceholders(state, nodeEnd, 1);
+        return Selection.near(state.doc.resolve(target), 1);
+    }
     const next = lineRangeAt(text, lineEnd + 1);
     const targetOffset = next.start + Math.min(column, next.end - next.start);
     return TextSelection.create(state.doc, contentStart + targetOffset);

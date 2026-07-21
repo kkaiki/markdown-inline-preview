@@ -29,6 +29,8 @@ import { $prose } from '@milkdown/utils';
 import { classifyPreviewShortcut, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
 import { findEnclosingBracketContent } from '../../shared/markdown/bracketSelection';
 import { getExpandedBlock, setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
+import { isSlashMenuOpen } from './previewSlashMenu';
+import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
 
 function findDepth($pos: ResolvedPos, names: string[]): number {
     for (let depth = $pos.depth; depth > 0; depth--) {
@@ -114,7 +116,16 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     // コードブロック
     const codeDepth = findDepth($from, ['code_block']);
     if (codeDepth > 0) {
-        const codeContent = TextSelection.create(state.doc, $from.start(codeDepth), $from.end(codeDepth));
+        // フォーカス中は codeFenceEditPlugin が開き/閉じフェンスを実テキストとして
+        // ノードの中身に挿入している（code-fence-real-text-edit-fix.md）。そのまま
+        // ノード全体を選択するとフェンス自体まで選択に含まれてしまうため、
+        // parseCodeFenceRealText が成功する（＝フェンスが完全な形で存在する）間は
+        // その分だけ範囲を狭める。
+        const codeNode = $from.node(codeDepth);
+        const parsedFence = parseCodeFenceRealText(codeNode.textContent);
+        const rangeStart = $from.start(codeDepth) + (parsedFence?.openLen ?? 0);
+        const rangeEnd = $from.end(codeDepth) - (parsedFence?.closeLen ?? 0);
+        const codeContent = TextSelection.create(state.doc, rangeStart, rangeEnd);
         const isCodeSelected =
             sel instanceof TextSelection && sel.from === codeContent.from && sel.to === codeContent.to;
         if (isCodeSelected) return selectWholeDoc(view); // 2 回目 → 文書全体
@@ -567,6 +578,8 @@ export function createPreviewKeymapPlugin() {
 
                     switch (shortcut.kind) {
                         case 'fenceEnter':
+                            // スラッシュメニュー表示中は Enter を「候補確定」に譲る。
+                            if (isSlashMenuOpen()) return false;
                             // Enter: ``` / ```lang の段落をコードブロック化
                             if (handleFenceEnter(view)) {
                                 event.preventDefault();

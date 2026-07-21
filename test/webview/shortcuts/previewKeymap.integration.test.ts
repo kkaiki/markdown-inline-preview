@@ -469,9 +469,10 @@ describe('webview統合: Cmd/Ctrl+A 2回で文書全体になる（native 任せ
     it('段落: 1回目=その行, 2回目=文書全体', async () => {
         h = await createPreviewEditor('first para\n\nSECOND para\n\nthird para\n');
         const starts = paragraphContentStarts(h);
-        assert.ok(starts.length >= 3, `段落が3つ未満: ${starts.length}`);
-        // 2 番目の段落にカーソル
-        h.setCursor(starts[1]);
+        assert.ok(starts.length >= 5, `段落が5つ未満: ${starts.length}`);
+        // 2 番目の実段落（"SECOND para"）にカーソル。blankLineRemarkPlugin により
+        // 空行1つごとに空 paragraph が実体化するため、"SECOND para" は index=2。
+        h.setCursor(starts[2]);
 
         // 1回目: その行（2番目の段落）だけ
         handleSelectAll(h.view, h.ctx);
@@ -487,7 +488,7 @@ describe('webview統合: Cmd/Ctrl+A 2回で文書全体になる（native 任せ
     it('段落: 3回目も文書全体のまま（先頭行へ巻き戻らない）', async () => {
         h = await createPreviewEditor('first para\n\nSECOND para\n\nthird para\n');
         const starts = paragraphContentStarts(h);
-        h.setCursor(starts[1]);
+        h.setCursor(starts[2]);
         handleSelectAll(h.view, h.ctx); // 行
         handleSelectAll(h.view, h.ctx); // 全体
         handleSelectAll(h.view, h.ctx); // もう一度
@@ -497,7 +498,7 @@ describe('webview統合: Cmd/Ctrl+A 2回で文書全体になる（native 任せ
     it('pressKey 経由でも 2回目で文書全体（plugin 経路、native 不要）', async () => {
         h = await createPreviewEditor('alpha line\n\nBRAVO line\n\ncharlie line\n');
         const starts = paragraphContentStarts(h);
-        h.setCursor(starts[1]);
+        h.setCursor(starts[2]);
         h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 行
         const res = h.pressKey({ code: 'KeyA', key: 'a', meta: true }); // 全体
         assert.ok(isWholeDoc(h), '2回目で文書全体になっていない');

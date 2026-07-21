@@ -58,6 +58,60 @@
 - `code_block` はテキストノードなので、`computeLineAnchors` 内でノードの `textContent` を取得し、`\n` の出現位置ごとに widget 位置（=ブロック内オフセット）を計算する専用ロジックが要る。番号は 3節の mdast 再パース結果（`code.position.start.line + 1 + 行インデックス`）から取る。
 - mdast 側の実行番号配列と ProseMirror 側の doc 走査は、「トップレベル要素＋リスト項目再帰」の1要素につき mdast 側は1エントリ（表・コードブロックは複数行分の番号をまとめて持つ1エントリ）を消費する形でインデックス対応させる（表・コードブロックだけ1エントリが複数 widget を生む）。
 
+## 5. 追記（2026-07-16）: Delete/Backspace/矢印キーでの透過スキップ
+
+空 `paragraph` は「通常の `paragraph` ノード」であるため、Delete/Backspace によるブロック
+マージや `codeBlockArrowKeymap.ts` のブロック脱出（ArrowUp/Down）が、本来ユーザーが
+マージ/移動したい隣のブロックではなく、まずこの空段落自身にぶつかってしまう副作用が
+あった（例: チェックリスト末尾で Delete → 直後の段落が新規項目として取り込まれるはずが、
+間の空行プレースホルダを消すだけで1回余分にキー操作が必要になる）。
+
+`src/preview/webview/blankLinePlaceholderSkip.ts`（他の全ての Backspace/Delete 系
+ハンドラの後に登録）と `codeBlockArrowKeymap.ts` の `skipBlankPlaceholders` により、
+隣接する空プレースホルダを黙って取り除いてから既定の処理へ委ねるようにし、ユーザーからは
+元通り1回の操作で隣のブロックへ届くように見える。詳細・回帰テストは
+`hardbreak-line-markdown-conversion-fix.md` を参照。
+
+## 6. 追記（2026-07-19）: hardbreak 連打時のガター番号の順序崩れ修正
+
+### 背景・不具合報告
+
+- 段落内で Enter（hardbreak 挿入）を押した直後、まだ何も文字を入力していない状態では、その
+  末尾 hardbreak は直列化された Markdown 上で「後に続く内容が無い改行」として commonmark
+  シリアライザにより出力から**脱落する**（trailing hardbreak はテキストとして表現できない
+  ため）。
+- そのため3節の remark 再パース（`computeRealLineEntries`）はこの段落の実際の行数を
+  過小に数える。`computeLineAnchors` がこの段落内の hardbreak 子ノードを ProseMirror 側で
+  1つずつ辿るとき、mdast 側の `entry.lines[]` 配列が足りなくなり、末尾の hardbreak には
+  対応する実行番号が存在しない状態になっていた。
+- 従来はこの不足分を**文書全体で共有する1個のグローバルな `fallbackLine` カウンタ**
+  （`realLines` 全体の最大行 + 1 から開始し、使うたびに++）で埋めていた。このカウンタは
+  「まだ実ソース行を持たない要素に、とりあえず既存の最大値より大きい番号を割り振る」という
+  設計だったが、Enter 連打 → 文字入力 → 再度 Enter、という操作を繰り返すと、直後の
+  実ブロック（既に実ソース行番号を持つ後続段落）よりも**大きい**番号がこの段落の中間に
+  割り当てられてしまい、ガター全体で見ると番号が前後する（例: `1, 2, 5, 3, 4` のように
+  後退する）症状になっていた。
+
+### 修正内容
+
+- `src/preview/webview/lineNumberGutterPlugin.ts` の `computeLineAnchors()` 内、複数行
+  段落の hardbreak を辿るループで、`entry.lines[lineIndex]` が無い（mdast 再パースが
+  この hardbreak 分を数え損ねた）場合のフォールバックを、文書全体で共有するグローバルな
+  `fallbackLine` から、**同じ段落内の直前の実行番号からの連番補完**に変更した:
+  `entry.lines[entry.lines.length - 1] + (lineIndex - (entry.lines.length - 1))`。
+- これにより、末尾 hardbreak の番号は必ず「同じ段落内の直前の実行番号の次」になり、
+  後続の実ブロックの番号より小さくなることが保証される（少なくとも局所的な単調増加を
+  維持する）。真の実ソース行番号（保存後に確定する値）とは1エディットサイクルの間だけ
+  ズレうるが、そのズレは既存のガター表示の粒度では気づかれない範囲に収まる。
+
+### テスト
+
+`test/browser/rendering/lineNumberGutter.test.ts`:
+「段落内でEnterを連続で押しても、行番号は昇順のまま・後続ブロックより手前の番号にならない」
+（Enter → 文字入力 → 再度 Enter、という exact な再現条件でのみ症状が出ることを確認済み。
+2回連続 Enter のみ・入力無し、では両方の trailing hardbreak が脱落して symptom が
+再現しないため、意図的にこの順序でテストしている）。
+
 ## 対象外（今後の課題）
 
 - リスト項目間・blockquote内・テーブルセル内の空行の復元。

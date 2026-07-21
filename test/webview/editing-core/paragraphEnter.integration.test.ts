@@ -61,7 +61,8 @@ describe('webview統合: 段落での Enter / Shift+Enter', () => {
         const start = findFirstPosOfType(h, 'paragraph');
         h.setCursor(start + 5);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.deepStrictEqual(paragraphTexts(h), ['helloworld'], '段落が分割されてはいけない');
+        // hardbreak の leafText は "\n" なので textContent にもそのまま現れる。
+        assert.deepStrictEqual(paragraphTexts(h), ['hello\nworld'], '段落が分割されてはいけない');
         assert.strictEqual(hardBreakCount(h), 1);
     });
 
@@ -70,7 +71,7 @@ describe('webview統合: 段落での Enter / Shift+Enter', () => {
         const start = findFirstPosOfType(h, 'paragraph');
         h.setCursor(start);
         h.pressKey({ key: 'Enter', code: 'Enter' });
-        assert.deepStrictEqual(paragraphTexts(h), ['content']);
+        assert.deepStrictEqual(paragraphTexts(h), ['\ncontent']);
         assert.strictEqual(hardBreakCount(h), 1);
     });
 

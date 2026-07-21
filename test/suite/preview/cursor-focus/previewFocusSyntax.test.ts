@@ -164,10 +164,15 @@ describe('detectSlashMatch', () => {
                     $from: {
                         pos: 4,
                         parentOffset: 2,
+                        // virtualLineStart（hardbreak 継続行の判定）が使う最小限のスタブ。
+                        // この段落は hardbreak を挟まないため start()=段落先頭、forEach は
+                        // 何もしない（子ノード無しと同義）。
+                        start: () => 2,
                         parent: {
                             isTextblock: true,
                             type: { name: 'paragraph' },
-                            textBetween: () => '/h'
+                            textBetween: () => '/h',
+                            forEach: () => { /* hardbreak を挟まない */ }
                         }
                     }
                 }

@@ -89,6 +89,24 @@ describe('実ブラウザ: 行番号ガター', function () {
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('段落内でEnterを連続で押しても、行番号は昇順のまま・後続ブロックより手前の番号にならない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '対象行\n\n末尾段落\n', '対象行', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+
+        await h.placeCursorAfterText('対象行');
+        await h.press('Enter'); // 1回目のhardbreak
+        await h.type('追記'); // hardbreakの後に実文字を入れる（段落が複数行として直列化される）
+        await h.press('Enter'); // 2回目: まだ何も打っていない末尾のhardbreakが増える
+        await h.page.waitForTimeout(200);
+
+        const numbers = (await gutterNumbers(h)).map(Number);
+        const sorted = [...numbers].sort((a, b) => a - b);
+        assert.deepStrictEqual(numbers, sorted,
+            `行番号が昇順になっていない（Enter連打でフォールバック番号が古いキャッシュ値のまま順序を乱した）: ${JSON.stringify(numbers)}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('実ソース行番号が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）', async function () {
         if (!browser) { this.skip(); return; }
         const md = '# 見出し\n\n本文の段落です。\n\n- リスト項目1\n- リスト項目2\n\n```js\nconst x = 1;\nconsole.log(x);\n```\n\n> 引用文\n\n最後の段落。\n';
