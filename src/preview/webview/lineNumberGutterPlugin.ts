@@ -241,21 +241,34 @@ export function computeLineAnchors(
             }
         } else {
             const entry = nextEntry();
-            if (entry?.kind === 'multi' && node.isTextblock) {
-                anchors.push({ pos: offset + 1, line: entry.lines[0] ?? fallbackLine++ });
+            let hasHardbreak = false;
+            if (node.isTextblock) {
+                node.forEach((child) => {
+                    if (child.type.name === 'hardbreak') hasHardbreak = true;
+                });
+            }
+            if (hasHardbreak) {
+                // mdast 再パースが何行と認識しているかに関わらず（Enter 直後、まだ何も
+                // 入力していない状態では末尾 hardbreak が直列化 Markdown 上で脱落し、
+                // entry.kind が 'multi' にならず 'single' になることがある）、実際に
+                // hardbreak を持つ段落は必ずこの分岐に入り、先頭行 + hardbreak ごとの行を
+                // widget として出す。基準となる実ソース行番号の配列は、entry の種別に
+                // 応じて 'multi' なら entry.lines、それ以外は1要素配列にそろえる。
+                const lines = entry?.kind === 'multi' ? entry.lines : [singleLineOf(entry)];
+                anchors.push({ pos: offset + 1, line: lines[0] ?? fallbackLine++ });
                 let lineIndex = 1;
                 node.forEach((child, childOffset) => {
                     if (child.type.name !== 'hardbreak') return;
                     // 何も文字を打っていない末尾の hardbreak は、直列化した Markdown の
                     // 時点で「その行」が消える（改行を続ける対象が無いため）。そのため
-                    // remark 再パースの entry.lines がこの hardbreak 分だけ足りないことが
+                    // remark 再パースの lines がこの hardbreak 分だけ足りないことが
                     // ある（Enter を連打した直後、まだ何も入力していない状態）。この場合、
                     // 文書全体の最大行 + 1 という「グローバルな」フォールバックを使うと、
                     // 直後の実ブロック（既に実ソース行番号を持つ）より大きい保証が無く、
                     // 番号の前後関係が崩れる（例: 5, 3, 4 のように後退する）。同じ段落内の
                     // 直前の実行番号から連番で補うことで、少なくとも単調増加を保つ。
-                    const line = entry.lines[lineIndex]
-                        ?? entry.lines[entry.lines.length - 1] + (lineIndex - (entry.lines.length - 1));
+                    const line = lines[lineIndex]
+                        ?? lines[lines.length - 1] + (lineIndex - (lines.length - 1));
                     anchors.push({
                         pos: offset + 1 + childOffset + child.nodeSize,
                         line

@@ -53,7 +53,7 @@ import {
 } from './table';
 
 export function activate(context: vscode.ExtensionContext): void {
-    rawRuntime.debugChannel = vscode.window.createOutputChannel('Markdown Table Debug');
+    rawRuntime.debugChannel = vscode.window.createOutputChannel('Markdown Inline Preview');
     debugLog('=== Markdown Inline Preview Extension Activated ===');
 
     if (shouldDisableCompetingMarkdownFeatures()) {
