@@ -107,6 +107,33 @@ describe('実ブラウザ: 行番号ガター', function () {
         assert.deepStrictEqual(h.errors, []);
     });
 
+    it('段落内でEnterを1回押した直後（まだ何も入力していない状態）でも、新しい行の行番号がすぐに表示される', async function () {
+        if (!browser) { this.skip(); return; }
+        // 2026-07-22 ユーザー報告: 文字を入れた瞬間は行番号が更新されるが、Enterを押した
+        // 瞬間には更新されない。原因は、直後の再パースで「まだ何も入力していない末尾の
+        // hardbreak」を含む段落が単一行として解析され、hardbreak 分の widget 追加ロジック
+        // （entry.kind === 'multi' 前提）が丸ごとスキップされていたため。
+        //
+        // 新しい行の番号は、ファイルへの書き戻しが実際に起きるまで原理的に確定しない
+        // （trailing hardbreak が空の間は直列化 Markdown が Enter 前後で変化しないため）ので
+        // 「同じ段落内の直前行 + 1」という暫定番号を表示する仕様とし、後続の未再パースの
+        // ブロックと一時的に重複しうる（blank-line-preservation.md 7節）。ここで検証すべき
+        // 中心的な性質は「widget自体がEnter直後から4つに増える（＝新しい行が消えない）」こと。
+        h = await openPreview(browser, '対象行\n\n末尾段落\n', '対象行', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+
+        await h.placeCursorAfterText('対象行');
+        await h.press('Enter');
+        await h.page.waitForTimeout(100);
+
+        const numbers = await gutterNumbers(h);
+        assert.strictEqual(numbers.length, 4, `Enter直後に新しい行のwidgetが出ていない: ${JSON.stringify(numbers)}`);
+        const asNumbers = numbers.map(Number);
+        const sorted = [...asNumbers].sort((a, b) => a - b);
+        assert.deepStrictEqual(asNumbers, sorted, `行番号が後退している: ${JSON.stringify(numbers)}`);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('実ソース行番号が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）', async function () {
         if (!browser) { this.skip(); return; }
         const md = '# 見出し\n\n本文の段落です。\n\n- リスト項目1\n- リスト項目2\n\n```js\nconst x = 1;\nconsole.log(x);\n```\n\n> 引用文\n\n最後の段落。\n';
