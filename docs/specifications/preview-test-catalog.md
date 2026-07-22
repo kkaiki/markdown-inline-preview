@@ -2,13 +2,13 @@
 
 <!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->
 
-最終生成: 2026-07-20
+最終生成: 2026-07-22
 
 テストのタイトルは「この操作をしたら、こう動く」という仕様文として書かれている。
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1335 件**
+**総テスト数: 1336 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 114 件
 
@@ -293,7 +293,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 304 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 305 件
 
 実行: `npm run test:browser`
 
@@ -1154,7 +1154,7 @@
   - 外部編集（update メッセージ）で frontmatter が変わるとパネルも追従する
   - frontmatter が無いファイルではパネルは出ない（showFrontmatter: true でも）
 
-### `test/browser/rendering/lineNumberGutter.test.ts`（19 件）
+### `test/browser/rendering/lineNumberGutter.test.ts`（20 件）
 
 > 実ブラウザ回帰テスト: 行番号ガター（lineNumberGutterPlugin）。
 >
@@ -1178,6 +1178,7 @@
   - 新規空ページの編集用プレースホルダーには行番号を出さない
   - Rawの単一改行をPreviewでも改行表示し、改行後の行番号も出す
   - 段落内でEnterを連続で押しても、行番号は昇順のまま・後続ブロックより手前の番号にならない
+  - 段落内でEnterを1回押した直後（まだ何も入力していない状態）でも、新しい行の行番号がすぐに表示される
   - 実ソース行番号が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）
   - コードブロックの非フォーカス時も開閉フェンスとその行番号を表示する
   - コードブロックにフォーカスして実テキスト展開中は、フェンス widget が消えて ``` は1組だけ表示される（二重表示しない）
