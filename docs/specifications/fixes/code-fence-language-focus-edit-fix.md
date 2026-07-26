@@ -67,7 +67,7 @@
 これは今回の `<input>` 化以前から存在した**既存のバグ**で、以前の `<select>` の `change`
 ハンドラも全く同じ呼び出し方をしていたため、**言語ドロップダウンから言語を選択する機能は
 リリース当初から一度も機能していなかった**と考えられる（`codeLanguagePlugin.ts` は
-`docs/testing-rules.md` に「テスト0件」と記載されており、これまで気づかれていなかった）。
+`docs/testing/testing-rules.md` に「テスト0件」と記載されており、これまで気づかれていなかった）。
 
 修正: `src/preview/webview/milkdownApp.ts` で `updateCodeBlockLanguageCommand` を
 `commonmark` の直後に明示的に `.use()` する。

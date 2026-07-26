@@ -182,7 +182,7 @@ export class PreviewSlashMenuController {
                 // `[ ]` テキスト（空タスク項目は GFM としてパースされない）になる。
                 // 末尾スペースで終わる（＝本文を続けて書く）項目にはプレースホルダー文字を
                 // 足してパースし、置換後にその 1 文字を削除した位置へカーソルを置く。
-                // 詳細: docs/specifications/preview-slash-empty-block-fix.md
+                // 詳細: docs/specifications/fixes/preview-slash-empty-block-fix.md
                 const PLACEHOLDER = '⁠'; // word joiner（本文に現れない不可視文字）
                 const needsPlaceholder = markdown.endsWith(' ');
                 const rawSlice = markdownToSlice(needsPlaceholder ? markdown + PLACEHOLDER : markdown)(ctx);

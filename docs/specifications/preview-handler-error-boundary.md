@@ -4,14 +4,14 @@
 
 ## 1. 背景
 
-`docs/vscode-office-stability-analysis.md`（vscode-office との比較調査）が指摘した最優先ギャップ:
+vscode-office（Vditor ベースの類似拡張）との比較調査で指摘された最優先ギャップ:
 本プロジェクトの `previewPanel.ts` は多くの経路を `void somePromise()` の fire-and-forget で
 処理しており、失敗してもユーザー・開発者どちらにも一切見えない。`change` メッセージ（webview →
 document の保存）については `webview-save-failure-visibility.md`（2026-07-14）で既に
 `reportRejection` + `debugLog` + `showErrorMessage` の対処が入ったが、それ以外の経路は
 未対応のまま残っていた。
 
-`docs/vditor-base-migration-plan.md` §9 のとおり、Vditor へのエンジン全面移行は Phase 0 の
+Vditor へのエンジン全面移行は、検討の結果 Phase 0 の
 PoC で No-Go と判定された（ラウンドトリップが Lute の仕様上成立しない）。vscode-office の
 安定性の本質はエンジンではなくこの「一律エラーバウンダリ」にあるという分析メモの結論を受け、
 エンジンは Milkdown のまま、この対処を横展開する。
@@ -64,7 +64,7 @@ PoC で No-Go と判定された（ラウンドトリップが Lute の仕様上
 - `showErrorMessage` の頻度制限は本修正のスコープ外（`webview-save-failure-visibility.md` と同じ判断）。
 - Milkdown プラグイン間の相互作用起因のバグ（本質的な複雑さ）は本修正の対象外。個別の
   TDD ループ（`tdd-browser-preview` skill）で引き続き縮小する。
-- Vditor へのエンジン移行は `docs/vditor-base-migration-plan.md` の判定により凍結中。
+- Vditor へのエンジン移行は No-Go 判定により凍結中（移行計画書は 2026-07-26 に破棄）。
 
 ## 6. 追記（2026-07-21）: `switchToRaw` が「切替自体は成功しているのに」頻繁にエラーを出す regression の修正
 

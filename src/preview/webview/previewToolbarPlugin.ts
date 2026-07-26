@@ -202,7 +202,7 @@ function toggleCheckbox(view: EditorView): void {
         // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
         // wrap と checked 設定は同じ transaction にまとめて 1 回だけ dispatch する
         // （2 回に分けると list-item-block Web Component の再マウントでカーソルが別
-        // ブロックへ飛ぶことがある。詳細: docs/specifications/checkbox-cursor-jump-fix.md）。
+        // ブロックへ飛ぶことがある。詳細: docs/specifications/fixes/checkbox-cursor-jump-fix.md）。
         demoteHeadingToParagraph(view);
         wrapInBulletListAndSetChecked(view.state, view, false);
         view.focus();

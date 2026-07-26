@@ -2,7 +2,7 @@
 
 最終更新: 2026-07-06
 
-関連: [preview-focus-jump-tests-overview.md](../preview-focus-jump-tests-overview.md)（フォーカス位置バグの既存テスト棚卸し）、
+関連: [preview-focus-jump-tests-overview.md](../specifications/preview-focus-jump-tests-overview.md)（フォーカス位置バグの既存テスト棚卸し）、
 [preview-test-catalog.md](preview-test-catalog.md)、[spec-test-coverage.md](spec-test-coverage.md)
 
 ***
@@ -220,6 +220,7 @@ test/
 | -------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `blockPrefixEdit.integration.test.ts`        | `blockPrefixEditPlugin` の展開ロジック（見出し/タスクリスト/箇条書き/blockquote・リンクのマーク非継承・markerBackspace との共存） |
 | `previewDiffFocusExpand.integration.test.ts` | 展開中プレフィックスを diff 比較から除外する処理（フォーカスしただけで「変更」ガターが点かない）                                         |
+| `previewDiffInlineMarkExpand.integration.test.ts` | 展開中インライン記法マーカー（`` ` ``/`**`/`[..](..)`）を diff 比較から除外する処理（テーブルセル内含む）                                         |
 
 #### → `webview/shortcuts/`
 
@@ -367,7 +368,7 @@ test/
    `helpers`）は各レイヤー直下に残すため、移動したテストからは `../xxx` に一段深くなる。
 5. **`test/README.md`** **と** **`CLAUDE.md`**: 構成図・「どちらのテストを書くか」にカテゴリの
    判定基準（§1.4 の表）を反映。
-6. **`docs/specifications/spec-test-coverage.md`**: パス変更を反映。
+6. **`docs/testing/spec-test-coverage.md`**: パス変更を反映。
 7. **`npm run docs:test-catalog`** **を再生成してコミットに含める**（必須運用ルール）。
 
 ## 5. カテゴリ別ギャップ（再編後にまず書くべきテスト）→ 消化済み（2026-07-07）

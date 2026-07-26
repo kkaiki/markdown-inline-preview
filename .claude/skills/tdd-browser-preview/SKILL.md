@@ -6,7 +6,7 @@ description: "markdown-inline-preview プロジェクトでのバグ修正 TDD �
 # TDD ワークフロー: markdown-inline-preview
 
 > テストの**原則**（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク規則）は
-> `docs/testing-rules.md` が正。本スキルは手順（HOW）、testing-rules は判断基準（WHY/WHAT）。
+> `docs/testing/testing-rules.md` が正。本スキルは手順（HOW）、testing-rules は判断基準（WHY/WHAT）。
 
 ## 呼び出しタイミング
 

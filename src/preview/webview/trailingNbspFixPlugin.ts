@@ -7,7 +7,7 @@
  * 自動的に通常スペースの代わりに NBSP を DOM へ挿入する（表示が消えないようにする
  * ブラウザ側の代替措置）。ProseMirror の DOMObserver はこれをそのまま doc モデルへ
  * 読み戻すため、NBSP が直列化 markdown にまで不可視文字として漏れてしまう
- * （詳細: docs/specifications/trailing-space-nbsp-corruption-fix.md）。
+ * （詳細: docs/specifications/fixes/trailing-space-nbsp-corruption-fix.md）。
  *
  * この代替措置は「行末に一瞬でも来た」だけで発火し（例: 見出し変換の直後に
  * blockPrefixEditPlugin がプレフィックスを再挿入する瞬間など、ユーザーの直接タイプ

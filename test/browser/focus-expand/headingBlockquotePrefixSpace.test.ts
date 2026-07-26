@@ -12,7 +12,7 @@
  * 置き換えられたものとして扱ってしまうことが原因。箇条書き・番号付き・チェックボックス
  * （`list-item-block` Web Component でレンダリング）では再現しない。
  *
- * 詳細設計: docs/specifications/heading-blockquote-prefix-space-fix.md
+ * 詳細設計: docs/specifications/fixes/heading-blockquote-prefix-space-fix.md
  *
  * 既存のマークダウンを読み込んだ場合は問題無い。実際にキーを1つずつ押した場合にだけ
  * 再現するため、`h.type()`（実キーイベント）で検証する。

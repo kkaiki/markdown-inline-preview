@@ -7,7 +7,7 @@
 ```
 1. 失敗するテストを書く
 2. テストを実行して「失敗」を確認する
-3. 仕様（docs/specifications/）を更新する
+3. 仕様（機能仕様は `docs/specifications/`、バグ修正は `docs/specifications/fixes/`）を更新する
 4. 実装を修正する
 5. テストが「成功」に変わることを確認する
 ```
@@ -26,7 +26,7 @@ Chromium を実際に起動してカテゴリ横断でシナリオを総当た�
 
 ## テスト体系
 
-> **原則は [docs/testing-rules.md](docs/testing-rules.md)（テストの掟）が正**。
+> **原則は [docs/testing/testing-rules.md](docs/testing/testing-rules.md)（テストの掟）が正**。
 > レイヤーの信頼度序列（実 VS Code が主軸・下位レイヤーは代替にならない）、
 > 偽装カバレッジの禁止、アンチフレーク規則、新テスト追加チェックリストはそちらを参照。
 
@@ -42,7 +42,7 @@ Chromium を実際に起動してカテゴリ横断でシナリオを総当た�
 置き場所は2つの質問で決まる: **(1) レイヤー**（実行環境。下記4層。実行コマンド・速度が違うので混ぜられない）、
 **(2) カテゴリ**（症状/機能。全レイヤー共通の語彙だが、中身が無いカテゴリはそのレイヤーに作らない）。
 詳細な判定基準・全ファイルの移行マッピングは
-`docs/specifications/test-directory-design.md` を参照。
+`docs/testing/test-directory-design.md` を参照。
 
 ```
 test/
@@ -92,7 +92,7 @@ test/
 
 ## テストカタログ（必須の運用ルール）
 
-全テストのタイトルは `docs/specifications/preview-test-catalog.md` に**ユースケース一覧（生きた仕様書）**として自動集約される。
+全テストのタイトルは `docs/testing/preview-test-catalog.md` に**ユースケース一覧（生きた仕様書）**として自動集約される。
 
 ```bash
 npm run docs:test-catalog   # カタログ md を再生成
@@ -104,8 +104,8 @@ npm run docs:test-catalog   # カタログ md を再生成
   - 良い例: `チェック済み項目で Enter すると新しい項目は未チェックで始まる`
   - 悪い例: `checkbox test 3`
 - ファイル冒頭の `/** ... */` コメントもカタログに説明として載る。新しいテストファイルには必ず「何を・なぜ・どの層で」検証するかを書く。
-- まだテスト化していないユースケースの候補は `docs/specifications/preview-usage-flow-test-backlog.md` に追記し、テスト化したらバックログから消してカタログ（＝実テスト）へ移す。
-- 仕様書（機能仕様・fix 仕様）を追加・変更したら `docs/specifications/spec-test-coverage.md` の対応表も更新する（どの仕様がどのテストで担保されるかを常に見えるようにする）。
+- まだテスト化していないユースケースの候補は `docs/testing/preview-usage-flow-test-backlog.md` に追記し、テスト化したらバックログから消してカタログ（＝実テスト）へ移す。
+- 仕様書（機能仕様・fix 仕様）を追加・変更したら `docs/testing/spec-test-coverage.md` の対応表も更新する（どの仕様がどのテストで担保されるかを常に見えるようにする）。
 
 ---
 

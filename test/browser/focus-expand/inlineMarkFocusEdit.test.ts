@@ -13,7 +13,7 @@
  * `inlineMarkEditPlugin` は、フォーカス中のブロック内にある対象マーク（strong / emphasis /
  * inlineCode / strike_through / link）を実テキストとして展開し、フォーカスが外れたら現在の
  * マーカー文字を読み取ってマークを再構築する。link は href（`](url)` の中身）も編集対象に
- * 含む（`docs/specifications/inline-mark-focus-edit-fix.md` 参照）。
+ * 含む（`docs/specifications/fixes/inline-mark-focus-edit-fix.md` 参照）。
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */

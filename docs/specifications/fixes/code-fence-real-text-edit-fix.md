@@ -16,7 +16,7 @@
 しかし、見出し（`## `）やインライン記法（`**` 等）は同じ懸念（展開中に保存されると
 プレフィックスが直列化されてしまう）を、**展開中は `markdownUpdated` への同期を
 抑制し、collapse 完了直後にのみ明示的に再直列化する**（`isBlockPrefixActive()` /
-`isInlineMarkEditActive()`、`docs/specifications/collapse-markdown-sync-fix.md`）という
+`isInlineMarkEditActive()`、`docs/specifications/fixes/collapse-markdown-sync-fix.md`）という
 既存の仕組みで解決している。コードフェンスも同じ仕組みを転用すれば、実テキスト化
 による保存時の紛れ込みリスクを回避できる。
 

@@ -3,15 +3,15 @@
 ユニットテストと VS Code 統合テストのソースです。ビルド後は `out-test/` に出力されます。
 
 テストの**原則**（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク・
-新テスト追加チェックリスト）は [docs/testing-rules.md](../docs/testing-rules.md) が正。
+新テスト追加チェックリスト）は [docs/testing/testing-rules.md](../docs/testing/testing-rules.md) が正。
 
 全テストのタイトル一覧（ユースケースカタログ）は
-[docs/specifications/preview-test-catalog.md](../docs/specifications/preview-test-catalog.md)
+[docs/testing/preview-test-catalog.md](../docs/testing/preview-test-catalog.md)
 （`npm run docs:test-catalog` で自動生成）、仕様との対応は
-[docs/specifications/spec-test-coverage.md](../docs/specifications/spec-test-coverage.md) を参照。
+[docs/testing/spec-test-coverage.md](../docs/testing/spec-test-coverage.md) を参照。
 
 置き場所の設計思想（レイヤー × 症状カテゴリの2軸）の詳細は
-[docs/specifications/test-directory-design.md](../docs/specifications/test-directory-design.md) を参照。
+[docs/testing/test-directory-design.md](../docs/testing/test-directory-design.md) を参照。
 
 ## 構成（レイヤー × 症状カテゴリで分類）
 

@@ -3,7 +3,7 @@
  *
  * 実 Chromium の contenteditable へ実キーを送り、本文だけでなくProseMirror構造、
  * selection、hostへ送るMarkdown、page errorを同時に検証する。
- * input-editing-tdd-investigation-plan.md の EDIT-001〜012 に対応する。
+ * 通常段落での文字入力・削除・改行（EDIT-001〜012）を実 Chromium で固定する。
  */
 import * as assert from 'assert';
 import type { Browser } from 'playwright';

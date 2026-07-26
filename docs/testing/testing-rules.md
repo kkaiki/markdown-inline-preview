@@ -3,8 +3,8 @@
 最終更新: 2026-07-07
 
 このプロジェクトのテストに関する**判断基準と禁止事項**を一元化した文書。
-「どこに何を書くか」の分類は [test-directory-design.md](specifications/test-directory-design.md)、
-「まだ何が足りないか」は [preview-usage-flow-test-backlog.md](specifications/preview-usage-flow-test-backlog.md)、
+「どこに何を書くか」の分類は [test-directory-design.md](./test-directory-design.md)、
+「まだ何が足りないか」は [preview-usage-flow-test-backlog.md](./preview-usage-flow-test-backlog.md)、
 「どう進めるか（TDD手順）」は `.claude/skills/tdd-browser-preview/SKILL.md` を参照。
 本書はそれらの上位にある**原則**を定める。矛盾したら本書が勝つ。
 
@@ -101,18 +101,18 @@ skip には再現条件・調査結果・判断理由を fix ドキュメント�
   実装が先のコミットを認めない（CLAUDE.md と同一）。
 
 - **タイトルは仕様文**: 「この操作をしたら、こう動く」。カタログ
-  （[preview-test-catalog.md](specifications/preview-test-catalog.md)）が
+  （[preview-test-catalog.md](./preview-test-catalog.md)）が
   生きた仕様書になるのはタイトルが仕様文のときだけ。
 
 - **カタログ再生成**: テストの追加・改名・削除をしたら `npm run docs:test-catalog` を
   実行し、コミットに含める。
 
 - **バックログ駆動**: 未テストのユースケースは思いついた時点で
-  [preview-usage-flow-test-backlog.md](specifications/preview-usage-flow-test-backlog.md) に
+  [preview-usage-flow-test-backlog.md](./preview-usage-flow-test-backlog.md) に
   書く。テスト化したらバックログから消して「消化済み」に移す（発見バグの有無も書く）。
 
 - **仕様との対応表**: 仕様書（機能仕様・fix 仕様）を追加・変更したら
-  [spec-test-coverage.md](specifications/spec-test-coverage.md) を更新する。
+  [spec-test-coverage.md](./spec-test-coverage.md) を更新する。
 
 - **ビルドを忘れない**: `src/preview/webview/` を変えたら `npm run build:webview`、
   ホスト側を変えたら `npm run build:host` をしてからテスト。古いバンドルへの

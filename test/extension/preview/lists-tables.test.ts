@@ -10,7 +10,7 @@
  * `external-sync.test.ts` 12.7 と同じ仕組み）を使い、チェックボックス操作の結果として
  * webview が送るであろう markdown 全文を模して、実ドキュメント・実ディスクへの反映を確認する。
  *
- * 発端: 2026-07-08、`docs/specifications/preview-usage-flow-test-backlog.md` 4.2 の監査で
+ * 発端: 2026-07-08、`docs/testing/preview-usage-flow-test-backlog.md` 4.2 の監査で
  * `test/extension/preview/` に lists-tables カテゴリ（チェックボックス関連）が
  * 1件も存在しないことが判明した。
  *
@@ -121,7 +121,7 @@ suite('Preview: lists-tables（実 VS Code end-to-end）', () => {
 
     test('13.3 行頭 Backspace によるチェックボックス→箇条書きの降格が実ドキュメント・実ディスクへ反映される', async function () {
         // markerBackspace.ts の降格バグ（2026-07-08 発見・修正、
-        // docs/specifications/preview-usage-flow-test-backlog.md 4.2）の host 側回帰確認。
+        // docs/testing/preview-usage-flow-test-backlog.md 4.2）の host 側回帰確認。
         // webview 側での降格結果（"- [ ] second" → "- second"）を模した markdown を
         // そのまま受信させ、記法の混線やタブ増殖なく実ファイルへ保存されることを確認する。
         this.timeout(20000);

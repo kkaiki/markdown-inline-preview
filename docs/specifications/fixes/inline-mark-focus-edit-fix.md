@@ -142,6 +142,57 @@ Cmd+B 等がマーカー文字自体を巻き込んで壊れる）。選択が�
   トグルショートカットが無い3種（コード・取り消し線・リンク）向けに、選択→Backspaceで
   選択範囲だけが消えることを見て、選択が単一カーソルへ潰れていないか確認する形にした。
 
+## 3.2. Git 差分ガターが「フォーカスしただけで変更（青バー）」になる（2026-07-26 追加）
+
+### 症状
+
+`` `docs/spec.md` `` のようなインラインコードを含む行（ユーザー報告時は**テーブルのセル内**）に
+カーソルを入れただけで、まだ 1 文字も編集していないのに Git 差分ガターの**青バー
+（`.diff-modified`）がブロック左に出る**。テーブルの場合、差分の単位はトップレベルノード
+なのでテーブル全体の高さの青い縦線になる（＝「編集していないのに編集済みの表示が出る」）。
+
+### 原因
+
+2 つある。
+
+1. `previewDiffPlugin.blockSignatures()` は、`blockPrefixEditPlugin` が挿入する行頭プレフィックス
+   （`## ` 等）1 レンジしか比較から除外していなかった。`inlineMarkEditPlugin` が挿入する
+   マーカー（`` ` `` / `**` / `*` / `~~` / `[` / `](url)`）と、`codeFenceEditPlugin` が挿入する
+   フェンス行（`` ```lang `` / `` ``` ``）は除外対象外だったため、HEAD 側のシグネチャと必ず
+   食い違う。**「フォーカスで実テキストを挿入する」プラグインは全部で 3 つあり、除外も
+   3 つ揃っていなければならない**（この 3 つが今回の症状の全数）。
+2. `inlineMarkEditPlugin.expandBlock()` が展開状態（`expandedBlockPos` / `expandedMarks`）を
+   `view.dispatch()` の**後**に代入していた。展開の transaction を処理している最中に走る
+   `previewDiffPlugin` の `decorations()` はまだ空の `expandedMarks` を見るため、たとえ (1) を
+   直しても青バーが出たまま次の state 更新まで残る。
+
+### 仕様
+
+- `blockSignatures(doc, expandedRanges)` は**レンジの配列**を受け取り、各トップレベルブロックに
+  内包されるレンジをすべて本文テキストから除外する（単一レンジのオブジェクト渡しも従来どおり
+  受け付ける）。
+- `inlineMarkEditPlugin` は `getExpandedInlineMarkRanges(doc)` を公開し、現在展開中の開き／閉じ
+  マーカーの絶対位置レンジを返す。link は可変長の `](url)` を含むため `openMarkerStart` /
+  `closeMarkerEnd`（外側境界）を使う。`doc` を渡した場合は collapse 時と同じ判定
+  （`countTrailingMarkerChars` / `countLeadingMarkerChars` / `isLinkOpenMarkerIntact` /
+  `parseLinkCloseMarkerHref`）で**今も残っているマーカー文字だけ**を範囲にする。展開中に
+  マーカーを一部消したとき、挿入時の長さのままでは範囲が本文側へはみ出し、本文の文字が
+  比較から欠落するため。
+- `codeFenceEditPlugin` は `getExpandedCodeFenceRanges(doc)` を公開し、展開中のフェンス実テキスト
+  （`` ```lang\n `` と `` \n``` ``）のレンジを返す。判定は collapse と同じ `parseCodeFenceRealText`
+  で行い、フェンスを編集途中で崩している場合は除外しない（実編集として差分に出す）。
+- `previewDiffPlugin` はブロックプレフィックス／インラインマーク／コードフェンスの 3 系統の
+  レンジを合成して `blockSignatures()` に渡す。
+- `expandBlock()` は展開状態を `view.dispatch()` の**前**に確定させる
+  （`blockPrefixEditPlugin` と同じ方針）。
+- マーカーの**外側**（本文）を実際に編集したブロックは、これまでどおり「変更」と判定される
+  （除外しすぎない）。
+
+### テスト
+
+- `test/webview/focus-expand/previewDiffInlineMarkExpand.integration.test.ts`（jsdom + Milkdown 実エディタ）
+- `test/browser/external-sync/diffGutterFocusExpand.test.ts`（実 Chromium・実バンドル・実クリック。テーブルセル / 段落 / 見出し / 見出し内インラインコード（プレフィックス展開と同時）/ 別ブロックへ移動後 / コードブロックのフェンス展開 / 実際に打鍵したら出ること）
+
 ## 4. スコープ外
 
 - コードフェンス（```` ``` ````）の backtick 文字自体の実テキスト化は対象外

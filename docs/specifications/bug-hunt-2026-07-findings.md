@@ -15,7 +15,7 @@
 | **コードブロック内で Tab を押すと次のブロック（見出し等）へ移動したように見える**（ユーザー報告） | ProseMirror が `code_block` に Tab を割り当てておらず、`event.preventDefault()` されないため、ブラウザ既定の「次のフォーカス可能要素へ移動」が発動し、コードブロック自身の言語選択 `<select>` へ DOM フォーカスが飛んでいた | `classifyPreviewShortcut` に `codeBlockTab` を追加し、`code_block` 内では Tab=タブ挿入・Shift+Tab=インデント解除として処理、`preventDefault` で既定動作を止める | `test/browser/codeBlockTabFocus.test.ts`, `test/suite/preview/previewShortcuts.test.ts` |
 | **Mermaid 図内テキストをマウスドラッグで選択・コピーできない**（ユーザー報告） | 図は `Decoration.widget` として描画されるが、spec に `ignoreSelection: true` が無く、ProseMirror の `WidgetViewDesc.ignoreMutation` が selection 変更を「無視すべきでない変更」として処理し直し、ユーザーの手動選択を消していた | `Decoration.widget` の spec に `ignoreSelection: true` を追加 | `test/browser/mermaidTextSelection.test.ts` |
 
-詳細: [untitled-preview-content-loss-fix.md](untitled-preview-content-loss-fix.md) / [preview-external-write-race-fix.md](preview-external-write-race-fix.md) / [code-block-tab-focus-leak-fix.md](code-block-tab-focus-leak-fix.md) / [mermaid-text-selection-fix.md](mermaid-text-selection-fix.md)
+詳細: [untitled-preview-content-loss-fix.md](fixes/untitled-preview-content-loss-fix.md) / [preview-external-write-race-fix.md](fixes/preview-external-write-race-fix.md) / [code-block-tab-focus-leak-fix.md](fixes/code-block-tab-focus-leak-fix.md) / [mermaid-text-selection-fix.md](fixes/mermaid-text-selection-fix.md)
 
 ## 2. 検証したが「バグではない」と確認できた仮説
 

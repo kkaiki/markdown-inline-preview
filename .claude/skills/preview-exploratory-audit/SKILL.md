@@ -12,13 +12,13 @@ TDD ワークフローを担う。対してこのスキルは、**まだ何が�
 壊れている箇所そのものを見つけ出すための探索調査（audit）を担う。
 
 過去に一度、3エージョントによる `src/` ⇄ `test/` 突き合わせ監査（2026-07-07、
-`docs/specifications/preview-usage-flow-test-backlog.md` §4）を実施し、実際にいくつもの
+`docs/testing/preview-usage-flow-test-backlog.md` §4）を実施し、実際にいくつもの
 実バグ（タブ増殖のレースコンディション、カーソル飛びなど）を発見・修正できた実績がある。
 このスキルはその手順を再利用可能な形にしたもの。
 
 **なぜ「実際に VS Code / Chromium を起動して操作する」ことにこだわるか**:
 このプロジェクトでこれまで実際にユーザーを苦しめてきたバグ（タブ複製・フォーカス飛び・
-カーソルズレ・IME破壊）は、すべて実環境でしか再現しなかった（`docs/testing-rules.md` 原則1）。
+カーソルズレ・IME破壊）は、すべて実環境でしか再現しなかった（`docs/testing/testing-rules.md` 原則1）。
 静的なコード読解だけでは「ありそうな不整合」の仮説止まりになり、実際に発火するかは
 分からない。したがって監査の最終工程は必ず実 VS Code 拡張ホスト（`test/extension/`）または
 実 Chromium（`test/browser/`）を起動してシナリオを実行することで締める。
@@ -28,7 +28,7 @@ TDD ワークフローを担う。対してこのスキルは、**まだ何が�
 ### 段階A: 静的ギャップ発見（何を操作すべきかの候補出し）
 
 各症状カテゴリ（下記の表）について、対応する `src/` の実装ファイルと、
-`docs/specifications/preview-test-catalog.md` に載っている既存テストタイトルを突き合わせ、
+`docs/testing/preview-test-catalog.md` に載っている既存テストタイトルを突き合わせ、
 「実装には分岐があるのにテストタイトルが触れていない」組み合わせを洗い出す。
 過去の `*-fix.md`（`docs/specifications/` 配下）の再現条件も、現行テストが実際に
 その条件をカバーしているか読み直す（似た条件で別バグを見つけた `webview-disposed-race-fix.md`
@@ -57,7 +57,7 @@ rendering / ime / navigation / tabs-editors / settings / usage-flows）は多い
 監査が終わったら消すか、価値があるものだけ本採用のテストとして残す）。
 
 各操作のあとに例外・アサーション失敗・タブ数の想定外の増減・フォーカス位置のズレが
-無いかを確認する。「クラッシュしない」だけでは不十分（`docs/testing-rules.md` ルール2-2）で、
+無いかを確認する。「クラッシュしない」だけでは不十分（`docs/testing/testing-rules.md` ルール2-2）で、
 **本来守られるべき性質**（内容が正しい・上書きされない・フォーカスが正しい・タブが1つのまま）
 を具体的にアサートすること。
 
@@ -85,7 +85,7 @@ rendering / ime / navigation / tabs-editors / settings / usage-flows）は多い
 
 ## 発見した候補の記録先
 
-見つけたものは、種類に応じて `docs/specifications/preview-usage-flow-test-backlog.md` に
+見つけたものは、種類に応じて `docs/testing/preview-usage-flow-test-backlog.md` に
 既存の書式（§4 のスタイル）で追記する:
 
 - **実バグの疑いが強いもの** → 新しい日付見出しの下に「§4.1 実バグの疑いが強いもの」相当として追記
@@ -108,9 +108,9 @@ rendering / ime / navigation / tabs-editors / settings / usage-flows）は多い
 
 ```bash
 # 静的ギャップ発見に使う参照ファイル
-docs/specifications/preview-test-catalog.md          # 既存テストの一覧（生きた仕様書）
-docs/specifications/preview-usage-flow-test-backlog.md  # 過去の監査結果・未消化ギャップ
-docs/testing-rules.md                                 # レイヤー選択・アサーションの原則
+docs/testing/preview-test-catalog.md          # 既存テストの一覧（生きた仕様書）
+docs/testing/preview-usage-flow-test-backlog.md  # 過去の監査結果・未消化ギャップ
+docs/testing/testing-rules.md                                 # レイヤー選択・アサーションの原則
 
 # 実機での総当たり操作
 npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js   # 実VS Code拡張ホスト

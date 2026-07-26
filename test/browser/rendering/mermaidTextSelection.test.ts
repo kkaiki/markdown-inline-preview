@@ -8,7 +8,7 @@
  * `widget.spec.ignoreSelection` が true の場合のみ無視する）がデフォルトの `false` を返し、
  * widget 内でのネイティブ選択（selectionchange）を ProseMirror が「無視すべきでない変更」と
  * みなして処理してしまい、結果としてドラッグ選択した内容が消えてしまっていた
- * （詳細: docs/specifications/mermaid-text-selection-fix.md）。
+ * （詳細: docs/specifications/fixes/mermaid-text-selection-fix.md）。
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */

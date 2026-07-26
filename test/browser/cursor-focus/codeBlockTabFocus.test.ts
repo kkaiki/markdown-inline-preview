@@ -4,7 +4,7 @@
  * ユーザー報告「``` の中を編集していると次の見出し(H2)に移動する」の原因調査で判明した
  * バグ: ProseMirror は code_block に Tab を割り当てておらず、素通りするとブラウザ既定の
  * 「次のフォーカス可能要素へ移動」が発動し、コードブロック自身の言語選択 <select> へ
- * DOM フォーカスが飛んでしまう（詳細: docs/specifications/code-block-tab-focus-leak-fix.md）。
+ * DOM フォーカスが飛んでしまう（詳細: docs/specifications/fixes/code-block-tab-focus-leak-fix.md）。
  * ここでは Tab/Shift+Tab がフォーカスを外に漏らさず、タブ挿入/インデント解除として
  * 機能することを検証する。
  *

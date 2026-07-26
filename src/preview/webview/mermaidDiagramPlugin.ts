@@ -111,7 +111,7 @@ function buildDecorations(doc: ProseNode): DecorationSet {
                         // できるようにする。これが無いと ProseMirror の WidgetViewDesc が
                         // selection 変更を「無視すべきでない変更」として処理し直し、
                         // ユーザーが手動選択した内容を消してしまう。
-                        // 詳細: docs/specifications/mermaid-text-selection-fix.md
+                        // 詳細: docs/specifications/fixes/mermaid-text-selection-fix.md
                         ignoreSelection: true,
                         key: `mermaid-${source}`
                     })

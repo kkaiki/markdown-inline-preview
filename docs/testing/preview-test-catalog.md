@@ -8,7 +8,7 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1371 件**
+**総テスト数: 1387 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 121 件
 
@@ -49,7 +49,7 @@
 > `external-sync.test.ts` 12.7 と同じ仕組み）を使い、チェックボックス操作の結果として
 > webview が送るであろう markdown 全文を模して、実ドキュメント・実ディスクへの反映を確認する。
 >
-> 発端: 2026-07-08、`docs/specifications/preview-usage-flow-test-backlog.md` 4.2 の監査で
+> 発端: 2026-07-08、`docs/testing/preview-usage-flow-test-backlog.md` 4.2 の監査で
 > `test/extension/preview/` に lists-tables カテゴリ（チェックボックス関連）が
 > 1件も存在しないことが判明した。
 >
@@ -303,7 +303,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 315 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 322 件
 
 実行: `npm run test:browser`
 
@@ -344,7 +344,7 @@
 > 他のリストブロックが存在すると、そちらへ selection が退避してしまうことがある
 > （selectionchange を ProseMirror がそのまま拾ってしまう）。
 >
-> 詳細設計: docs/specifications/checkbox-cursor-jump-fix.md
+> 詳細設計: docs/specifications/fixes/checkbox-cursor-jump-fix.md
 >
 > 単独の段落しか無い文書では再現しない（`blockPrefixBugs.test.ts` の Bug4 が
 > カバーしており、そちらは対象外）。本ファイルは「ドキュメント内の他の場所に
@@ -428,7 +428,7 @@
 > ユーザー報告「``` の中を編集していると次の見出し(H2)に移動する」の原因調査で判明した
 > バグ: ProseMirror は code_block に Tab を割り当てておらず、素通りするとブラウザ既定の
 > 「次のフォーカス可能要素へ移動」が発動し、コードブロック自身の言語選択 <select> へ
-> DOM フォーカスが飛んでしまう（詳細: docs/specifications/code-block-tab-focus-leak-fix.md）。
+> DOM フォーカスが飛んでしまう（詳細: docs/specifications/fixes/code-block-tab-focus-leak-fix.md）。
 > ここでは Tab/Shift+Tab がフォーカスを外に漏らさず、タブ挿入/インデント解除として
 > 機能することを検証する。
 >
@@ -609,7 +609,7 @@
 >
 > 実 Chromium の contenteditable へ実キーを送り、本文だけでなくProseMirror構造、
 > selection、hostへ送るMarkdown、page errorを同時に検証する。
-> input-editing-tdd-investigation-plan.md の EDIT-001〜012 に対応する。
+> 通常段落での文字入力・削除・改行（EDIT-001〜012）を実 Chromium で固定する。
 
 - **実ブラウザ: 通常段落の基本入力 EDIT-001〜012**
   - EDIT-001 通常段落の途中で1文字入力すると、前後を保ちカーソルが入力直後へ進む
@@ -662,6 +662,36 @@
     - タイプ途中で ←← と戻って中央挿入しても最終文字列が厳密一致する
     - タイプ → Undo → 再タイプ → Undo → Redo の後の全文が厳密一致する
     - 2つの段落を行き来しながら交互に追記しても、それぞれ厳密一致する
+
+### `test/browser/external-sync/diffGutterFocusExpand.test.ts`（7 件）
+
+> 実ブラウザ回帰テスト: Git 差分ガター（青バー）× フォーカス展開。
+>
+> ## 背景
+>
+> ユーザー報告（2026-07-26）: `` `docs/spec.md` `` のようなインラインコードを含む
+> テーブルセルにカーソルを入れただけで、まだ 1 文字も編集していないのに差分ガターの
+> 青バー（`.diff-modified`）がテーブル全体の左に出る。差分の単位はトップレベルノード
+> なので、セル 1 個の記法展開でテーブル全体が「編集済み」に見えてしまう。
+>
+> 原因は `inlineMarkEditPlugin` がフォーカス時にマーカー文字（`` ` `` / `**` / `](url)`）を
+> **実テキスト**として挿入することで、`previewDiffPlugin` の比較用シグネチャが HEAD 側と
+> 食い違うこと（`docs/specifications/inline-mark-focus-edit-fix.md` §3.2）。
+>
+> jsdom 側（`test/webview/focus-expand/previewDiffInlineMarkExpand.integration.test.ts`）でも
+> 検証しているが、**実際に配信されるバンドル（media/milkdown.bundle.js）と実クリック**での
+> 挙動が本判定なのでこの層でも固定する。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: Git差分ガター × フォーカス展開（未編集で青バーが出ない）**
+  - テーブルセル内のインラインコードをクリックしてもテーブルに青バーが出ない
+  - インラインコードを含む段落をクリックしても青バーが出ない
+  - 見出しをクリックしてもプレフィックス展開だけでは青バーが出ない
+  - インラインコードを含む見出し（プレフィックス展開と同時）でも青バーが出ない
+  - 見出し内インラインコードから別ブロックへ移っても青バーが残らない
+  - コードブロックにカーソルを入れてもフェンス展開だけでは青バーが出ない
+  - 実際に文字を打てばそのブロックに差分ガターが出る（除外しすぎていない）
 
 ### `test/browser/external-sync/rapidExternalUpdates.test.ts`（3 件）
 
@@ -824,7 +854,7 @@
 > 更新しない）。そのため collapse で確定した最終テキストが、その後 **他に何の編集も
 > 起きなければ永久にホストへ送られず**、保存ファイルからその内容が丸ごと欠落することがあった。
 >
-> 詳細設計: docs/specifications/collapse-markdown-sync-fix.md
+> 詳細設計: docs/specifications/fixes/collapse-markdown-sync-fix.md
 >
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
@@ -850,7 +880,7 @@
 > 置き換えられたものとして扱ってしまうことが原因。箇条書き・番号付き・チェックボックス
 > （`list-item-block` Web Component でレンダリング）では再現しない。
 >
-> 詳細設計: docs/specifications/heading-blockquote-prefix-space-fix.md
+> 詳細設計: docs/specifications/fixes/heading-blockquote-prefix-space-fix.md
 >
 > 既存のマークダウンを読み込んだ場合は問題無い。実際にキーを1つずつ押した場合にだけ
 > 再現するため、`h.type()`（実キーイベント）で検証する。
@@ -891,7 +921,7 @@
 > `#` を全部消すというのは「もう見出しではない」という明確な意図なので、
 > 修正方針はレベルを弄るのではなく **ノードタイプを heading → paragraph へ変換する**
 > （`codeBlockBackspace.ts` がフェンス解除で code_block → paragraph に変換するのと
-> 同じ発想）。詳細仕様は `docs/specifications/heading-prefix-zero-hash-collapse-fix.md`。
+> 同じ発想）。詳細仕様は `docs/specifications/fixes/heading-prefix-zero-hash-collapse-fix.md`。
 >
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
@@ -917,7 +947,7 @@
 > `inlineMarkEditPlugin` は、フォーカス中のブロック内にある対象マーク（strong / emphasis /
 > inlineCode / strike_through / link）を実テキストとして展開し、フォーカスが外れたら現在の
 > マーカー文字を読み取ってマークを再構築する。link は href（`](url)` の中身）も編集対象に
-> 含む（`docs/specifications/inline-mark-focus-edit-fix.md` 参照）。
+> 含む（`docs/specifications/fixes/inline-mark-focus-edit-fix.md` 参照）。
 >
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
@@ -1105,7 +1135,7 @@
 >    直後に届く selectionchange 由来の transaction でカーソルが別ブロック（多くの場合
 >    見出しなど）へ飛び、続けてタイプした文字がそちらに書き込まれてしまう。
 >
-> 詳細設計: docs/specifications/typed-checkbox-conversion-fix.md
+> 詳細設計: docs/specifications/fixes/typed-checkbox-conversion-fix.md
 >
 > 既存のマークダウンを読み込んだ場合（初期ロード）は問題無い。実際にキーを1つずつ
 > 押して作る場合にだけ再現するため、`h.type()`（実キーイベント）で検証する。
@@ -1344,7 +1374,7 @@
 > `widget.spec.ignoreSelection` が true の場合のみ無視する）がデフォルトの `false` を返し、
 > widget 内でのネイティブ選択（selectionchange）を ProseMirror が「無視すべきでない変更」と
 > みなして処理してしまい、結果としてドラッグ選択した内容が消えてしまっていた
-> （詳細: docs/specifications/mermaid-text-selection-fix.md）。
+> （詳細: docs/specifications/fixes/mermaid-text-selection-fix.md）。
 >
 > 実行: `npm run test:browser`。ブラウザが無い環境では skip。
 
@@ -1469,7 +1499,7 @@
 > 実ブラウザ・ユースケーステスト: ユーザーが Markdown メモを書くときの**日常的な操作フロー**を
 > そのまま実キー入力で再現し、「この操作をしたら、こう動く」を保証する。
 >
-> docs/specifications/preview-usage-flow-test-backlog.md のバックログを消化するテスト群。
+> docs/testing/preview-usage-flow-test-backlog.md のバックログを消化するテスト群。
 > 個別のバグ再現ではなく、次のような「実際に毎日起きる操作の連なり」を対象にする:
 >
 >   - 買い物リストを一気に書き出す（チェックボックス + Enter の高速反復）
@@ -1504,7 +1534,7 @@
     - チェックボックス項目をコピーして別の場所にペーストすると、同じ内容の未チェック項目として挿入される
     - チェックボックスをペーストした直後に別の行で [ ] を追記しても、両方の項目が正しいまま残る
 
-## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 245 件
+## 3. webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview — 254 件
 
 実行: `npm run test:unit`
 
@@ -1886,6 +1916,31 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - 箇条書きにフォーカスしても、展開中プレフィックスを除いて比較すれば差分は出ない（修正後）
   - blockquote にフォーカスしても、展開中プレフィックスを除いて比較すれば差分は出ない（修正後）
 
+### `test/webview/focus-expand/previewDiffInlineMarkExpand.integration.test.ts`（9 件）
+
+> Preview の Git 差分ガター（previewDiffPlugin）× インライン記法のフォーカス展開
+> （inlineMarkEditPlugin）の相互作用テスト。
+>
+> 不具合: `` `code` `` / `**bold**` / `[text](url)` を含むブロックにカーソルを入れただけ
+> （実編集なし）で、inlineMarkEditPlugin がマーカー文字を**実テキスト**として挿入する
+> ため、previewDiffPlugin が比較する「現在ブロックのシグネチャ」が Git HEAD と無変更でも
+> 変わり、フォーカスした瞬間だけブロックが「変更（青バー）」として表示されてしまう。
+> ブロックプレフィックス（`## ` 等）側は既に除外済みだが、インライン側は未対応だった。
+>
+> 表の中のセルにインラインコードがある場合、トップレベルノードは table なので
+> テーブル全体に青バーが出る（ユーザー報告の見た目）。ここもレイヤーとして検証する。
+
+- **webview統合: Git差分ガター × インライン記法のフォーカス展開**
+  - インラインコードを含む段落にフォーカスしただけ（未編集）で誤って「変更」と判定される（不具合の再現）
+  - インラインコードにフォーカスしても、展開中マーカーを除いて比較すれば差分は出ない
+  - 太字・斜体・取り消し線を含む段落にフォーカスしても差分は出ない
+  - リンクを含む段落にフォーカスしても差分は出ない
+  - テーブルセル内のインラインコードにフォーカスしてもテーブル全体が変更扱いにならない
+  - 未編集のインラインコード行にフォーカスした直後、差分ガターの青バーが DOM に出ない
+  - 未編集のテーブル内インラインコードにフォーカスした直後、テーブルに青バーが出ない
+  - 展開中のマーカーを1文字消しても、比較対象の本文テキストが欠けない
+  - フォーカス展開中に実際に文字を編集したブロックは「変更」と判定される
+
 ### `test/webview/lists-tables/tableArrowKeymap.integration.test.ts`（6 件）
 
 > 表セル内の ↑/↓ で「真下/真上のセル（同じ列）」へ移ることのテスト。
@@ -2255,7 +2310,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 > 回帰の主眼: `onExternalFileChange`（FileSystemWatcher 経由の外部変更検知）が
 > 同期フラグ（`applyingRemoteEdit`）だけに頼っていると、自分の保存の遅延エコーを
 > 取りこぼし、古い・短いディスク内容が Webview へ push されて、入力継続中のカーソルが
-> 文書末尾へ飛んでしまう（詳細: docs/specifications/stale-external-push-cursor-jump-fix.md）。
+> 文書末尾へ飛んでしまう（詳細: docs/specifications/fixes/stale-external-push-cursor-jump-fix.md）。
 > `resolveExternalPush` はこの判定を `changeSub` と `onExternalFileChange` の両方で
 > 共有し、内容が一致すれば push しない（null を返す）ことを保証する。
 

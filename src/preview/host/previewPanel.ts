@@ -83,7 +83,7 @@ const lastKnownCursor = new Map<string, CursorAnchor>();
 // （enqueueWebviewChange）に積まれたまま未実行の書き込みを完了させるためのフラッシュ関数。
 // これを待たずに switchToRaw すると、直前の編集（タイプ直後にすぐトグルした場合など）の
 // 書き込みが完了する前に Preview の webview が破棄され、その編集が Raw に反映されずに
-// 失われることがある（詳細: docs/specifications/preview-to-raw-pending-edit-loss-fix.md）。
+// 失われることがある（詳細: docs/specifications/fixes/preview-to-raw-pending-edit-loss-fix.md）。
 const pendingWebviewFlush = new Map<string, () => Promise<void>>();
 // switchToPreview() / switchToRaw() が処理中の URI。どちらも意図的な切替の
 // 途中は、同じグループ内に Preview タブと Raw タブが一時的に並存する（openWith
@@ -101,7 +101,7 @@ const inFlightSwitch = new Set<string>();
 // 機能が新規ファイルを自動で Preview 化した直後に、それを打ち消す形で Raw が
 // 開かれるケース（ごく短時間のうちに Preview 化→Raw 強制が連続するケース）まで
 // 重複とみなして手を出すと、Raw への意図的な切替と衝突して無限にタブの
-// 開閉を繰り返してしまう。詳細: docs/specifications/sidebar-reopen-preview-duplicate-tab-fix.md
+// 開閉を繰り返してしまう。詳細: docs/specifications/fixes/sidebar-reopen-preview-duplicate-tab-fix.md
 const previewSettledAt = new Map<string, number>();
 const DUPLICATE_COLLAPSE_SETTLE_MS = 500;
 
@@ -393,7 +393,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         // 「未確認」の URI だけを対象にする判定基準は、下の onDidChangeActiveTextEditor
         // ハンドラ（既存ファイルにはモードを強制しない）と揃えるため、モジュール
         // スコープの seenMarkdownUris を共有する。
-        // 詳細: docs/specifications/preview-default-editor-fix.md
+        // 詳細: docs/specifications/fixes/preview-default-editor-fix.md
         if (!seenMarkdownUris.has(key)) {
             seenMarkdownUris.add(key);
             // `controlDefaultEditor` が有効なら、そもそも Raw モードでこの Custom Editor が
@@ -438,7 +438,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         // auto-reload しないことがある（既知の制約）。保存判定をモデルの陳腐化だけで defer すると、
         // webview がこの push を基準に組み立てた正当な保存要求まで永久に defer され、ユーザーが
         // 外部編集の直後に入力した内容が保存されず消えてしまう実バグがあった。
-        // 詳細: docs/specifications/stale-document-model-save-defer-fix.md
+        // 詳細: docs/specifications/fixes/stale-document-model-save-defer-fix.md
         let lastPushedToWebview: string | null = null;
         let pushTimer: ReturnType<typeof setTimeout> | undefined;
         // Webview からの各 `change`（1 キー入力ごと）は、前の書き込みが完了してから
@@ -491,7 +491,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
             // しまう。ディスクが document / 自分の直近の書き込みのどちらとも食い違う
             // なら、外部の変更が割り込んだとみなして今回は保存を見送り、その最新内容を
             // webview へ push してマージを待つ。
-            // 詳細: docs/specifications/preview-external-write-race-fix.md
+            // 詳細: docs/specifications/fixes/preview-external-write-race-fix.md
             if (document.uri.scheme === 'file') {
                 let onDisk: string;
                 try {
@@ -546,7 +546,7 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         // カーソル位置（例: 表のセル内で入力を続けている途中）に対して**古い・短いディスク内容**
         // が丸ごと push され、`applyExternalContent` の「新しい文書サイズへクランプ」によって
         // カーソルが文書の末尾（体感としては「一番下」）へ飛んでしまう。詳細:
-        // docs/specifications/stale-external-push-cursor-jump-fix.md
+        // docs/specifications/fixes/stale-external-push-cursor-jump-fix.md
         // `changeSub` は同じ理由から既に内容ベースの比較（`lastAppliedFromWebview` との一致判定）
         // を持っていたが、`onExternalFileChange` にはこの防御が無かった。同じ比較を追加する。
         const fileWatcher = vscode.workspace.createFileSystemWatcher(
@@ -735,7 +735,7 @@ async function openLinkFromPreview(
         // Webview パネル（activeTextEditor が undefined）のため VS Code が基準列を
         // 見失い、新しいエディタグループ（サイドバー分割）を作ってしまう。リンクを
         // クリックした Preview 自身の列を明示することで、同じ列に新しいタブとして
-        // 開かれるようにする。詳細: docs/specifications/preview-link-open-same-column-fix.md
+        // 開かれるようにする。詳細: docs/specifications/fixes/preview-link-open-same-column-fix.md
         await vscode.window.showTextDocument(targetUri, { preview: false, viewColumn });
     } catch {
         vscode.window.showWarningMessage(`Could not open link: ${trimmed}`);
@@ -951,7 +951,7 @@ async function switchToPreview(
     // Preview モードは 1 キー入力ごとに保存する自動保存前提の設計なので、切替前にも
     // 同じ思想で保存してから差し替える。untitled はディスク実体が無く（リバートによる
     // 消失も起きない）、save() が「名前を付けて保存」ダイアログを開いてしまうため除外。
-    // 詳細: docs/specifications/dirty-raw-edit-preview-switch-loss-fix.md
+    // 詳細: docs/specifications/fixes/dirty-raw-edit-preview-switch-loss-fix.md
     if (document.isDirty && !document.isUntitled) {
         await document.save();
     }
@@ -983,7 +983,7 @@ async function switchToPreview(
         // 置き換えず、同じ URI のタブが2枚（テキスト+Custom Editor）並存する。この状態で
         // 古いテキストタブを閉じると、ディスク実体を持たない untitled の TextDocument の
         // 内容がその場で失われる（VS Code 側の挙動、実 VS Code で確認済み）。
-        // 詳細: docs/specifications/untitled-preview-content-loss-fix.md
+        // 詳細: docs/specifications/fixes/untitled-preview-content-loss-fix.md
         const untitledTextBeforeClose =
             document.uri.scheme === 'untitled' ? document.getText() : null;
         await closeStaleTabs(findTabs(isTextTabForUri(document.uri)));
@@ -1082,7 +1082,7 @@ async function switchToRaw(
 // 再度開かれた」状態を検知し、その Raw タブを閉じて Preview 側だけを残す。
 // customEditor が priority: "option" のため、サイドバー（Explorer）から既に
 // Preview 中のファイルを再度開くと既定の Raw エディタが同じグループに追加されて
-// しまう不具合の対策。詳細: docs/specifications/sidebar-reopen-preview-duplicate-tab-fix.md
+// しまう不具合の対策。詳細: docs/specifications/fixes/sidebar-reopen-preview-duplicate-tab-fix.md
 //
 // `vscode.window.onDidChangeActiveTextEditor`（Raw エディタがアクティブになった
 // 瞬間）だけをトリガーにする。すべてのタブ変更（`tabGroups.onDidChangeTabs`）を

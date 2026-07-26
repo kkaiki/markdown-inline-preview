@@ -4,9 +4,9 @@
  *
  * 全テストファイル（test/suite, test/webview, test/browser, test/extension。いずれも
  * レイヤー配下に cursor-focus / shortcuts / lists-tables 等の症状カテゴリで分類されている。
- * 詳細は docs/specifications/test-directory-design.md）から describe/suite/it/test の
+ * 詳細は docs/testing/test-directory-design.md）から describe/suite/it/test の
  * タイトルとファイル冒頭のドキュメントコメントを抽出し、
- * docs/specifications/preview-test-catalog.md に「ユースケース一覧」として書き出す。
+ * docs/testing/preview-test-catalog.md に「ユースケース一覧」として書き出す。
  *
  * テストのタイトル＝「この操作をしたらこう動く」という仕様文になっているため、
  * このカタログがそのまま実利用ユースケースの一覧になる。
@@ -19,7 +19,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'docs', 'specifications', 'preview-test-catalog.md');
+const OUT = path.join(ROOT, 'docs', 'testing', 'preview-test-catalog.md');
 
 /** カタログのセクション定義（表示順）。 */
 const SECTIONS = [

@@ -10,7 +10,7 @@ Python の `class` 定義など、フェンスコードブロック（` ```pytho
 
 フォーカス中のコードブロックは、開始行（` ```lang `）と終了行（` ``` `）を
 `contenteditable="false"` の widget として表示する
-（`focusSyntaxPlugin.ts` の `blockMarkerDecoration`、[code-fence-focus-markers.md](./code-fence-focus-markers.md)）。
+（`focusSyntaxPlugin.ts` の `blockMarkerDecoration`、[code-fence-focus-markers.md](../code-fence-focus-markers.md)）。
 この widget のテキストには改行文字が含まれており（例: `` ```python\n ``）、複数行に
 またがる非編集領域としてレンダリングされる。
 

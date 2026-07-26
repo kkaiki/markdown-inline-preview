@@ -15,7 +15,7 @@ Preview で段落やリスト項目などの**テキストの末尾**にスペ�
 （次の単語をまだ打っていない状態で保存が走れば）、そのままディスク上の
 ファイルへ不可視文字として書き込まれてしまう。
 
-発見経緯: 2026-07-08、`docs/specifications/typing-fidelity-test-proposal.md`
+発見経緯: 2026-07-08、打鍵忠実性テストの提案（当時の提案書は消化に伴い削除済み）
 §4.1 の TDD 実装中（`test/browser/editing-core/typingFidelity.test.ts` の
 「1文字ずつ打つたびに全文を厳密一致で比較する」テスト）で、末尾スペースを含む
 複数のケースが `assert.strictEqual` の失敗として検出された（見た目は同じ

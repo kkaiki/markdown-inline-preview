@@ -3,7 +3,7 @@
 最終更新: 2026-06-21
 対象: Preview（Milkdown WYSIWYG モード）
 ステータス: **設計（実装前）** — この md で設計を固めてから実装に入る
-関連: `docs/preview-toggle-icon-candidates.md`（アイコン候補） / Export/Pro 課金導線の仕様（別管理）
+関連: Export/Pro 課金導線の仕様（別管理）
 
 ---
 
@@ -68,7 +68,7 @@ Notion / Typora のような「触れば分かる」編集体験を Preview に�
 | 番号付きリスト | `$(list-ordered)` 🔢 | 現在行を `1.` に | slash `numbered`, `convertToNumbered` | ⌥⌘6 |
 | Export | `$(export)` 📤（未課金は ✨/🔒 付与） | エクスポート開始（Pro ゲート） | 別管理の仕様書 | （なし） |
 
-> アイコンの最終決定は `preview-toggle-icon-candidates.md` のセクション B で選定。
+> アイコンの最終決定は当時のアイコン候補比較（文書は削除済み）のセクション B で選定。
 
 ### 2.3 状態表示（アクティブ強調）
 

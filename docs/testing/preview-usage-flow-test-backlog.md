@@ -524,7 +524,7 @@ TextEditor(...)" という警告と共に、再採番自体が起きていない
 ## 5. 実施方針
 
 原則（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク規則）は
-[../testing-rules.md](../testing-rules.md) に従う。
+[../testing-rules.md](./testing-rules.md) に従う。
 各項目を実 Chromium テスト（`test/browser/`）または実 VS Code テスト（`test/extension/`、
 `MOCHA_GREP` で絞り込み実行可）で再現を試み、失敗したものは TDD で修正する。
 jsdom で十分なもの（DOM レイアウト非依存のもの）は `test/webview/` に振り分ける。

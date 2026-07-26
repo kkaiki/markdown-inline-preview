@@ -12,7 +12,7 @@ Preview（Milkdown WYSIWYG）で、チェックボックス項目の行頭にカ
 2番目以降のチェックボックス項目でも再現する。
 
 発見経緯: 2026-07-08、`test/extension/preview/` にチェックボックス関連の実 VS Code
-テストが1件も無いという監査（`docs/specifications/preview-usage-flow-test-backlog.md`
+テストが1件も無いという監査（`docs/testing/preview-usage-flow-test-backlog.md`
 4.2）をきっかけに、実ブラウザで「リスト2番目のチェックボックスの行頭 Backspace」を
 新規に検証したところ再現した。
 
