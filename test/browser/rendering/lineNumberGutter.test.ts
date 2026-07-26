@@ -9,7 +9,8 @@
  *   1ブロックにつき1番号ではなく、実際に表示される行ごとに1番号を出す（同 4節）。
  *   表のアラインメント区切り行（`:---|:---`）は対応する行が描画されないため番号も出ない。
  * - ソースの空行は blankLineRemarkPlugin により実体のある空 paragraph としてトップレベルに
- *   復元表示され、そこにも自分自身の実際の空行の行番号が出る。
+ *   復元表示され、そこにも自分自身の実際の空行の行番号が出る（空行と Preview 上の行は 1:1。
+ *   blank-line-preservation.md §1・§10）。
  * - 既存の diff ガターと共存する（別レイヤ）。
  *
  * jsdom では座標・widget 描画の組み合わせを検証できないため、ここが砦。
@@ -189,6 +190,128 @@ describe('実ブラウザ: 行番号ガター', function () {
             return spans.some((s) => (s.textContent ?? '').includes('`'));
         });
         assert.strictEqual(highlightedFence, false, 'フェンスのバッククォートがハイライトされている');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('コードブロックにフォーカスして実テキスト展開中でも、そのブロック以降の行番号は実ソース行番号のまま変わらない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 2026-07-24 ユーザー報告: 行番号が実際の行と大きくズレる箇所がある（例:
+        // 204 の次が 413、206 の次が 216 になるなど）。
+        //
+        // 原因: `codeFenceEditPlugin` はコードブロックにフォーカスすると、開き・閉じの
+        // フェンス（```lang / ```）をブロックの内容へ**実テキストとして**挿入する
+        // （`expandBlock`）。行番号計算は現在の doc を毎回 markdown に直列化し直して
+        // 実ソース行番号を求め直す（3節）が、この直列化時、展開中のブロックの内容が
+        // 実テキストとして ``` を含んでしまっているため、commonmark シリアライザが
+        // 曖昧さ回避のためフェンスを4連バッククォートへ広げ、二重にネストしたフェンスとして
+        // 出力してしまっていた。二重フェンスぶん（開き・閉じで2行）だけ再パース結果の
+        // 行数が実際のソースより多く数えられ、このコードブロック以降のすべての要素の
+        // 行番号が実際より大きい値へズレていた。
+        const md = [
+            'intro',
+            '',
+            '```text',
+            'code line 1',
+            'code line 2',
+            '```',
+            '',
+            '- a',
+            '- b',
+            '',
+            'tail'
+        ].join('\n') + '\n';
+        // 1:intro 2:(空行) 3:``` 4:code line1 5:code line2 6:``` 7:(空行) 8:a 9:b 10:(空行) 11:tail
+        h = await openPreview(browser, md, 'tail', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+
+        await h.placeCursorAfterText('code line 1');
+        await h.page.waitForTimeout(300);
+
+        const numbers = await gutterNumbers(h);
+        assert.deepStrictEqual(
+            numbers,
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
+            `フォーカス中のコードブロック以降の行番号がズレている: ${JSON.stringify(numbers)}`
+        );
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('リスト項目にフォーカスして記法展開（`2. ` の実テキスト挿入）中でも、行番号は実ソース行番号のまま変わらない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 2026-07-26 ユーザー報告（スクリーンショット）: 番号付きリストの項目に
+        // フォーカスすると、その項目とその後の項目の行番号が `87, 87, 94` のように
+        // 重複・飛躍する。
+        //
+        // 原因はコードブロック展開時（上の2ケース）と同種。`blockPrefixEditPlugin` は
+        // フォーカス中の見出し/リスト項目/引用に、その Markdown プレフィックス
+        // （`## ` / `2. ` / `> `）を**実テキストとして**挿入する。行番号計算は現在の doc を
+        // 毎回 markdown へ直列化して再パースするため、リスト項目では
+        // `2. 2. two` のように二重のリスト記法になり、再パース結果に**入れ子のリスト**が
+        // 現れて mdast 側の要素数が doc 側とズレる。
+        const md = 'intro\n\n1. one\n2. two\n3. three\n\ntail\n';
+        // 1:intro 2:(空行) 3:one 4:two 5:three 6:(空行) 7:tail
+        h = await openPreview(browser, md, 'tail', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+        assert.deepStrictEqual(
+            await gutterNumbers(h),
+            ['1', '2', '3', '4', '5', '6', '7'],
+            '前提条件: フォーカス前の行番号が実ソース行番号になっていない'
+        );
+
+        await h.placeCursorAfterText('two');
+        await h.page.waitForTimeout(300);
+
+        const numbers = await gutterNumbers(h);
+        assert.deepStrictEqual(
+            numbers,
+            ['1', '2', '3', '4', '5', '6', '7'],
+            `フォーカス中のリスト項目以降の行番号がズレている: ${JSON.stringify(numbers)}`
+        );
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('引用にフォーカスして記法展開（`> ` の実テキスト挿入）中でも、行番号は実ソース行番号のまま変わらない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 同じ原因の別ノード種別。`> ` を実テキストとして含む引用を直列化すると
+        // `> > quoted` になり、再パースで入れ子の blockquote が現れる。
+        const md = 'intro\n\n> quoted\n\n- a\n- b\n\ntail\n';
+        // 1:intro 2:(空行) 3:quoted 4:(空行) 5:a 6:b 7:(空行) 8:tail
+        h = await openPreview(browser, md, 'tail', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+        assert.deepStrictEqual(
+            await gutterNumbers(h),
+            ['1', '2', '3', '4', '5', '6', '7', '8'],
+            '前提条件: フォーカス前の行番号が実ソース行番号になっていない'
+        );
+
+        await h.placeCursorAfterText('quoted');
+        await h.page.waitForTimeout(300);
+
+        const numbers = await gutterNumbers(h);
+        assert.deepStrictEqual(
+            numbers,
+            ['1', '2', '3', '4', '5', '6', '7', '8'],
+            `フォーカス中の引用以降の行番号がズレている: ${JSON.stringify(numbers)}`
+        );
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('コードブロックが文書の先頭にあり、初期カーソルがその場でフォーカス（実テキスト展開）されても、行番号は実ソース行番号のまま変わらない', async function () {
+        if (!browser) { this.skip(); return; }
+        // 上のテストと同じ原因の別条件: コードブロックが doc の先頭（＝初期カーソルの
+        // デフォルト位置）にあると、ユーザーが何もクリックしなくても mount 直後から
+        // 自動的にフォーカス展開状態になる。この条件でも同じズレが起きていた。
+        const md = ['```text', 'line1', 'line2', '```', '', '- a', '- b', '', 'tail'].join('\n') + '\n';
+        // 1:``` 2:line1 3:line2 4:``` 5:(空行) 6:a 7:b 8:(空行) 9:tail
+        h = await openPreview(browser, md, 'tail', { showLineNumbers: true });
+        await h.page.waitForTimeout(300);
+
+        const numbers = await gutterNumbers(h);
+        assert.deepStrictEqual(
+            numbers,
+            ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
+            `文書先頭のコードブロックが自動フォーカスされ、以降の行番号がズレている: ${JSON.stringify(numbers)}`
+        );
         assert.deepStrictEqual(h.errors, []);
     });
 

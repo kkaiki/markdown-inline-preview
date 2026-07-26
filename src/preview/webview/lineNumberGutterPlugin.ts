@@ -25,14 +25,16 @@
  *   remark の再パースもこのキャッシュ判定の内側でのみ行う）。
  */
 import { Plugin, PluginKey } from '@milkdown/prose/state';
-import type { Node as ProseNode } from '@milkdown/prose/model';
+import { Fragment, Slice, type Node as ProseNode } from '@milkdown/prose/model';
 import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 import { remarkCtx, serializerCtx } from '@milkdown/kit/core';
 import type { Ctx } from '@milkdown/ctx';
 import type { Code, List, Root, RootContent } from 'mdast';
 import { stripListItemPlaceholderBr, stripPlaceholderLineBreaks, tightenListSpacing } from '../../shared/markdown/lineBreaks';
+import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
 import { getExpandedCodeFence } from './codeFenceEditPlugin';
+import { getExpandedBlock } from './blockPrefixEditPlugin';
 
 /** 行番号を出す位置と番号。pos は widget を置くドキュメント位置。 */
 export interface LineAnchor {
@@ -75,7 +77,8 @@ function codeContentLineNumbers(code: Code): number[] {
  * 1エントリずつ対応する「実行番号エントリ」の配列に変換する。
  *
  * 空行から復元された空 paragraph（blankLineRemarkPlugin、position 無し）は、直前の実ノード
- * （position を持つ最後のノード）の終了行から補間する。この区間内 k 番目（0始まり）の
+ * （position を持つ最後のノード）の終了行から補間する。空 paragraph はソースの空行と 1:1 に
+ * 対応するため（blank-line-preservation.md §1・§10）、この区間内 k 番目（0始まり）の
  * 空 paragraph の行番号は「直前の実ノードの終了行 + 1 + k」。
  */
 export function computeRealLineEntries(tree: Root): RealLineEntry[] {
@@ -310,6 +313,63 @@ function lineNumberWidget(n: number, fence?: string): () => HTMLElement {
 }
 
 /**
+ * 展開中（実テキスト化中）の code_block を、行番号の再パース専用に「折り畳んだ」形へ戻す。
+ *
+ * `codeFenceEditPlugin` はフォーカス中、開き・閉じフェンス（`` ```lang `` / `` ``` ``）を
+ * ノードの内容へ**実テキストとして**挿入する（`expandBlock`）。この状態のまま
+ * `serializerCtx` で直列化すると、code_block の内容自体が `` ``` `` を含むことになり、
+ * commonmark シリアライザは曖昧さ回避のためフェンスを広げて（4個以上の バッククォート）
+ * 二重にネストしたフェンスとして出力する。二重フェンスぶん（開き・閉じで2行）だけ
+ * 再パース結果の行数が実際のソースより多くなり、この code_block 以降の**すべての**
+ * 要素の実ソース行番号が本来より大きい値にズレる（2026-07-24 ユーザー報告）。
+ * ファイルへ実際に書き戻される内容（`postChange`）は展開中も常に折り畳み済みの形なので、
+ * 行番号計算もそれに合わせて折り畳んだ内容で再パースする。
+ * 画面上の展開表示自体は `computeLineAnchors` が `state.doc`（折り畳んでいない実体）を
+ * 直接見て処理するため、ここでの折り畳みは行番号計算専用の使い捨てコピーに閉じている。
+ */
+function collapseExpandedFenceForReparse(doc: ProseNode, expandedNodePos: number | null): ProseNode {
+    if (expandedNodePos === null) return doc;
+    const node = doc.nodeAt(expandedNodePos);
+    if (!node || node.type.name !== 'code_block') return doc;
+    const parsed = parseCodeFenceRealText(node.textContent);
+    if (!parsed) return doc;
+    const contentStart = expandedNodePos + 1;
+    const contentEnd = expandedNodePos + node.nodeSize - 1;
+    const content = parsed.code.length > 0 ? Fragment.from(doc.type.schema.text(parsed.code)) : Fragment.empty;
+    return doc.replace(contentStart, contentEnd, new Slice(content, 0, 0));
+}
+
+/**
+ * フォーカスで記法展開中のブロックプレフィックス（`## ` / `2. ` / `> `）を、行番号の
+ * 再パース専用に取り除く。
+ *
+ * `blockPrefixEditPlugin` はフォーカス中の見出し/リスト項目/引用に、その Markdown
+ * プレフィックスを**実テキストとして**ノード内容へ挿入する。この状態のまま直列化すると、
+ * 特にリスト項目は `2. 2. two` のように記法が二重になり、再パース結果には**入れ子の
+ * リスト**が現れる。mdast 側の要素数が doc 側の走査と合わなくなるため、そのブロック以降の
+ * 行番号が重複・飛躍する（2026-07-26 ユーザー報告のスクリーンショットでは `87, 87, 94`）。
+ * ファイルへ書き戻される内容（`postChange`）は展開中も常にプレフィックス無しなので、
+ * 行番号計算もそれに合わせる。`collapseExpandedFenceForReparse` と同じ発想で、
+ * 使い捨てのコピーに閉じた変換。
+ */
+function stripExpandedPrefixForReparse(
+    doc: ProseNode,
+    expanded: { contentStart: number; prefix: string } | null
+): ProseNode {
+    if (!expanded || expanded.prefix.length === 0) return doc;
+    const from = expanded.contentStart;
+    const to = from + expanded.prefix.length;
+    if (to > doc.content.size) return doc;
+    try {
+        return doc.replace(from, to, Slice.empty);
+    } catch {
+        // 展開情報と doc がまだ同期していない過渡状態では位置が不正になりうる。
+        // 行番号がその瞬間だけ元のまま（＝従来の挙動）になるだけなので握り潰す。
+        return doc;
+    }
+}
+
+/**
  * 現在の doc を、milkdown が使っているのと同じ remark パイプラインで再パースする。
  *
  * `serializerCtx` の素の出力は、milkdown の commonmark preset が loose リスト形式
@@ -319,10 +379,16 @@ function lineNumberWidget(n: number, fence?: string): () => HTMLElement {
  * （`tightenListSpacing` → `stripPlaceholderLineBreaks` → `stripListItemPlaceholderBr`）
  * を適用してから再パースすることで、Raw モードが実際に表示するテキストと同じ行番号を得る。
  */
-function parseCurrentDocAsMdast(ctx: Ctx, doc: ProseNode): Root {
+function parseCurrentDocAsMdast(ctx: Ctx, doc: ProseNode, expandedNodePos: number | null): Root {
     const serialize = ctx.get(serializerCtx);
     const remark = ctx.get(remarkCtx);
-    const rawMarkdown = serialize(doc);
+    // カーソルは常に1箇所なので、コードフェンス展開とブロックプレフィックス展開が
+    // 同時に起きることはない（どちらの位置も生の doc 基準なので、片方だけ適用すれば
+    // 位置ズレも起きない）。
+    const prepared = expandedNodePos !== null
+        ? collapseExpandedFenceForReparse(doc, expandedNodePos)
+        : stripExpandedPrefixForReparse(doc, getExpandedBlock());
+    const rawMarkdown = serialize(prepared);
     const markdown = stripListItemPlaceholderBr(stripPlaceholderLineBreaks(tightenListSpacing(rawMarkdown)));
     return remark.runSync(remark.parse(markdown), markdown) as Root;
 }
@@ -335,13 +401,14 @@ export function createLineNumberGutterPlugin() {
             props: {
                 decorations(state) {
                     if (!cache || cache.doc !== state.doc) {
-                        const tree = parseCurrentDocAsMdast(ctx, state.doc);
+                        const expandedNodePos = getExpandedCodeFence()?.nodePos ?? null;
+                        const tree = parseCurrentDocAsMdast(ctx, state.doc, expandedNodePos);
                         const realLines = computeRealLineEntries(tree);
                         // 展開・collapse は必ず docChanged を伴うため、doc をキーにした
                         // このキャッシュで展開状態の変化も漏れなく再計算される。
                         cache = {
                             doc: state.doc,
-                            anchors: computeLineAnchors(state.doc, realLines, getExpandedCodeFence()?.nodePos ?? null)
+                            anchors: computeLineAnchors(state.doc, realLines, expandedNodePos)
                         };
                     }
                     const decorations = cache.anchors.map((a, i) =>

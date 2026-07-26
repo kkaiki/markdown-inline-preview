@@ -2,15 +2,15 @@
 
 <!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->
 
-最終生成: 2026-07-22
+最終生成: 2026-07-26
 
 テストのタイトルは「この操作をしたら、こう動く」という仕様文として書かれている。
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1336 件**
+**総テスト数: 1371 件**
 
-## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 114 件
+## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 121 件
 
 実行: `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`
 
@@ -61,13 +61,14 @@
   - 13.2 Enter でチェックボックス項目を継続して増やした結果が実ドキュメント・実ディスクへ反映される
   - 13.3 行頭 Backspace によるチェックボックス→箇条書きの降格が実ドキュメント・実ディスクへ反映される
 
-### `test/extension/preview/settings.test.ts`（9 件）
+### `test/extension/preview/settings.test.ts`（13 件）
 
 > Preview モード（実 VS Code）の VS Code 本体設定との連携を検証する。
 >
 > 対象: `alwaysOpenNewTab` → `workbench.editor.enablePreview`、
 > `wordWrap` → markdown 言語スコープの `editor.wordWrap`、
-> `wrapTabs` → `workbench.editor.wrapTabs` への反映。
+> `wrapTabs` → `workbench.editor.wrapTabs` への反映、
+> `controlDefaultEditor` → `workbench.editorAssociations` へのモード追従。
 >
 > 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
 > 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
@@ -84,8 +85,13 @@
     - 11.1 markdownInline.toggleLineNumbers はコマンドパレットに登録されている
     - 11.2 既定値(true)から実行すると showLineNumbers が false になる
     - 11.3 false から実行すると showLineNumbers が true に戻る
+  - **16. .md の既定エディタをモードに追従させる（editorAssociations）**
+    - 16.1 Raw へ切り替えると *.md の既定エディタが VS Code 標準テキストエディタになる
+    - 16.2 Preview へ切り替えると *.md の既定エディタが Preview に戻る
+    - 16.3 controlDefaultEditor=false のときはモードを切り替えても既定エディタを書き換えない
+    - 16.4 他拡張のための関連付け（*.pdf など）はモード切替で消えない
 
-### `test/extension/preview/tabs-editors.test.ts`（14 件）
+### `test/extension/preview/tabs-editors.test.ts`（17 件）
 
 > Preview モード（実 VS Code）のタブ・フォーカス管理を検証する。
 >
@@ -110,12 +116,16 @@
     - 13.2 別のビューカラム（右側）に同じファイルを開く場合はそれぞれ独立した Preview インスタンスになる
     - 13.3 Previewタブ作成直後（500ms未満）にサイドバーから再オープンしても、Rawタブは一度も作られずPreviewのまま
     - 13.4 togglePreviewの実行中にサイドバー再オープンが重なっても例外にならず、最終的にPreviewタブ1枚に収束する
+    - 13.5 実際のExplorer単発クリック（preview:true）で再オープンしても、Rawタブが重複せずPreviewだけが残る
   - **14. Previewから標準操作で開いた先が同じ列に留まる**
     - 14.1 Previewでリンクを開くと、新しいエディタグループを作らず同じ列に新しいタブとして開く
     - 14.2 Preview中に列指定なしで別ファイルを続けて開いても同じ列の新規タブになる
     - 14.3 右側に既存グループがあってもPreviewから列指定なしで非Markdownを開くとPreview列の新規タブになる
   - **15. VS Code標準のファイルオープン先を妨げない**
     - 15.1 左Previewと右ロック済みCLIグループがあるとき列指定なしで開いたファイルは左の新規タブになる
+  - **17. Raw モードのときは Preview タブがそもそも作られない**
+    - 17.1 Rawへ切り替えた後に別のMarkdownを新規に開くと、Previewタブが一度も生成されずRaw1枚だけになる
+    - 17.2 Rawモードで Preview の Custom Editor が解決されても「OverlayWebview has been disposed」で開けなくならない
 
 ### `test/extension/raw/editing-core.test.ts`（3 件）
 
@@ -293,7 +303,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 305 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 315 件
 
 実行: `npm run test:browser`
 
@@ -1113,6 +1123,36 @@
   - 見出しの直後でタイプしても、見出しへ文字が誤って書き込まれない（原因B）
   - 回帰確認: 通常の箇条書き（チェックボックスでない）は今まで通りフォーカス中に "- " が展開される
 
+### `test/browser/rendering/blankLineDisplay.test.ts`（6 件）
+
+> 実ブラウザ回帰テスト（本番バンドル）: ソース Markdown の空行と、Preview 上に見える
+> 空行ブロックの本数の対応を固定する。
+>
+> ## 仕様（2026-07-26 ユーザー指示で確定）
+>
+> **ソースの空行 N 行 → Preview 上でも見える空行 N 行**（1:1）。省略しない。
+>
+> Preview の段落は CSS で `margin: 0`（`media/milkdown-preview.css`）なので、空行を
+> 空 paragraph として実体化しない限り、その行は画面上のどこにも現れず、左ガターの
+> 行番号もその行を飛ばす。実際、一度「空行1行は普通の段落区切りだから追加ノード無し
+> （N 行 → N-1 個）」へ変更したところ、`## 見出し` の下の空行3行が2行しか表示されず
+> ガター番号が `1, 3, 4, 5` と 2 を飛ばす状態になり、ユーザー報告で差し戻した。
+> Raw と Preview の行が 1:1 で対応することを優先する。
+>
+> ここでは「空行 N 行 → 見える空行ブロック N 個」「ガター番号が Raw と同じ連番になる」、
+> および Enter → Markdown 自動変換（`hardbreakLine.ts` の分割）の結果が、同じ内容を
+> 開き直したときの見え方と一致することを、実 DOM と保存 Markdown の両方で固定する。
+>
+> 実行: `npm run test:browser`。ブラウザが無い環境では skip。
+
+- **実ブラウザ: 空行の表示本数（ソースの空行を省略しない）**
+  - 空行1行で区切られた2段落は、その空行ぶんの空ブロックを1つ表示する
+  - 空行2行なら、Preview に見える空行ブロックが2つ現れる
+  - 見出しの下に空行が3行あると、ガター番号は 1,2,3,4,5 と Raw と同じ連番になる
+  - 空行1行の文書を編集して保存しても、空行は1行のまま増えない
+  - Enter の直後に見出し記法へ自動変換しても、保存される空行は1行のまま
+  - Enter の直後に箇条書き記法へ自動変換しても、保存される空行は1行のまま
+
 ### `test/browser/rendering/codeFenceBrokenBackground.test.ts`（3 件）
 
 > 実ブラウザ回帰テスト（本番バンドル）: フォーカス中のコードブロックで開き/閉じフェンス
@@ -1154,7 +1194,7 @@
   - 外部編集（update メッセージ）で frontmatter が変わるとパネルも追従する
   - frontmatter が無いファイルではパネルは出ない（showFrontmatter: true でも）
 
-### `test/browser/rendering/lineNumberGutter.test.ts`（20 件）
+### `test/browser/rendering/lineNumberGutter.test.ts`（24 件）
 
 > 実ブラウザ回帰テスト: 行番号ガター（lineNumberGutterPlugin）。
 >
@@ -1166,7 +1206,8 @@
 >   1ブロックにつき1番号ではなく、実際に表示される行ごとに1番号を出す（同 4節）。
 >   表のアラインメント区切り行（`:---|:---`）は対応する行が描画されないため番号も出ない。
 > - ソースの空行は blankLineRemarkPlugin により実体のある空 paragraph としてトップレベルに
->   復元表示され、そこにも自分自身の実際の空行の行番号が出る。
+>   復元表示され、そこにも自分自身の実際の空行の行番号が出る（空行と Preview 上の行は 1:1。
+>   blank-line-preservation.md §1・§10）。
 > - 既存の diff ガターと共存する（別レイヤ）。
 >
 > jsdom では座標・widget 描画の組み合わせを検証できないため、ここが砦。
@@ -1182,6 +1223,10 @@
   - 実ソース行番号が要素の並び順どおりに振られる（見出し/段落/リスト/コード/引用）
   - コードブロックの非フォーカス時も開閉フェンスとその行番号を表示する
   - コードブロックにフォーカスして実テキスト展開中は、フェンス widget が消えて ``` は1組だけ表示される（二重表示しない）
+  - コードブロックにフォーカスして実テキスト展開中でも、そのブロック以降の行番号は実ソース行番号のまま変わらない
+  - リスト項目にフォーカスして記法展開（`2. ` の実テキスト挿入）中でも、行番号は実ソース行番号のまま変わらない
+  - 引用にフォーカスして記法展開（`> ` の実テキスト挿入）中でも、行番号は実ソース行番号のまま変わらない
+  - コードブロックが文書の先頭にあり、初期カーソルがその場でフォーカス（実テキスト展開）されても、行番号は実ソース行番号のまま変わらない
   - 内容自体が完全なフェンス形（```〜```）のコードブロックでも、非フォーカス時は外側フェンス widget が表示される（誤って消えない）
   - 水平線にも実ソース行番号が出る
   - リストは各項目に実ソース行番号が出る（先頭だけでない）
@@ -2128,7 +2173,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 672 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 690 件
 
 実行: `npm run test:unit`
 
@@ -2400,6 +2445,42 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **previewShortcuts: 関係ないキー**
   - Cmd+S -> null
   - 修飾なしの普通の文字 -> null
+
+### `test/suite/preview/tabs-editors/defaultEditorAssociation.test.ts`（15 件）
+
+> `.md` の既定エディタ（VS Code 本体の `workbench.editorAssociations`）を、
+> 現在の Raw/Preview モードに追従させるための純関数を検証する。
+>
+> なぜ必要か: customEditor の `priority: "default"` だけでは、Raw モードでも
+> 一度 Preview の Custom Editor が生成されてから Raw へ跳ね返る（bounceToRawEditor）。
+> この「2手」がちらつきと一瞬のタブ2枚並存の原因であり、さらに同じく
+> `priority: default` を名乗る他拡張（例: cweijan.vscode-office）が居ると
+> どちらが開くか VS Code 側で一意に決まらない。ユーザー設定の
+> `workbench.editorAssociations` は拡張機能の宣言より強いので、ここを
+> モードに同期させれば「開く前から解決先が1つに決まっている」状態を作れる。
+>
+> 層: jsdom（純関数）。実際に設定へ書き込む経路は
+> `test/extension/preview/settings.test.ts`（実 VS Code）が担当する。
+
+- **defaultEditorAssociation**
+  - **resolveDefaultOpenMode（次に開く Markdown をどちらで開くか）**
+    - 記憶モードがあればそれを使う
+    - 記憶モードが無ければ defaultMode 設定を使う
+    - どちらも無ければ preview（package.json の既定値と揃える）
+    - 未知の defaultMode 値は preview として扱う（設定の手書きミスで壊さない）
+  - **computeEditorAssociations（本体設定へ書き戻す値の計算）**
+    - preview モードでは *.md / *.markdown を Preview の viewType に向ける
+    - raw モードでは *.md / *.markdown を VS Code 標準テキストエディタに向ける
+    - 管理対象外のパターン（他拡張のための関連付け）は書き換えない
+    - *.md が他拡張のビューアに向いていてもモード側で上書きする（競合の解消が目的のため）
+    - 制御 OFF（null）では、自分が書いた値だけを取り除く
+    - 制御 OFF でも、自分が書いた値でない *.md の関連付けは残す
+  - **editorAssociationsEqual（無駄な settings.json 書き込みを避ける）**
+    - 同じ内容なら true（モード切替のたびに書き込まない）
+    - キーの順序が違うだけなら true
+    - 値が違えば false
+    - undefined と空オブジェクトは同じ扱い（未設定 ⇔ 空を往復させない）
+    - キーが増えていれば false
 
 ### `test/suite/preview/tabs-editors/previewTabs.test.ts`（8 件）
 
@@ -2782,8 +2863,12 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - does not double-count the outer ** as italic when bold already matched
   - returns matches sorted by position
 
-### `test/suite/shared/lineBreaks.test.ts`（32 件）
+### `test/suite/shared/lineBreaks.test.ts`（35 件）
 
+- **collapseBlankLineChains（空 paragraph の連鎖 → 空行の本数）**
+  - 空 paragraph 1 個は空行 1 行に戻る
+  - 空 paragraph 2 個は空行 2 行に戻る
+  - 空 paragraph が無ければそのまま（変換対象にしない）
 - **stripPlaceholderLineBreaks**
   - turns a standalone <br /> line into an empty line
   - handles <br>, <br/>, <br /> variants

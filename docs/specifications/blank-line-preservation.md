@@ -9,9 +9,10 @@
 
 ### 1. 空行の実体化（トップレベルのみ）
 
-- ドキュメント直下（トップレベル）の隣接する2ブロック間に **N 行の空行** があった場合、その間に **N-1 個の空 `paragraph` ノード** を復元して Preview 上に表示する。
-  - 空行1行は従来どおり「ブロック間の既定の余白」として扱う（追加ノードなし）。
-  - 空行2行なら空 `paragraph` を1つ、3行なら2つ、というように本数を史実どおり保持する。
+- ドキュメント直下（トップレベル）の隣接する2ブロック間に **N 行の空行** があった場合、その間に **N 個の空 `paragraph` ノード** を復元して Preview 上に表示する（ソースの空行と 1:1）。
+  - 空行1行にも空 `paragraph` を1つ作る。Preview の段落は CSS で `margin: 0`（`media/milkdown-preview.css`）なので、実体化しない空行は画面のどこにも現れず、ガターの行番号もその行を飛ばしてしまう。
+  - 空行2行なら空 `paragraph` を2つ、3行なら3つ、というように本数を史実どおり保持する。
+  - 2026-07-26 に一度「N-1 個（空行1行は追加ノード無し）」へ変更したが、ソースの行が表示から消えるためユーザー指示で差し戻した（10節）。
 - 空 `paragraph` は新しい独自ノード型ではなく、**通常の `paragraph` ノード**（中身が空なだけ）。そのため:
   - カーソルを置いて文字を入力すれば、そのまま本文段落になる。
   - Backspace で削除すれば、前のブロックと結合される（既存の ProseMirror 標準挙動をそのまま利用）。
@@ -32,7 +33,7 @@
   - `serializerCtx` で得るテキストは「現在の doc の内容」であり、必ずしもディスク上のファイルそのものではないが、Preview の編集内容は都度 `postChange` でホスト側の文書モデルへ反映される設計のため、Raw 側の行番号（＝現在の文書モデルの内容）とも一致する。
   - 同じ `remarkCtx` を再利用するため、gfm の表拡張や `blankLineRemarkPlugin` による空 paragraph 復元も含めて、実際に doc を構築したときと同一のツリー構造・順序が得られる（パーサの二重実装によるズレが原理的に起きない）。
   - `serializerCtx` の素の出力は、milkdown の commonmark preset の直列化仕様により loose リスト形式（項目間に空行が入る）や空 paragraph の `<br />` プレースホルダを含む。これをそのまま再パースすると（特にリスト項目の）行番号が実ソースとズレるため、`postChange`（`milkdownApp.ts`）がファイルへ書き戻す際に使っているのと同じ正規化（`tightenListSpacing` → `stripPlaceholderLineBreaks` → `stripListItemPlaceholderBr`、`src/shared/markdown/lineBreaks.ts`）を適用してから remark で再パースする。
-- 新しく生まれる「空行の空 paragraph」（1節）は合成ノード（remark の実パース結果ではない）のため `.position` を持たない。直前の実ノード（position を持つ最後のノード）の終了行から補間する: 空行1行はブロック間の既定セパレータとして番号を持たないノード無し区間に吸収されるため、この区間内の k 番目（0始まり）の空 paragraph の実行番号は `直前の実ノードの終了行 + 2 + k` となる（`insertBlankLineParagraphs` が「空行1行は追加ノード無し、2行目以降を空 paragraph 1個ずつに対応させる」という規則で挿入している順序とちょうど整合する）。
+- 新しく生まれる「空行の空 paragraph」（1節）は合成ノード（remark の実パース結果ではない）のため `.position` を持たない。直前の実ノード（position を持つ最後のノード）の終了行から補間する: この区間内の k 番目（0始まり）の空 paragraph の実行番号は `直前の実ノードの終了行 + 1 + k` となる（`insertBlankLineParagraphs` が「空行1行目から順に空 paragraph 1個ずつを対応させる」という規則で挿入している順序とちょうど整合する）。
 
 ## 4. 構造的な複数行ブロックの行内番号（2026-07-09、実ソース行番号版に改訂）
 
@@ -159,9 +160,219 @@
 「段落内でEnterを1回押した直後（まだ何も入力していない状態）でも、新しい行の行番号がすぐに
 表示される」。
 
+## 8. 追記（2026-07-24）: コードブロックのフォーカス（実テキスト展開）中は、そのブロック以降の行番号が実際より大きくズレる不具合の修正
+
+### 背景・不具合報告
+
+- ユーザー報告: 行番号ガターの数字が実際の行と大きくズレている箇所がある（例:
+  ある行の次の要素が本来の実ソース行番号より 200 行以上先の番号として表示され、
+  さらにその後の行では逆に本来に近い番号へ戻る、という前後関係の崩れた表示）。
+- 原因: `codeFenceEditPlugin`（`src/preview/webview/codeFenceEditPlugin.ts`）は、
+  カーソルがコードブロックへ入ると開き・閉じフェンス（`` ```lang `` / `` ``` ``）を
+  ブロックの内容へ**実テキストとして**挿入する（`expandBlock`。Typora 風の実テキスト
+  編集化）。これはコードブロックが文書の先頭にあり ProseMirror の初期カーソルが
+  自動的にその場へ置かれる場合（`Selection.atStart(doc)` が最初のノードの中を指す）
+  にも、ユーザーが明示的にクリックしていなくても発生する。
+- 3節が説明する行番号計算は、現在の doc を毎回 `serializerCtx` で markdown に
+  直列化し直し、その markdown を再度 remark でパースして `.position`（実ソース行番号）
+  を取得する。ここで、展開中の code_block の**内容自体**が実テキストとして
+  ``` ``` ``` を含んでいるため、直列化時に commonmark シリアライザ
+  （`mdast-util-to-markdown`）が曖昧さ回避のためフェンスを4連バッククォートへ広げ、
+  「外側フェンス（4連）で内側フェンス（3連、元の内容）を包む」二重にネストした
+  フェンスとして出力してしまっていた。
+- 二重フェンスぶん（開き・閉じで2行）だけ、再パース結果全体の行数が実際のソースより
+  多く数えられる。再パースは文書全体をひとつなぎの markdown テキストとして処理するため、
+  この code_block **以降**に登場するすべての要素の `.position.start.line` が、本来より
+  一律で大きい値へズレていた（このブロック自身の表示は `computeLineAnchors` の
+  `expandedAsRealText` 分岐が `state.doc` の実ノードから直接行番号を組み立てるため
+  影響を受けず、症状が「あるブロックの後ろから急に数字が跳ね上がる」という形で
+  現れていた）。
+
+### 修正内容
+
+- `lineNumberGutterPlugin.ts` に `collapseExpandedFenceForReparse()` を追加した。
+  展開中（`getExpandedCodeFence()` が非 null）の code_block がある場合、
+  行番号の再パース専用に、その内容を `parseCodeFenceRealText()`
+  （`src/shared/markdown/focusSyntaxHelpers.ts`）でマーカーを取り除いた「折り畳み済み」
+  の内容へ戻した doc の使い捨てコピーを作り、それを `serializerCtx` へ渡すようにした
+  （実際の編集セッションの doc・選択・履歴には一切触れない）。
+- ファイルへの実際の書き戻し（`postChange`）は展開中も常に折り畳み済みの形で行われる
+  ため、この修正により行番号計算も「Raw モードが実際に表示する内容」と常に一致する
+  ようになった。
+- 画面上のコードブロック自体の表示（`computeLineAnchors` の `expandedAsRealText` 分岐）
+  は元々 `state.doc`（展開状態そのまま）を直接見ているため、この修正の影響を受けない
+  （二重に折り畳む必要はない）。
+
+### テスト
+
+`test/browser/rendering/lineNumberGutter.test.ts`:
+「コードブロックにフォーカスして実テキスト展開中でも、そのブロック以降の行番号は
+実ソース行番号のまま変わらない」（クリックで明示的にフォーカスする条件）、
+「コードブロックが文書の先頭にあり、初期カーソルがその場でフォーカス（実テキスト展開）
+されても、行番号は実ソース行番号のまま変わらない」（mount 直後の自動フォーカス条件）。
+
+## 9. 追記（2026-07-26）: 空行1行にも空段落を作っていた（仕様との1個ズレ）不具合の修正
+
+### 背景・不具合報告
+
+- ユーザー報告:「Preview で Enter を押すと2行改行される／2行が1行の Preview として
+  表示されるようになっていないか。そうなっていたらやめてほしい」。
+- 実測（実 Chromium）した結果、Enter 自体は仕様どおり hardbreak 1個（＝改行1個、
+  ファイル上は行末 `\`）で正しかった。実際に起きていたのは **ソースの空行1行
+  （＝Markdown の普通の段落区切り）が、Preview 上で “見える空段落” を1行ぶん
+  占有していた** ことだった。`AAA\n\nBBB` が Preview では
+  `paragraph["AAA"] | paragraph（空） | paragraph["BBB"]` の3ブロックになり、
+  段落間が常に1行余分に空いて見えていた。
+- 原因は `blankLineRemarkPlugin.ts` の実装が本仕様1節（「空行1行は追加ノード無し、
+  N 行なら N-1 個」）と食い違い、**空行 N 行に対して空 paragraph を N 個** 挿入して
+  いたこと（`blankLines = startLine - endLine - 1` 個をそのままループ）。
+  保存側の `collapseBlankLineChains`（`lineBreaks.ts`）も実装側の数え方に合わせて
+  あったため、ファイルの空行本数自体は保たれており（往復は成立）、**表示だけが
+  1行多い**状態だった。
+
+### 修正内容（1節の本来の仕様へ実装を合わせる）
+
+- `blankLineRemarkPlugin.ts`: 挿入する空 paragraph を `blankLines - 1` 個にする。
+  空行1行なら追加ノード無し（ブロック間の既定の余白として表示）。
+- `lineBreaks.ts` `collapseBlankLineChains`: N-1 個の `<br />` 連鎖を N 行の空行へ
+  戻すため、改行の本数を `brCount + 1` → `brCount + 2` に変更。
+- `hardbreakLine.ts` `splitAtPrecedingHardbreak` / `hardbreakLineInputRules.ts`:
+  hardbreak を「本物のブロック境界」へ変えるとき、これまでは
+  `paragraph[A] | paragraph（空プレースホルダ） | paragraph[B]` の3段落にしていたが、
+  新しい対応関係では空段落は空行2行を意味してしまう。単に hardbreak を削除して
+  その位置で1回 split し、`paragraph[A] | paragraph[B]`（＝直列化すると空行1行）に
+  する（`splitTrAtHardbreak` として共通化）。
+- 行番号ガター（3節）の補間式 `直前の実ノードの終了行 + 2 + k` は、
+  「空行1行はノード無し区間に吸収され、2行目以降が空 paragraph」という前提の式で
+  あり、本修正でようやくその前提と実装が一致した（変更不要）。
+
+### ガター番号が空行のぶん飛ぶことについて（2026-07-26 ユーザー判断で確定）
+
+- 本修正により、空行1行には Preview 上の行が存在しなくなったため、その行番号はどこにも
+  表示されない（例: ソース `1:見出し 2:空行 3:本文A 4:空行 5:項目1 6:項目2` に対し、
+  ガターは `1, 3, 5, 6`）。
+- 「飛ばないようにしてほしい」という要望を受けて選択肢を提示した:
+  (A) 表示行の連番（1,2,3,… 飛ばないが Raw の行番号とはズレる）、
+  (B) 実ソース行番号のまま（飛ぶが Raw と常に一致する）。
+  **ユーザーは (B) を選択**。したがって番号が飛ぶのは意図した仕様であり、バグではない。
+  Raw（VS Code）の行番号との一致（`preview-features.md` の `showLineNumbers` の本来の意図）を
+  優先する。
+
+### テスト
+
+- `test/browser/rendering/blankLineDisplay.test.ts`（実 Chromium。見える DOM ブロック数と
+  保存 Markdown の両方を固定）
+- `test/webview/rendering/blankLineRoundtrip.test.ts` / `test/webview/editing-core/blankLines.integration.test.ts`
+  （空行 N 行 ⇄ 空 paragraph N-1 個の往復）
+- `test/suite/shared/lineBreaks.test.ts`（`collapseBlankLineChains` の本数）
+
 ## 対象外（今後の課題）
 
 - リスト項目間・blockquote内・テーブルセル内の空行の復元。
 - ネストしたリスト内の空行。
 - リスト項目・blockquote内部にある複数行ブロック（表・コードブロック）の行内番号（4節参照）。
 - インデント形式（4スペース）コードブロックでフェンス以外の入力があった場合の行番号ズレ（4節参照。本 Preview の直列化は常にフェンス形式になるため現状は発生しない）。
+
+## 10. 追記（2026-07-26）: 9節の差し戻し — ソースの空行を省略しない（N 行 → N 個）
+
+### 背景・不具合報告
+
+9節で「空行1行は追加ノード無し（N 行 → N-1 個）」へ実装を寄せた直後、ユーザーから
+スクリーンショット付きで次の報告があった。
+
+- `CHANGELOG.md` の冒頭（`1: ## 1.9.10 - 2026-07-01` / `2〜4: 空行` / `5: - Fix: ...`）を
+  Preview で開くと、ガター番号が **`1, 3, 4, 5`** となり **2 行目が表示されない**。
+- 「ここの2行目は空白です。その空白も表示するように修正して欲しい」
+- 「省略しない、richすぎないプレビューを表示して欲しい」
+
+### 原因（9節の判断の誤り）
+
+9節は「段落間が常に1行余分に空いて見える」ことを不具合と判断したが、Preview の段落は
+CSS で `margin: 0`（`media/milkdown-preview.css` の `.milkdown p`）である。つまり
+
+- 空行を空 `paragraph` として実体化して初めて、その空行は画面上の1行になる。
+- 実体化しなければ、その空行は**表示からも、ガター番号からも完全に消える**
+  （＝ Raw と Preview の行が 1:1 で対応しなくなる）。
+
+`AAA\n\nBBB` が Preview で3ブロック（`AAA` / 空 / `BBB`）になるのは「余分」ではなく、
+Raw の 3 行（`AAA` / 空行 / `BBB`）とちょうど一致した状態だった。9節はこの CSS 前提を
+考慮しておらず、1節の文言（「空行1行はブロック間の既定の余白」）だけを根拠にしていた。
+その「既定の余白」は `margin: 0` にした時点で存在しない。
+
+なお9節末尾でユーザーが選んだ「(B) 実ソース行番号のまま」という判断は今回も維持される。
+今回の差し戻しは (B) をやめるものではなく、**すべてのソース行に対応する行が Preview 上に
+存在するようにすることで、(B) のまま番号が飛ばなくなる**という関係にある。
+
+### 修正内容（9節の変更を戻す）
+
+- `blankLineRemarkPlugin.ts`: 挿入する空 paragraph を `blankLines` 個に戻す。
+- `lineBreaks.ts` `collapseBlankLineChains`: 改行の本数を `brCount + 2` → `brCount + 1` に戻す。
+- `lineNumberGutterPlugin.ts` `computeRealLineEntries`: 空 paragraph の行番号の補間式を
+  `直前の実ノードの終了行 + 2 + k` → `+ 1 + k` に戻す（空行1行目から空 paragraph が
+  対応するため）。
+- `hardbreakLine.ts` / `hardbreakLineInputRules.ts`: Enter → Markdown 自動変換のとき、
+  hardbreak を「空プレースホルダ段落 + ブロック分割」に戻す。これにより、変換直後の
+  画面（`abc` / 空 / `## head`）が、同じ内容を保存して開き直したときの画面と一致する
+  （9節の `splitTrAtHardbreak` 方式では変換直後だけ空行が消えて見え、開き直すと現れる、
+  という不一致が起きる）。
+- 9節で `lineNumberGutterPlugin.ts` に入った別件の修正
+  （`collapseExpandedFenceForReparse`、8節のコードブロック展開中の行番号ズレ）は
+  無関係なのでそのまま残す。
+
+### この仕様の意図（ユーザーの言葉）
+
+**「省略しない、richすぎないプレビュー」** — Preview は Raw の見た目を装飾するもので
+あって、ソースの行を間引くものではない。行の対応が 1:1 であることを、段落間の余白の
+見栄えより優先する。段落の視覚的な間隔が欲しい場合はソース側で空行を足す（＝ Raw と
+同じ操作）ことで表現する。
+
+### テスト
+
+- `test/browser/rendering/blankLineDisplay.test.ts`（実 Chromium。見える DOM ブロック数、
+  ユーザー報告そのままの「見出し + 空行3行」でガター番号が `1,2,3,4,5` と連番になること、
+  保存 Markdown の空行本数）
+- `test/webview/rendering/blankLineRoundtrip.test.ts` / `test/webview/editing-core/blankLines.integration.test.ts`
+  （空行 N 行 ⇄ 空 paragraph N 個の往復）
+- `test/suite/shared/lineBreaks.test.ts`（`collapseBlankLineChains` の本数）
+
+## 11. 追記（2026-07-26）: リスト項目にフォーカスすると、その項目以降の行番号が重複・飛躍する不具合の修正
+
+### 背景・不具合報告
+
+- ユーザー報告（スクリーンショット）: 番号付きリストの項目にフォーカスすると、ガター番号が
+  `86, 87, 87, 94` のように**同じ番号が2回出て、その後に大きく飛ぶ**。
+  「フォーカスするとおかしいです。その行にフォーカスすると」。
+
+### 原因
+
+8節（コードブロックの実テキスト展開）と**同種**の問題。`blockPrefixEditPlugin` は
+フォーカス中の見出し / リスト項目 / 引用に、その Markdown プレフィックス
+（`## ` / `2. ` / `> `）を**実テキストとして**ノード内容へ挿入する（Typora 風の記法展開）。
+
+行番号は3節のとおり「現在の doc を直列化 → remark で再パース → `.position` を読む」方式で
+求めるため、展開中はその実テキストが直列化結果に混入する。リスト項目の場合
+`2. 2. two` のように記法が二重になり、再パース結果には**入れ子の順序付きリスト**が
+現れる。その結果 mdast 側の要素列と ProseMirror 側の走査順が1要素ずつズレ、
+そのブロック以降の番号が重複・飛躍していた。
+
+引用（`> > quoted`）は入れ子 blockquote になっても行数が変わらないため症状が出ず、
+見出し（`## ## head`）も構造が変わらないため出ない。リスト項目でのみ顕在化する。
+
+### 修正内容
+
+- `lineNumberGutterPlugin.ts` に `stripExpandedPrefixForReparse()` を追加し、
+  再パース用の使い捨てコピーから展開中のプレフィックス文字列
+  （`getExpandedBlock()` の `contentStart` / `prefix`）を削除してから直列化する。
+  ファイルへ書き戻される内容（`postChange`）は展開中も常にプレフィックス無しなので、
+  行番号計算もそれに揃うことになる。
+- コードフェンス展開（8節の `collapseExpandedFenceForReparse`）とは排他。カーソルは
+  常に1箇所なので同時には起きず、どちらも生の doc 基準の位置を使うため、片方だけを
+  適用すれば位置ズレも起きない。
+
+### テスト
+
+`test/browser/rendering/lineNumberGutter.test.ts`（実 Chromium）に2件追加。
+
+- リスト項目にフォーカスして展開中でも行番号が実ソース行番号のまま変わらない
+  （修正前は `1,2,3,4,5,6,7` → `1,2,3,4,4,5,6` に化けた＝報告と同型）
+- 引用にフォーカスして展開中でも変わらない（症状が出ない側の回帰防止ロック）
