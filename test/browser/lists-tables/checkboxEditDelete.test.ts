@@ -60,7 +60,7 @@ describe('実ブラウザ: チェックボックスの編集・削除', function
         // 「フォーカス中の普通の箇条書きになった」と誤検知して "- " を実テキストとして
         // 挿入し、"- second" のように記法がテキストに漏れ出し、checked も null のまま
         // 壊れた状態になっていた（previewKeymapPlugin.ts の makeTodo() が対処済みの
-        // Bug1 と同じ機序）。詳細: docs/specifications/preview-usage-flow-test-backlog.md 4.2。
+        // Bug1 と同じ機序）。詳細: docs/testing/preview-usage-flow-test-backlog.md 4.2。
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, '- [x] first\n- [ ] second\n', 'second');
         await h.placeCursorAtLineStart('second');

@@ -2,7 +2,7 @@
  * 実ブラウザ・ユースケーステスト: ユーザーが Markdown メモを書くときの**日常的な操作フロー**を
  * そのまま実キー入力で再現し、「この操作をしたら、こう動く」を保証する。
  *
- * docs/specifications/preview-usage-flow-test-backlog.md のバックログを消化するテスト群。
+ * docs/testing/preview-usage-flow-test-backlog.md のバックログを消化するテスト群。
  * 個別のバグ再現ではなく、次のような「実際に毎日起きる操作の連なり」を対象にする:
  *
  *   - 買い物リストを一気に書き出す（チェックボックス + Enter の高速反復）

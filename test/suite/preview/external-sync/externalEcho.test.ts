@@ -4,7 +4,7 @@
  * 回帰の主眼: `onExternalFileChange`（FileSystemWatcher 経由の外部変更検知）が
  * 同期フラグ（`applyingRemoteEdit`）だけに頼っていると、自分の保存の遅延エコーを
  * 取りこぼし、古い・短いディスク内容が Webview へ push されて、入力継続中のカーソルが
- * 文書末尾へ飛んでしまう（詳細: docs/specifications/stale-external-push-cursor-jump-fix.md）。
+ * 文書末尾へ飛んでしまう（詳細: docs/specifications/fixes/stale-external-push-cursor-jump-fix.md）。
  * `resolveExternalPush` はこの判定を `changeSub` と `onExternalFileChange` の両方で
  * 共有し、内容が一致すれば push しない（null を返す）ことを保証する。
  */

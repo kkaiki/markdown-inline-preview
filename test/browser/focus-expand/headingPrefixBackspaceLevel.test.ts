@@ -23,7 +23,7 @@
  * `#` を全部消すというのは「もう見出しではない」という明確な意図なので、
  * 修正方針はレベルを弄るのではなく **ノードタイプを heading → paragraph へ変換する**
  * （`codeBlockBackspace.ts` がフェンス解除で code_block → paragraph に変換するのと
- * 同じ発想）。詳細仕様は `docs/specifications/heading-prefix-zero-hash-collapse-fix.md`。
+ * 同じ発想）。詳細仕様は `docs/specifications/fixes/heading-prefix-zero-hash-collapse-fix.md`。
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */

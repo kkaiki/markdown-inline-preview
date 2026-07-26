@@ -249,7 +249,7 @@ export function handleSelectAllCapture(
  * で対象行の DOM サブツリーが丸ごと破棄されると、ブラウザのネイティブ selection が
  * 行き場を失い、ドキュメント内の別のブロックへ selection が退避してしまうことがある
  * （その selectionchange を ProseMirror がそのまま拾ってしまう＝カーソルが対象行から
- * 別ブロックへ飛ぶ不具合。詳細: docs/specifications/checkbox-cursor-jump-fix.md）。
+ * 別ブロックへ飛ぶ不具合。詳細: docs/specifications/fixes/checkbox-cursor-jump-fix.md）。
  * wrap と `checked` 設定を **同じ transaction** にまとめて 1 回だけ dispatch すれば、
  * 中間状態（素の `<li>` レンダリング）自体が発生しないため再現しない。
  */

@@ -11,7 +11,7 @@
  * 更新しない）。そのため collapse で確定した最終テキストが、その後 **他に何の編集も
  * 起きなければ永久にホストへ送られず**、保存ファイルからその内容が丸ごと欠落することがあった。
  *
- * 詳細設計: docs/specifications/collapse-markdown-sync-fix.md
+ * 詳細設計: docs/specifications/fixes/collapse-markdown-sync-fix.md
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */

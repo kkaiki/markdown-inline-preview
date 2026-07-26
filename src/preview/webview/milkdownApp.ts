@@ -612,7 +612,7 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     // markdownUpdated リスナーから完全に見えない（同リスナーは addToHistory:false の
     // transaction を無視するため）。collapse のたびに現在の doc を明示的に再シリアライズ
     // して postChange することで、リスナー側の取りこぼしに依存せず常に最新内容を
-    // ホストへ届ける（詳細: docs/specifications/collapse-markdown-sync-fix.md）。
+    // ホストへ届ける（詳細: docs/specifications/fixes/collapse-markdown-sync-fix.md）。
     setOnCollapseSync(() => {
         if (!editor) return;
         editor.action((ctx) => {

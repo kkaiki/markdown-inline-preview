@@ -12,7 +12,7 @@
  * 他のリストブロックが存在すると、そちらへ selection が退避してしまうことがある
  * （selectionchange を ProseMirror がそのまま拾ってしまう）。
  *
- * 詳細設計: docs/specifications/checkbox-cursor-jump-fix.md
+ * 詳細設計: docs/specifications/fixes/checkbox-cursor-jump-fix.md
  *
  * 単独の段落しか無い文書では再現しない（`blockPrefixBugs.test.ts` の Bug4 が
  * カバーしており、そちらは対象外）。本ファイルは「ドキュメント内の他の場所に

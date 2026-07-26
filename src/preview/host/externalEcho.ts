@@ -21,7 +21,7 @@ export function resolveExternalPush(candidateContent: string, lastAppliedFromWeb
  * 静かに消してしまう。保存直前のディスク内容が「自分が把握している document の内容」
  * とも「直近に自分が書き込んだ内容」とも食い違っていれば、外部の変更が割り込んだと
  * みなし、上書きせず見送る（'defer'）。呼び出し側はディスクの最新内容を webview へ
- * push してマージを待つ。詳細: docs/specifications/preview-external-write-race-fix.md
+ * push してマージを待つ。詳細: docs/specifications/fixes/preview-external-write-race-fix.md
  *
  * `lastPushedToWebview`（直近に host が webview へ push した内容。外部変更の push・
  * 初期表示のどちらも含む）がディスクと一致する場合も適用してよい。`document` モデルは

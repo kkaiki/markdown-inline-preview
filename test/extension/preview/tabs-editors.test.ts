@@ -43,7 +43,7 @@ suite('Preview: tabs-editors', () => {
             // このテストの目的はタブ・フォーカス管理であり untitled 固有の挙動ではないため、
             // ディスク実体を持つ実ファイルを使う（untitled は vscode.openWith がテキストタブを
             // 置き換えず2枚並存させる VS Code 側の挙動があり、この検証とは無関係な要因で
-            // タブ判定が不安定になる。詳細: docs/specifications/untitled-preview-content-loss-fix.md）。
+            // タブ判定が不安定になる。詳細: docs/specifications/fixes/untitled-preview-content-loss-fix.md）。
             const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-9-1-'));
             async function openRealMdFile(name: string, content: string): Promise<vscode.TextDocument> {
                 const filePath = path.join(tmpDir, name);

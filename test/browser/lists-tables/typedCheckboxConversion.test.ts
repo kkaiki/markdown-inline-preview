@@ -14,7 +14,7 @@
  *    直後に届く selectionchange 由来の transaction でカーソルが別ブロック（多くの場合
  *    見出しなど）へ飛び、続けてタイプした文字がそちらに書き込まれてしまう。
  *
- * 詳細設計: docs/specifications/typed-checkbox-conversion-fix.md
+ * 詳細設計: docs/specifications/fixes/typed-checkbox-conversion-fix.md
  *
  * 既存のマークダウンを読み込んだ場合（初期ロード）は問題無い。実際にキーを1つずつ
  * 押して作る場合にだけ再現するため、`h.type()`（実キーイベント）で検証する。
