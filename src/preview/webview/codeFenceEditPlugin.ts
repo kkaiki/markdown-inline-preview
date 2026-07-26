@@ -19,6 +19,7 @@
  *   `codeBlockBackspace.ts` の先頭 Backspace 解除は、いずれもこのプラグインが展開中かどうか
  *   （`isCodeFenceEditActive()` / `getExpandedCodeFence()`）を見て挙動を調整する。
  */
+import type { Node as ProseNode } from '@milkdown/prose/model';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
@@ -41,6 +42,32 @@ export function isCodeFenceEditActive(): boolean {
 /** 展開中のコードブロック情報を取得（codeHighlightPlugin から参照）。 */
 export function getExpandedCodeFence(): ExpandedCodeFence | null {
     return expanded;
+}
+
+/**
+ * 展開中のフェンス実テキスト（`` ```lang\n `` と `` \n``` ``）の絶対位置レンジ。
+ *
+ * `previewDiffPlugin` が差分比較用シグネチャから除外するために使う。除外しないと、
+ * 未編集のコードブロックにカーソルを入れただけで挿入されたフェンス行が HEAD 側との
+ * 差分になり、フォーカス中だけ「変更（青バー）」が出る
+ * （`docs/specifications/fixes/inline-mark-focus-edit-fix.md` §3.2 と同じ症状のフェンス版）。
+ *
+ * フェンスを編集途中で崩している場合（`parseCodeFenceRealText` が null）は、もはや
+ * 「挿入したままのマーカー」ではないので除外しない（実編集として差分に出す）。
+ */
+export function getExpandedCodeFenceRanges(doc: ProseNode): Array<{ from: number; to: number }> {
+    if (!expanded) return [];
+    const node = doc.nodeAt(expanded.nodePos);
+    if (!node || node.type.name !== 'code_block') return [];
+    const parsed = parseCodeFenceRealText(node.textContent);
+    if (!parsed) return [];
+
+    const contentStart = expanded.nodePos + 1;
+    const contentEnd = expanded.nodePos + node.nodeSize - 1;
+    return [
+        { from: contentStart, to: contentStart + parsed.openLen },
+        { from: contentEnd - parsed.closeLen, to: contentEnd }
+    ];
 }
 
 let onCollapseSync: (() => void) | null = null;

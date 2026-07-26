@@ -20,8 +20,9 @@
  * - `link` は閉じマーカー `](href)` が可変長（他の3種は固定長の繰り返し文字）なので、
  *   `openMarkerStart`/`closeMarkerEnd`（展開領域の外側境界）も追跡し、collapse 時に
  *   `doc.textBetween` で実テキストをそのまま読み取る
- *   （`docs/specifications/inline-mark-focus-edit-fix.md` §2「link の collapse 判定」）。
+ *   （`docs/specifications/fixes/inline-mark-focus-edit-fix.md` §2「link の collapse 判定」）。
  */
+import type { Node as ProseNode } from '@milkdown/prose/model';
 import { Plugin, PluginKey, TextSelection } from '@milkdown/prose/state';
 import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
@@ -64,6 +65,42 @@ export function isInlineMarkEditActive(): boolean {
     return expandedBlockPos !== null;
 }
 
+/**
+ * 現在展開中の「マーカー文字として実テキスト挿入されている部分」の絶対位置レンジ一覧。
+ *
+ * `previewDiffPlugin` がシグネチャ本文からこの範囲を除外するために使う。除外しないと、
+ * 未編集のブロックにカーソルを入れただけで挿入されたマーカー（`` ` `` / `**` /
+ * `](url)` 等）が HEAD 側との差分になり、フォーカス中だけ「変更（青バー）」が出る。
+ *
+ * `doc` を渡すと、collapse 時と同じ判定（`countTrailingMarkerChars` 等）で **今も残って
+ * いるマーカー文字だけ**を範囲にする。展開中にマーカーを一部消した場合、挿入時の長さ
+ * （`openLen`/`closeLen`）のままでは範囲が本文側へはみ出し、本文の文字まで比較から
+ * 落ちてしまうため。
+ */
+export function getExpandedInlineMarkRanges(doc?: ProseNode): Array<{ from: number; to: number }> {
+    const ranges: Array<{ from: number; to: number }> = [];
+    for (const m of expandedMarks) {
+        let openFrom = m.openMarkerStart ?? m.contentStart - m.openLen;
+        let closeTo = m.closeMarkerEnd ?? m.contentEnd + m.closeLen;
+
+        if (doc) {
+            const openText = doc.textBetween(Math.max(0, openFrom), m.contentStart);
+            const closeText = doc.textBetween(m.contentEnd, Math.min(doc.content.size, closeTo));
+            if (m.type === 'link') {
+                if (!isLinkOpenMarkerIntact(openText)) openFrom = m.contentStart;
+                if (parseLinkCloseMarkerHref(closeText) === null) closeTo = m.contentEnd;
+            } else {
+                openFrom = m.contentStart - countTrailingMarkerChars(openText, m.type, m.openLen);
+                closeTo = m.contentEnd + countLeadingMarkerChars(closeText, m.type, m.closeLen);
+            }
+        }
+
+        if (openFrom < m.contentStart) ranges.push({ from: openFrom, to: m.contentStart });
+        if (closeTo > m.contentEnd) ranges.push({ from: m.contentEnd, to: closeTo });
+    }
+    return ranges;
+}
+
 function getFocusedInlineMarkBlock(view: EditorView): { blockPos: number; blockStart: number; ranges: Array<{ from: number; to: number; type: EditableInlineMarkType; href?: string }> } | null {
     const { state } = view;
     const { $from, $to } = state.selection;
@@ -86,8 +123,8 @@ function getFocusedInlineMarkBlock(view: EditorView): { blockPos: number; blockS
     return { blockPos, blockStart, ranges };
 }
 
-function expandBlock(view: EditorView, ranges: Array<{ from: number; to: number; type: EditableInlineMarkType; href?: string }>): ExpandedMarkRange[] {
-    if (ranges.length === 0) return [];
+function expandBlock(view: EditorView, blockPos: number, ranges: Array<{ from: number; to: number; type: EditableInlineMarkType; href?: string }>): void {
+    if (ranges.length === 0) return;
     const { state } = view;
     // カーソル位置を明示的に保存し、挿入後も同じ「実コンテンツ上の位置」に留まるよう
     // 自前でマッピングする。ProseMirror の既定の selection マッピングに任せると、
@@ -148,8 +185,13 @@ function expandBlock(view: EditorView, ranges: Array<{ from: number; to: number;
     tr.setMeta('addToHistory', false);
     tr.setMeta(PLUGIN_META, 'expand');
 
+    // 展開状態は dispatch の**前**に確定させる（blockPrefixEditPlugin と同じ方針）。
+    // dispatch 中に走る他プラグインの decorations()（previewDiffPlugin の差分ガター）が
+    // まだ空の expandedMarks を見てしまうと、挿入したマーカー文字ぶんが差分と判定され、
+    // 未編集のブロックにフォーカスしただけで青バーが出たまま残る。
+    expandedBlockPos = blockPos;
+    expandedMarks = result;
     view.dispatch(tr);
-    return result;
 }
 
 /**
@@ -342,8 +384,7 @@ export function createInlineMarkEditPlugin() {
 
                     const newFocused = getFocusedInlineMarkBlock(view);
                     if (newFocused !== null && newFocused.ranges.length > 0) {
-                        expandedBlockPos = newFocused.blockPos;
-                        expandedMarks = expandBlock(view, newFocused.ranges);
+                        expandBlock(view, newFocused.blockPos, newFocused.ranges);
                     }
                 } finally {
                     isHandling = false;
