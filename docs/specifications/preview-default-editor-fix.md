@@ -96,3 +96,42 @@ VS Code の拡張ホストテスト環境では **`vscode.window.activeTextEdito
 （Raw タブがそもそも作られない）に合わせて更新した。
 `npm run test:unit`（926件）・`npm test`（実VS Code、既知flake2件を除き110件green）・
 `npm run compile`・`npm run lint:error` で確認済み。
+
+## 追記（2026-07-26）: 実機で再現した「ちらつき＋タブ重複が残る」ケースの真因
+
+`13.1`〜`13.4`（および `preview: true` を明示して実 Explorer 単発クリックをより
+忠実に再現した `13.5`）は本拡張機能単体では引き続き green だが、実際の Cursor
+利用時に「サイドバーから再オープンすると Raw が一瞬出てから Preview になり、
+最終的にタブが2枚残る」「直後にサイドバーへキーボードフォーカスが残らず
+`Cmd+Delete` が効かない」という、まさにこの仕様書が解消したはずの症状が
+再現する事例があった。
+
+原因は本拡張機能のコードではなく、**同じ `*.md` に対して `priority: "default"`
+を主張する別の拡張機能との競合**だった。実機（該当ユーザーの Cursor）には
+`cweijan.vscode-office` がインストールされており、これが `cweijan.markdownViewer`
+という customEditor を `*.md` に対して登録している。`priority` フィールドを
+省略しているため、VS Code のスキーマ既定値である `"default"` が暗黙に適用され、
+本拡張機能の `ipreview.preview`（`priority: "default"`）と衝突する。
+
+同一ファイルパターンに `priority: "default"` を主張する customEditor が2つ
+存在すると、VS Code はどちらを既定として解決するかを一意に決定できず、
+クリックのたびに解決結果が不安定になる。しかもこのとき実際に開かれる
+「もう一方」は本拡張機能が想定する `TabInputText`（プレーンテキストの Raw）
+ではなく、**競合先拡張機能自身の customEditor タブ**であるため、
+`collapseDuplicateRawTabsInGroup`（`TabInputText` のみを対象に重複解消する
+実装。[[sidebar-reopen-preview-duplicate-tab-fix]]参照）では検知も除去もできず、
+タブが2枚残ったまま解消されない。サイドバーのフォーカス喪失も、競合先の
+webview が介在することによる副作用の可能性が高い。
+
+この種の「他拡張機能との priority 競合」は本拡張機能のコードからは検出も
+制御もできない（相手の拡張機能の contributes を読みに行くような実装は
+避けるべき）。ユーザー側の恒久対処として、`workbench.editorAssociations`
+（ユーザー/ワークスペース設定）で `"*.md": "ipreview.preview"` を明示指定
+すれば、VS Code のエディタ解決がその指定を最優先するため競合自体が解消する。
+
+**さらに追記（2026-07-26）**: 上記の「ユーザーが手で書く恒久対処」は、拡張機能側から
+`workbench.editorAssociations` を現在のモードへ同期させる形で取り込んだ。詳細は
+[[default-editor-association-sync]]。これにより、この仕様書の「既知の対称的なリスク」
+（Raw を好むユーザーの初回オープンで Preview が一瞬解決されてから跳ね返る）も、
+`markdownInline.preview.controlDefaultEditor` が有効な限り発生しなくなる
+（`bounceToRawEditor` はオプトアウト時と `untitled:` のための保険として残す）。

@@ -9,6 +9,7 @@ export {
     resolveCheckboxMouseToggleEnabled,
     resolveCodeBlockAutoCompleteEnabled,
     resolveCodeBlockDecorationsEnabled,
+    resolveControlDefaultEditor,
     resolveDefaultWordWrap,
     resolveDisableCompetingMarkdownFeatures,
     resolveHeadingDecorationsEnabled,

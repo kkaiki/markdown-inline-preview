@@ -543,6 +543,42 @@ suite('Preview: tabs-editors', () => {
             assert.strictEqual(tabs.length, 1,
                 `操作が重なった後、最終的にタブが1枚に収束しなかった（${tabs.length} 枚）`);
         });
+
+        test('13.5 実際のExplorer単発クリック（preview:true）で再オープンしても、Rawタブが重複せずPreviewだけが残る', async function () {
+            this.timeout(20000);
+
+            // 13.1 は `vscode.open` に viewColumn だけを渡していたが、実際の Explorer
+            // シングルクリックは `TextDocumentShowOptions` の `preview: true`
+            // （VS Code の「プレビューモード（斜体タブ）」）を伴って解決される。
+            // この違いがある場合にのみ重複が再現しないか（＝13.1 では検出できない
+            // 実機バグの可能性）を切り分けるための再現テスト。
+            const uri = await createRealMdFile('dup5.md', '# 実クリック相当の再現\n');
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            // previewSettledAt の猶予窓（500ms）を確実に超えてから再クリックする
+            // （ユーザー報告は「ずっと同じタブで開いたまま、しばらくしてから再クリック」）。
+            await sleep(600);
+            assert.strictEqual(allTabsForUri(uri).length, 1, '前提条件: Previewタブが1枚開いていない');
+            assert.strictEqual(
+                (vscode.window.tabGroups.activeTabGroup.activeTab?.input as vscode.TabInputCustom | undefined)?.viewType,
+                PREVIEW_VIEW_TYPE,
+                '前提条件: アクティブタブがPreviewになっていない'
+            );
+
+            // Explorer の単発クリックを模す（preview: true を明示）。
+            await vscode.commands.executeCommand('vscode.open', uri, { viewColumn: vscode.ViewColumn.One, preview: true });
+            await sleep(800);
+
+            const tabs = allTabsForUri(uri);
+            assert.strictEqual(tabs.length, 1,
+                `Explorer単発クリック相当の再オープンでタブが重複した（${tabs.length} 枚）`);
+            assert.ok(
+                tabs[0].input instanceof vscode.TabInputCustom && tabs[0].input.viewType === PREVIEW_VIEW_TYPE,
+                '重複解消後に残ったタブが Preview になっていない'
+            );
+        });
     });
 
     suite('14. Previewから標準操作で開いた先が同じ列に留まる', () => {
@@ -792,6 +828,173 @@ suite('Preview: tabs-editors', () => {
                 assert.strictEqual(input.uri.toString(), targetUri.toString(), 'CLIから開いたファイルが左列に開かれていない');
             } finally {
                 fs.rmSync(tmpDir, { recursive: true, force: true });
+            }
+        });
+    });
+
+    suite('17. Raw モードのときは Preview タブがそもそも作られない', () => {
+        // customEditor の priority: "default" だけに頼っていた頃は、Raw モードでも
+        // 「まず Preview の Custom Editor が生成され → bounceToRawEditor が dispose して
+        // Raw を開き直す」という2手を踏んでいた。この過渡状態がちらつきと一瞬のタブ2枚
+        // 並存の正体で、他拡張（同じく priority: default を名乗るもの）が居ると解決が
+        // 揺れて2枚が残ることさえあった。モードを workbench.editorAssociations へ
+        // 同期させることで、開く前から解決先が1つに決まる（＝過渡状態自体が存在しない）
+        // ことを、タブ生成イベントを記録して検証する。
+        let tmpDir: string | undefined;
+
+        function sleep(ms: number): Promise<void> {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        teardown(async () => {
+            await vscode.workspace.getConfiguration('markdownInline').update(
+                'preview.controlDefaultEditor', undefined, vscode.ConfigurationTarget.Global
+            );
+            await vscode.workspace.getConfiguration('workbench').update(
+                'editorAssociations', undefined, vscode.ConfigurationTarget.Global
+            );
+            if (tmpDir) {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+                tmpDir = undefined;
+            }
+        });
+
+        test('17.1 Rawへ切り替えた後に別のMarkdownを新規に開くと、Previewタブが一度も生成されずRaw1枚だけになる', async function () {
+            this.timeout(40000);
+
+            tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-17-'));
+            const firstPath = path.join(tmpDir, 'first.md');
+            fs.writeFileSync(firstPath, '# 最初のファイル\n', 'utf-8');
+            const firstUri = vscode.Uri.file(firstPath);
+
+            // まず Raw モードを「最後に使ったモード」として確定させる。
+            const firstDoc = await vscode.workspace.openTextDocument(firstUri);
+            await vscode.window.showTextDocument(firstDoc, { viewColumn: vscode.ViewColumn.One, preview: false });
+            for (let i = 0; i < 3; i++) {
+                if (vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom) break;
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(600);
+            }
+            for (let i = 0; i < 3; i++) {
+                if (vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputText) break;
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(600);
+            }
+            assert.ok(
+                vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputText,
+                '前提条件: Raw モードに落ち着いていない'
+            );
+            // 既定エディタ設定（グローバル）が VS Code 側へ反映されるのを待つ。
+            await sleep(800);
+
+            // ここから「まだ一度も開いたことがない」Markdown を開き、その間に作られた
+            // タブをすべて記録する。Preview の Custom Editor が一瞬でも作られれば
+            // opened イベントに TabInputCustom として現れる。
+            const secondPath = path.join(tmpDir, 'second.md');
+            fs.writeFileSync(secondPath, '# 2番目のファイル\n', 'utf-8');
+            const secondUri = vscode.Uri.file(secondPath);
+
+            const openedPreviewTabs: string[] = [];
+            const listener = vscode.window.tabGroups.onDidChangeTabs(event => {
+                for (const tab of event.opened) {
+                    if (tab.input instanceof vscode.TabInputCustom
+                        && tab.input.viewType === PREVIEW_VIEW_TYPE
+                        && tab.input.uri.toString() === secondUri.toString()) {
+                        openedPreviewTabs.push(tab.input.viewType);
+                    }
+                }
+            });
+            try {
+                await vscode.commands.executeCommand('vscode.open', secondUri, vscode.ViewColumn.One);
+                await sleep(1500);
+            } finally {
+                listener.dispose();
+            }
+
+            assert.strictEqual(
+                openedPreviewTabs.length, 0,
+                `Raw モードなのに Preview の Custom Editor が ${openedPreviewTabs.length} 回生成された（跳ね返し経路を通っている）`
+            );
+
+            const tabsForSecond: vscode.Tab[] = [];
+            for (const group of vscode.window.tabGroups.all) {
+                for (const tab of group.tabs) {
+                    const input = tab.input;
+                    if ((input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom)
+                        && input.uri.toString() === secondUri.toString()) {
+                        tabsForSecond.push(tab);
+                    }
+                }
+            }
+            assert.strictEqual(tabsForSecond.length, 1, `同じファイルのタブが ${tabsForSecond.length} 枚ある`);
+            assert.ok(
+                tabsForSecond[0].input instanceof vscode.TabInputText,
+                '残ったタブが Raw（テキストエディタ）になっていない'
+            );
+        });
+
+        test('17.2 Rawモードで Preview の Custom Editor が解決されても「OverlayWebview has been disposed」で開けなくならない', async function () {
+            this.timeout(40000);
+
+            // 実機で `Unable to open 'testing-rules.md' / OverlayWebview has been disposed` という
+            // ダイアログが出てファイルが開けない、というユーザー報告の回帰テスト。
+            // 原因は resolveCustomTextEditor の最中に webviewPanel.dispose() を呼んでいたこと。
+            // VS Code はエディタ解決中に panel が破棄されるとオープン自体を失敗扱いにする。
+            //
+            // この跳ね返し経路は controlDefaultEditor を切っていても、`untitled:` でも、
+            // 関連付けの書き込みが反映される前の起動直後でも通りうるため、
+            // 「Raw モードで Custom Editor が解決されてしまった」状況を明示的に作って検証する。
+            await vscode.workspace.getConfiguration('markdownInline').update(
+                'preview.controlDefaultEditor', false, vscode.ConfigurationTarget.Global
+            );
+            await vscode.workspace.getConfiguration('markdownInline').update(
+                'preview.defaultMode', 'raw', vscode.ConfigurationTarget.Global
+            );
+            await vscode.workspace.getConfiguration('markdownInline').update(
+                'preview.rememberMode', false, vscode.ConfigurationTarget.Global
+            );
+            await sleep(500);
+
+            try {
+                tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-17-2-'));
+                const filePath = path.join(tmpDir, 'testing-rules.md');
+                fs.writeFileSync(filePath, '# 跳ね返しでエラーにならない\n', 'utf-8');
+                const uri = vscode.Uri.file(filePath);
+
+                let caught: unknown = null;
+                try {
+                    await vscode.commands.executeCommand('vscode.openWith', uri, PREVIEW_VIEW_TYPE, vscode.ViewColumn.One);
+                } catch (error) {
+                    caught = error;
+                }
+                assert.strictEqual(
+                    caught, null,
+                    `Rawモードでの跳ね返し中にオープンが失敗した: ${caught instanceof Error ? caught.message : JSON.stringify(caught)}`
+                );
+
+                await sleep(1200);
+                const tabs: vscode.Tab[] = [];
+                for (const group of vscode.window.tabGroups.all) {
+                    for (const tab of group.tabs) {
+                        const input = tab.input;
+                        if ((input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom)
+                            && input.uri.toString() === uri.toString()) {
+                            tabs.push(tab);
+                        }
+                    }
+                }
+                assert.strictEqual(tabs.length, 1, `跳ね返し後のタブが1枚に収束していない（${tabs.length} 枚）`);
+                assert.ok(
+                    tabs[0].input instanceof vscode.TabInputText,
+                    '跳ね返し後に残ったタブが Raw（テキストエディタ）になっていない'
+                );
+            } finally {
+                await vscode.workspace.getConfiguration('markdownInline').update(
+                    'preview.defaultMode', undefined, vscode.ConfigurationTarget.Global
+                );
+                await vscode.workspace.getConfiguration('markdownInline').update(
+                    'preview.rememberMode', undefined, vscode.ConfigurationTarget.Global
+                );
             }
         });
     });

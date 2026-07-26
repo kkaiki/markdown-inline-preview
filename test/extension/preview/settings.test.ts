@@ -3,12 +3,16 @@
  *
  * 対象: `alwaysOpenNewTab` → `workbench.editor.enablePreview`、
  * `wordWrap` → markdown 言語スコープの `editor.wordWrap`、
- * `wrapTabs` → `workbench.editor.wrapTabs` への反映。
+ * `wrapTabs` → `workbench.editor.wrapTabs` への反映、
+ * `controlDefaultEditor` → `workbench.editorAssociations` へのモード追従。
  *
  * 実行: `node ./out-test/test/runTest.js`（VS Code を1回起動し、extension/ 配下の
  * 全テストファイルと同じインスタンス内で実行する）。`MOCHA_GREP` でテスト名の絞り込みが可能。
  */
 import assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 import { closeAllEditors, createTestDocument, updateMarkdownInlineSetting } from "../helpers";
 
@@ -150,6 +154,136 @@ suite('Preview: settings', () => {
             await new Promise(resolve => setTimeout(resolve, 250));
 
             assert.strictEqual(getShowLineNumbers(), true, '実行後に showLineNumbers が true に戻っていません');
+        });
+    });
+
+    // Raw/Preview のモードを、VS Code 本体の「.md をどのエディタで開くか」
+    // （workbench.editorAssociations）へ同期させる。これにより Raw モードのときは
+    // ファイルを開いた瞬間から標準テキストエディタが解決され、Preview の Custom Editor が
+    // 一度生成されてから跳ね返る（bounceToRawEditor）経路を通らなくなる。
+    // 同時に、同じく priority: "default" を名乗る他拡張との解決の揺れも無くなる。
+    suite('16. .md の既定エディタをモードに追従させる（editorAssociations）', () => {
+        const PREVIEW_VIEW_TYPE = 'ipreview.preview';
+        let tmpDir: string | undefined;
+
+        function getAssociations(): Record<string, string> | undefined {
+            return vscode.workspace.getConfiguration('workbench').get<Record<string, string>>('editorAssociations');
+        }
+
+        function sleep(ms: number): Promise<void> {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function openRealMdFile(name: string, content: string): Promise<vscode.Uri> {
+            if (!tmpDir) tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-16-'));
+            const filePath = path.join(tmpDir, name);
+            await fs.promises.writeFile(filePath, content, 'utf-8');
+            const uri = vscode.Uri.file(filePath);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+            return uri;
+        }
+
+        /** アクティブなタブが Preview（Custom Editor）になるまで togglePreview する。 */
+        async function ensurePreview(): Promise<void> {
+            for (let i = 0; i < 3; i++) {
+                if (vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom) return;
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(600);
+            }
+        }
+
+        /** アクティブなタブが Raw（テキストエディタ）になるまで togglePreview する。 */
+        async function ensureRaw(): Promise<void> {
+            for (let i = 0; i < 3; i++) {
+                if (vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputText) return;
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(600);
+            }
+        }
+
+        teardown(async () => {
+            // 実 VS Code のグローバル設定を触るため、他スイートへ影響しないよう必ず戻す。
+            await updateMarkdownInlineSetting('preview.controlDefaultEditor', undefined);
+            await vscode.workspace.getConfiguration('workbench').update(
+                'editorAssociations', undefined, vscode.ConfigurationTarget.Global
+            );
+            await closeAllEditors();
+            if (tmpDir) {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+                tmpDir = undefined;
+            }
+        });
+
+        test('16.1 Raw へ切り替えると *.md の既定エディタが VS Code 標準テキストエディタになる', async function () {
+            this.timeout(30000);
+
+            await openRealMdFile('assoc-raw.md', '# Raw 既定化\n');
+            await ensurePreview();
+            await ensureRaw();
+            await sleep(500);
+
+            const associations = getAssociations();
+            assert.strictEqual(
+                associations?.['*.md'], 'default',
+                `Raw へ切り替えたのに *.md の既定エディタが標準テキストエディタになっていません: ${JSON.stringify(associations)}`
+            );
+        });
+
+        test('16.2 Preview へ切り替えると *.md の既定エディタが Preview に戻る', async function () {
+            this.timeout(30000);
+
+            await openRealMdFile('assoc-preview.md', '# Preview 既定化\n');
+            await ensureRaw();
+            await ensurePreview();
+            await sleep(500);
+
+            const associations = getAssociations();
+            assert.strictEqual(
+                associations?.['*.md'], PREVIEW_VIEW_TYPE,
+                `Preview へ切り替えたのに *.md の既定エディタが Preview になっていません: ${JSON.stringify(associations)}`
+            );
+        });
+
+        test('16.3 controlDefaultEditor=false のときはモードを切り替えても既定エディタを書き換えない', async function () {
+            this.timeout(30000);
+
+            await updateMarkdownInlineSetting('preview.controlDefaultEditor', false);
+            await vscode.workspace.getConfiguration('workbench').update(
+                'editorAssociations', undefined, vscode.ConfigurationTarget.Global
+            );
+            await sleep(300);
+
+            await openRealMdFile('assoc-off.md', '# 制御 OFF\n');
+            await ensurePreview();
+            await ensureRaw();
+            await sleep(500);
+
+            const associations = getAssociations();
+            assert.ok(
+                !associations || associations['*.md'] === undefined,
+                `controlDefaultEditor=false なのに *.md の既定エディタが書き換えられました: ${JSON.stringify(associations)}`
+            );
+        });
+
+        test('16.4 他拡張のための関連付け（*.pdf など）はモード切替で消えない', async function () {
+            this.timeout(30000);
+
+            await vscode.workspace.getConfiguration('workbench').update(
+                'editorAssociations', { '*.pdf': 'cweijan.pdfViewer' }, vscode.ConfigurationTarget.Global
+            );
+            await sleep(300);
+
+            await openRealMdFile('assoc-keep.md', '# 他の関連付けを壊さない\n');
+            await ensurePreview();
+            await ensureRaw();
+            await sleep(500);
+
+            const associations = getAssociations();
+            assert.strictEqual(
+                associations?.['*.pdf'], 'cweijan.pdfViewer',
+                `無関係な関連付けがモード切替で失われました: ${JSON.stringify(associations)}`
+            );
         });
     });
 });
