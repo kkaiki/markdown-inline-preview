@@ -78,6 +78,15 @@ export function resolveAlwaysOpenNewTab(config: ConfigLike): boolean {
     return config.get<boolean>('preview.alwaysOpenNewTab', true);
 }
 
+// 既定 on。`.md` の既定エディタ（workbench.editorAssociations）を現在のモードへ
+// 追従させることで、Raw モードでも Preview の Custom Editor が一度生成されてから
+// 跳ね返る過渡状態を無くし、同じパターンに priority: "default" を主張する他拡張との
+// 競合も解消する。グローバル設定を拡張機能が書き換えるため、オプトアウトできる。
+// 詳細: docs/specifications/default-editor-association-sync.md
+export function resolveControlDefaultEditor(config: ConfigLike): boolean {
+    return config.get<boolean>('preview.controlDefaultEditor', true);
+}
+
 export function resolveDefaultWordWrap(config: ConfigLike): boolean {
     return config.get<boolean>('preview.wordWrap', true);
 }

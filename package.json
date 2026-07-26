@@ -590,6 +590,11 @@
           ],
           "description": "Default mode when opening a Markdown file (raw = normal editing, preview = WYSIWYG editor)"
         },
+        "markdownInline.preview.controlDefaultEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep VS Code's default editor for Markdown in sync with the current mode. This directly sets workbench.editorAssociations for *.md / *.markdown (a global VS Code setting), so switching to Raw makes Markdown files open as plain text from the start — no Preview editor is created and bounced back — and it also resolves conflicts with other extensions that claim *.md as their default editor. Disable this to leave workbench.editorAssociations untouched."
+        },
         "markdownInline.preview.rememberMode": {
           "type": "boolean",
           "default": true,

@@ -29,7 +29,12 @@ import { pickPreviewUri, type PreviewTabInfo } from './previewTabs';
 import { decidePreviewToggle } from './toggleDecision';
 import { createSerialQueue, reportRejection } from './serialQueue';
 import { resolveExternalPush, resolveWebviewSaveDecision } from './externalEcho';
-import { resolveShowLineNumbers } from '../../core';
+import {
+    computeEditorAssociations,
+    editorAssociationsEqual,
+    resolveDefaultOpenMode
+} from './defaultEditorAssociation';
+import { resolveControlDefaultEditor, resolveShowLineNumbers } from '../../core';
 
 const execFileAsync = promisify(execFile);
 
@@ -227,6 +232,41 @@ function getRememberedMode(context: vscode.ExtensionContext): 'raw' | 'preview' 
     return context.globalState.get<'raw' | 'preview'>(GLOBAL_MODE_KEY);
 }
 
+/** 「次に新規で Markdown を開いたときのモード」。記憶モード優先、無ければ設定の既定値。 */
+function currentDefaultOpenMode(context: vscode.ExtensionContext): 'raw' | 'preview' {
+    return resolveDefaultOpenMode({
+        remembered: getRememberedMode(context),
+        defaultMode: getConfig<string>('preview.defaultMode', 'preview')
+    });
+}
+
+/**
+ * `.md` の既定エディタ（VS Code 本体の `workbench.editorAssociations`）を、今のモードへ
+ * 追従させる。Raw モードなら標準テキストエディタが最初から解決されるため、Preview の
+ * Custom Editor を生成してから跳ね返す（bounceToRawEditor）2手が不要になり、開く経路での
+ * タブ2枚並存も構造的に無くなる。同じパターンに `priority: "default"` を主張する他拡張との
+ * 競合も、ユーザー設定であるこの関連付けが優先されることで解消する。
+ * 詳細: docs/specifications/default-editor-association-sync.md
+ */
+async function applyDefaultEditorAssociation(context: vscode.ExtensionContext): Promise<void> {
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    const desired = resolveControlDefaultEditor(config) ? currentDefaultOpenMode(context) : null;
+    const workbench = vscode.workspace.getConfiguration('workbench');
+    const current = workbench.get<Record<string, string>>('editorAssociations');
+    const next = computeEditorAssociations(current, desired);
+    if (editorAssociationsEqual(current, next)) return;
+    try {
+        // 空になる場合は `{}` を書き残さず、設定そのものを削除する。
+        const value = Object.keys(next).length === 0 ? undefined : next;
+        await workbench.update('editorAssociations', value, vscode.ConfigurationTarget.Global);
+        debugLog(`[preview] applied workbench.editorAssociations for mode=${desired ?? 'off'}`);
+    } catch (error) {
+        // 設定ファイルが書き込めない環境（読み取り専用プロファイル等）でも、跳ね返し経路で
+        // 動作自体は成立するため致命的ではない。
+        debugLog(`[preview] applyDefaultEditorAssociation failed, ignoring: ${String(error)}`);
+    }
+}
+
 /** エディタの「現在画面最上部の行」。スクロール位置の同期基準に使う。 */
 function topVisibleLine(editor: vscode.TextEditor): number {
     return editor.visibleRanges[0]?.start.line ?? editor.selection.active.line;
@@ -356,9 +396,10 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
         // 詳細: docs/specifications/preview-default-editor-fix.md
         if (!seenMarkdownUris.has(key)) {
             seenMarkdownUris.add(key);
-            const remembered = getRememberedMode(this.context);
-            const mode = remembered ?? getConfig<string>('preview.defaultMode', 'preview');
-            if (mode === 'raw') {
+            // `controlDefaultEditor` が有効なら、そもそも Raw モードでこの Custom Editor が
+            // 解決されること自体が無い（editorAssociations が標準テキストエディタを指すため）。
+            // ここへ来るのはオプトアウト時・untitled・設定反映前の過渡期に限られる。
+            if (currentDefaultOpenMode(this.context) === 'raw') {
                 void bounceToRawEditor(document.uri, webviewPanel);
                 return;
             }
@@ -870,8 +911,14 @@ async function closeStaleTabs(tabs: vscode.Tab[]): Promise<void> {
 
 /**
  * `PreviewEditorProvider.resolveCustomTextEditor` から、記憶モード/既定設定が "raw" の
- * 場合に呼ばれる。まだ何も描画していない Preview の webviewPanel を dispose し、
- * 同じ位置へ Raw（既定のテキストエディタ）を開き直す。
+ * 場合に呼ばれる。まだ何も描画していない Preview のタブを、同じ位置の Raw（既定の
+ * テキストエディタ）へ置き換える。
+ *
+ * **webviewPanel を自分で dispose してはいけない**。エディタ解決（resolveCustomTextEditor）の
+ * 最中に panel を破棄すると、VS Code はそのオープン操作自体を失敗扱いにし、
+ * `Unable to open 'xxx.md' / OverlayWebview has been disposed` というダイアログを出して
+ * タブを壊れたまま残す（2026-07-26 ユーザー報告）。代わりに解決を正常に終えてから
+ * `vscode.openWith(uri, 'default')` でタブを置き換え、panel の破棄は VS Code に任せる。
  *
  * `rememberMode` は呼ばない — ここは「既に raw が選ばれている」ことを尊重して跳ね返す
  * だけであり、ユーザーが今まさに raw へ切り替えたわけではないため、記憶を上書きする
@@ -879,9 +926,13 @@ async function closeStaleTabs(tabs: vscode.Tab[]): Promise<void> {
  */
 async function bounceToRawEditor(uri: vscode.Uri, webviewPanel: vscode.WebviewPanel): Promise<void> {
     const viewColumn = webviewPanel.viewColumn;
-    webviewPanel.dispose();
+    // resolveCustomTextEditor から抜けて、VS Code 側のエディタ解決が完了するのを待つ。
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
     try {
         await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn);
+        // 保存済みファイルでは openWith がタブを in-place 置換するため、ここで残る Preview
+        // タブは通常存在しない（untitled 等、置換されなかった場合だけ後片付けする）。
+        await closeStaleTabs(findTabs(isPreviewTabForUri(uri)));
     } catch {
         // パネルが既に破棄されている等、跳ね返し中の競合は致命的ではないので無視する。
         debugLog('[preview] bounceToRawEditor failed, ignoring');
@@ -921,6 +972,7 @@ async function switchToPreview(
         pendingOpenScrollRatio.set(key, computeScrollRatio(editor) ?? 0);
     }
     rememberMode(context, 'preview');
+    void applyDefaultEditorAssociation(context);
     inFlightSwitch.add(key);
     try {
         await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, viewColumn);
@@ -965,6 +1017,7 @@ async function switchToRaw(
     const ratio = lastKnownScrollRatio.get(key);
     const cursor = lastKnownCursor.get(key);
     rememberMode(context, 'raw');
+    void applyDefaultEditorAssociation(context);
     inFlightSwitch.add(key);
     let editor: vscode.TextEditor;
     try {
@@ -1101,6 +1154,10 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
 
     syncEditorContext();
 
+    // 起動時点で、前回終了時のモードが `.md` の既定エディタへ反映済みであることを保証する
+    // （設定を手で戻された場合や、この機能の導入直後の初回起動を含む）。
+    void applyDefaultEditorAssociation(context);
+
     // テスト専用コマンド（このファイル冒頭の testChangeInjectors 参照）。
     // `@vscode/test-electron` 実行時のみ `context.extensionMode` が `Test` になるため、
     // 通常のユーザーインストールでは絶対に登録されない。
@@ -1221,10 +1278,18 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
                 return;
             }
             seenMarkdownUris.add(key);
-            const remembered = getRememberedMode(context);
-            const mode = remembered ?? getConfig<string>('preview.defaultMode', 'preview');
-            if (mode === 'preview') {
+            if (currentDefaultOpenMode(context) === 'preview') {
                 void switchToPreview(context, editor.document, editor.viewColumn, editor);
+            }
+        }),
+
+        // 既定エディタの関連付けは「次に開くファイルのモード」を表すため、モード判定に
+        // 関わる設定が変わったら書き直す（オプトアウト時は自分が書いた関連付けを撤去する）。
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('markdownInline.preview.controlDefaultEditor')
+                || event.affectsConfiguration('markdownInline.preview.defaultMode')
+                || event.affectsConfiguration('markdownInline.preview.rememberMode')) {
+                void applyDefaultEditorAssociation(context);
             }
         })
     );
