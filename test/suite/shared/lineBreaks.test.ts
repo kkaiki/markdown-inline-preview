@@ -1,5 +1,21 @@
 import assert from 'assert';
-import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities, normalizePreviewMarkdown } from '../../../src/shared/markdown/lineBreaks';
+import { stripPlaceholderLineBreaks, tightenListSpacing, tightenParagraphSpacing, convertTableCellBreaksToEntities, normalizePreviewMarkdown, collapseBlankLineChains } from '../../../src/shared/markdown/lineBreaks';
+
+// 空 paragraph はソースの空行と 1:1 で対応する（空行 N 行 → 空 paragraph N 個）。
+// blank-line-preservation.md §1・§9。
+describe('collapseBlankLineChains（空 paragraph の連鎖 → 空行の本数）', () => {
+    it('空 paragraph 1 個は空行 1 行に戻る', () => {
+        assert.strictEqual(collapseBlankLineChains('A\n\n<br />\n\nB'), 'A\n\nB');
+    });
+
+    it('空 paragraph 2 個は空行 2 行に戻る', () => {
+        assert.strictEqual(collapseBlankLineChains('A\n\n<br />\n\n<br />\n\nB'), 'A\n\n\nB');
+    });
+
+    it('空 paragraph が無ければそのまま（変換対象にしない）', () => {
+        assert.strictEqual(collapseBlankLineChains('A\n\nB'), 'A\n\nB');
+    });
+});
 
 describe('stripPlaceholderLineBreaks', () => {
     it('turns a standalone <br /> line into an empty line', () => {

@@ -27,6 +27,7 @@ const BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n\n/g;
 export function collapseBlankLineChains(markdown: string): string {
     return markdown.replace(BLANK_PARAGRAPH_CHAIN, (chain) => {
         const brCount = (chain.match(/<br\s*\/?>/gi) ?? []).length;
+        // 空 paragraph はソースの空行と 1:1 で対応する。
         // brCount 個の空 paragraph → brCount 行の空行 → (brCount + 1) 個の改行文字。
         return '\n'.repeat(brCount + 1);
     });

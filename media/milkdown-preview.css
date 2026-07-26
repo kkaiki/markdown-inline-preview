@@ -153,6 +153,12 @@ body.show-line-numbers .milkdown .line-number-gutter {
     user-select: none;
     pointer-events: none;
     -webkit-user-select: none;
+    /* 連続する空段落など、他に見た目上の変化を伴わないまま widget だけが
+       挿入されるケースで、Chromium がこの絶対配置要素の初回ペイントを次の
+       無関係な再描画まで遅延させ、実際に文字を打つまで数字が現れない
+       ように見えることがあった（2026-07-26 ユーザー報告）。挿入直後から
+       確実に独立したコンポジットレイヤーとして扱わせ、ペイントの遅延を防ぐ。 */
+    transform: translateZ(0);
 }
 /* コードブロックは pre の overflow-x:auto が行番号（左外の絶対配置）をクリップする。
    行番号表示中だけ横スクロールを pre→code に移し、行番号は pre 基準のまま見せる
