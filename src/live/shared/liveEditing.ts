@@ -147,3 +147,53 @@ export function resolveSmartHome(line: string, col: number): number {
     if (p.kind === 'none' || p.kind === 'quote') return 0;
     return col > p.contentStart ? p.contentStart : 0;
 }
+
+/** コードフェンスの Enter を解決した結果。 */
+export interface FenceEnterResult {
+    /** カーソル位置に挿入する文字列。 */
+    insert: string;
+    /** 挿入後、挿入開始位置から何文字進んだ所へカーソルを置くか。 */
+    cursorDelta: number;
+}
+
+/**
+ * 「閉じていない開始フェンスの行末」で Enter したときに、本文行と閉じフェンスを補う。
+ *
+ * ユーザー報告（2026-08-05）:「``` ``` この中にカーソルを入れることができない」。
+ * 本文行が無いとカーソルを置く場所そのものが無いので、Obsidian と同じく
+ * `\n\n<閉じフェンス>` を補って本文行へカーソルを置く。
+ *
+ * `null` を返したら既定の Enter に委ねる。
+ */
+export function resolveFenceEnter(doc: string, pos: number): FenceEnterResult | null {
+    const lineStart = doc.lastIndexOf('\n', Math.max(0, pos - 1)) + 1;
+    const nl = doc.indexOf('\n', pos);
+    const lineEnd = nl === -1 ? doc.length : nl;
+    if (pos !== lineEnd) return null; // 行末でなければ普通の改行
+
+    const line = doc.slice(lineStart, lineEnd);
+    const m = /^\s*(`{3,}|~{3,})/.exec(line);
+    if (!m) return null;
+    const marker = m[1];
+
+    // この行より前に開いたままのフェンスがあるなら、この行は「閉じフェンス」なので補わない
+    let open: string | null = null;
+    let offset = 0;
+    for (const l of doc.split('\n')) {
+        if (offset >= lineStart) break;
+        const f = /^\s*(`{3,}|~{3,})/.exec(l);
+        if (f) open = open === null ? f[1][0] : f[1][0] === open ? null : open;
+        offset += l.length + 1;
+    }
+    if (open !== null) return null;
+
+    // この行より後ろに、同じ記号の閉じフェンスがあるなら既に閉じている
+    const after = doc.slice(lineEnd + 1).split('\n');
+    for (const l of after) {
+        const f = /^\s*(`{3,}|~{3,})\s*$/.exec(l);
+        if (f && f[1][0] === marker[0]) return null;
+        if (/^\s*(`{3,}|~{3,})/.test(l)) break;
+    }
+
+    return { insert: `\n\n${marker}`, cursorDelta: 1 };
+}
