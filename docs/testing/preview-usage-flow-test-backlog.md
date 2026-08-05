@@ -521,6 +521,81 @@ TextEditor(...)" という警告と共に、再採番自体が起きていない
 `npm run test:unit`（926件）・`npm run test:browser`（308件）・`npm test`（実VS Code、
 110件、既知の順序依存flake2件を除き全green）で確認済み。
 
+## 4.5 2026-07-26 探索的監査（実 VS Code + 実 Chromium を実際に操作）
+
+詳細レポート（生ログ込み）: [preview-audit-2026-07-26.md](./preview-audit-2026-07-26.md)
+
+ベースラインの実 VS Code フルスイートは 119 passing / 0 failing。以下はいずれも
+既存テストが1件も触れていなかった穴。
+
+### 4.5.1 実バグ（優先着手）
+
+- **「Reopen Editor With… → Text Editor」（`workbench.action.reopenTextEditor`）が効かない**:
+  Preview で開いている `.md` に対して VS Code 標準の「テキストエディタで開き直す」を
+  実行すると、Raw タブが開いた直後に `collapseDuplicateRawTabsInGroup`
+  （`previewPanel.ts:1205` の `onDidChangeTabs.opened` トリガー）が閉じてしまい Preview に戻る。
+  タブイベント列 `opened:text | closed:text` で確定。`preview.controlDefaultEditor=false`
+  でも回避不可。サイドバー再オープン対策（`sidebar-reopen-preview-duplicate-tab-fix.md`）が
+  「ユーザーの明示的な開き直し」と区別できていない。13.5（Explorer 単発クリック）と
+  両立する条件設計が必要。
+
+- ~~**本文先頭・末尾の空行が Preview で実体化されず、編集すると消える**~~ → **修正済み（2026-07-27）**
+  （`blank-line-preservation.md` §11。テストは `blankLineDisplay.test.ts` に4件、
+  `test/extension/preview/editing-core.test.ts` 19.2b）。以下は当時の記録:
+  `blankLineRemarkPlugin.ts` の `insertBlankLineParagraphs` はノード間の空行しか補わないため、
+  先頭・末尾の空行が落ちる。`splitFrontmatter` は本文を `"\n# 本文"` の形で webview へ渡すので
+  **frontmatter 付きファイルは常に該当**し、Preview で1文字編集すると `---` 直後の空行が
+  保存時に消える。さらに先頭空行のあるファイルは行番号ガターが全行 1 ズレる
+  （直前コミット `6b03f35` が狙った症状の残りケース）。
+
+### 4.5.1b 2026-07-27 追加調査（実 VS Code GUI を実操作）で発見
+
+- **リスト項目の直後でスラッシュコマンドを使うと、空の箇条書き項目が残り、生成物がその中へネストされる**:
+  `- 項目B` の末尾で Enter →（新しい空項目ができる）→ `/todo` `/h2` `/quote` `/divider` `/code`
+  のいずれを実行しても、結果は
+
+  ```
+  - 項目A
+  - 項目B
+  - 
+    ## 小見出し
+  ```
+
+  のように **空の `- ` がファイルに残り**、生成したブロックがその項目の子（インデント）になる。
+  期待は「空のリスト項目を消費してトップレベルのブロックになる（＝リストを抜ける）」。
+  空段落（リスト外）で同じコマンドを使った場合は正常。`preview-slash-empty-block-fix.md` が
+  段落の空ブロックについて直した問題の、**リスト項目版が未対応**。全スラッシュコマンドで再現。
+
+- **Preview で無関係な段落を1文字編集しただけで、文書中のテーブルが再整形されて保存される**:
+
+  ```
+  編集前: | --- | --- |   /  | a | b |
+  編集後: | -- | -- |     /  | a  | b  |
+  ```
+
+  段落に `Z` を1文字打っただけで、触っていないテーブルの区切り行が短くなり、セルにパディングが
+  入る。WYSIWYG が文書全体を再直列化する以上ある程度は避けられないが、ユーザーから見ると
+  「触っていない行が Git 差分に出る」。仕様として許容するか、テーブルは元の記法を保つかは要判断。
+
+- 実際に操作して問題が無かったもの: ツールバーの H1/H2/H3・☑・•・1. 変換、空段落での
+  `/todo` `/h2` `/quote`、番号付きリスト途中への項目追加と再採番（1,2,3,4）、Undo/Redo、
+  チェックボックス項目の Enter 継続と行頭 Backspace の降格、テーブルセルへの入力、
+  Cmd+F の検索バー、ズーム +/−、Raw⇄Preview 切替でタブ1枚維持。
+
+### 4.5.2 テスト基盤の弱点
+
+- `previewBrowserHarness.ts:283` の `placeCursorAtLineEnd()` は macOS の実 Chromium で
+  `End` がキャレットを動かさないため実際には行頭にカーソルが残る。現状これを使う実テストは
+  0 件なので偽装カバレッジは起きていないが、使うと「行末」を謳って行頭を検証するテストになる。
+  削除するか `placeCursorAfterText` ベースへ直す。
+
+### 4.5.3 実際に動かして問題が無かったもの（消化済み）
+
+外部削除／外部リネーム／revert／分割／閉じたエディタの復元／`togglePreview` 10連打／
+0バイトファイル／CRLF／末尾改行なし／日本語ファイル名／相対パス画像／
+`controlDefaultEditor` の on→off 撤去／モード記憶での連続オープン、はいずれも問題なし
+（詳細レポートの表を参照）。
+
 ## 5. 実施方針
 
 原則（レイヤーの信頼度序列・偽装カバレッジ禁止・アンチフレーク規則）は

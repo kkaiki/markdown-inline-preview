@@ -1,6 +1,6 @@
 # 仕様 ⇄ テスト対応表
 
-最終更新: 2026-07-21
+最終更新: 2026-07-27
 
 各仕様書（機能仕様・fix 仕様）がどのテストで担保されているかを一覧する。新しい仕様書を追加・
 変更したら、この表に対応行を追加/更新すること（CLAUDE.md の運用ルール）。既知の未消化ギャップは
@@ -23,6 +23,9 @@
 | `preview-scroll-sync.md` | `test/suite/preview/external-sync/scrollAnchor.test.ts`、`test/suite/preview/external-sync/scrollSync.test.ts` | 純関数レベルで検証済み |
 | `blank-line-preservation.md` | `test/webview/rendering/blankLineRoundtrip.test.ts`（連続空行のround-trip）、`test/browser/rendering/blankLineDisplay.test.ts`（見える空行ブロックの本数がソースの空行と 1:1 であること・ユーザー報告そのままの「見出し＋空行3行」でガター番号が連番になること・Enter後の自動変換で保存される空行が増えないこと）、`test/browser/rendering/lineNumberGutter.test.ts`（実ソース行番号化・表/コードブロックの行内番号・空行スペーサーの行番号と入力/Backspace・段落内Enter連打時の番号順序） | 新規実装・テスト済み（2026-07-08、行番号を2026-07-09に実ソース行番号版へ改訂、2026-07-19に hardbreak 連打時の順序崩れを修正、2026-07-26 に一度「空行 N 行 → 空 paragraph N-1 個」へ変更したが＝§9、ソースの行が表示・ガター番号から消えるためユーザー指示で「N 行 → N 個」へ差し戻し＝§10）。トップレベルの空行をソースと 1:1 で空 paragraph として復元し、ガター番号は Raw と一致する実ソース行番号（表・コードブロックは行ごと）を表示 |
 | `whitespace-only-content-visualization.md` | `test/webview/rendering/whitespaceMarker.test.ts`（8件） | 新規実装・テスト済み（2026-07-08）。空白のみの段落・表セル・行末の空白をデコレーションで可視化 |
+| `media-embed-support.md` | `test/suite/preview/rendering/mediaKind.test.ts`（拡張子判定）、`test/suite/preview/rendering/previewCsp.test.ts`（`media-src`）、`test/browser/rendering/mediaEmbeds.test.ts`（mp4→video / mp3→audio / webp→img・動画削除） | 実装・テスト済み（2026-07-15）。実 webview の CSP 下での再生可否のみ手動確認 |
+| `image-click-delete-copy.md` | `test/browser/editing-core/imageClickDelete.test.ts`（9件。クリック選択・選択枠・× ボタンの重なり/削除/消滅・右クリック Copy/Delete・Undo・動画除外）、`test/webview/rendering/imageCopy.test.ts`（コピー系ユニット） | 新規実装・テスト済み（2026-07-27）。ユーザー要望「画像をクリックで削除・右クリックでコピー」。コピーは既存実装で、追加したのは選択の可視化と削除導線（× オーバーレイ＋右クリック Delete Image） |
+| `code-fence-always-real-text.md` | `test/browser/editing-core/codeFenceRealText.test.ts`（5件・**pending**） | **未実装（設計確定・2026-07-27）**。ユーザー要望「``` にカーソルを入れて1文字消したらリアルタイムでコード表示を解除」。フェンスを常に実テキストとして持つ Typora 方式を採用。段階1〜4（不変条件の注入／直列化4経路でのフェンス剥がし／リアルタイム相互変換／フェンス widget 廃止と行番号の作り直し）を同時に入れる必要があるため、テストは pending で先に置いてある |
 | （仕様書なし: 基本入力編集） | `test/browser/editing-core/plainTextEditing.test.ts`（EDIT-001〜010、EDIT-012の11件） | 通常段落P0は実ChromiumでGREEN。EDIT-011と構造ブロック、IME、host保存は未カバー（調査計画書は 2026-07-26 に破棄し、テストのみ残した） |
 
 ## fix 仕様書（バグ修正・回帰防止）
@@ -63,6 +66,12 @@
 | `untitled-preview-content-loss-fix.md` | `test/extension/preview/external-sync.test.ts` 12.6 | 修正済み。**既知のギャップ**: 副作用として指摘された「複数 untitled ファイルの高速トグル」シナリオは未検証（backlog §4.1 参照） |
 | `webview-save-failure-visibility.md` | `test/suite/preview/external-sync/serialQueue.test.ts`（`reportRejection` の純関数テスト） | 修正済み（2026-07-14）。webview→document 保存失敗の可視化。呼び出し側（`previewPanel.ts`）の配線自体は環境依存性が高く自動テスト対象外（§4） |
 | `preview-handler-error-boundary.md` | `test/suite/preview/external-sync/serialQueue.test.ts`（`reportRejection`）+ `test:unit`/`test` フルスイートでの回帰確認 | 修正済み（2026-07-21）。`webview-save-failure-visibility.md` の対象外だった `switchToPreview`/`switchToRaw`/外部リンク起動の無防備な fire-and-forget を一律エラーバウンダリ化。Vditor 移行 No-Go を受けた案Bの実装 |
+| `copy-blank-line-inflation-fix.md` | `test/browser/editing-core/copyMarkdownFidelity.test.ts`（3件。段落のみ／コードブロック入り／連続空行のコピー結果がソースと一致） | 修正済み（2026-07-27）。ユーザー報告「コピーすると内容が崩れる」。クリップボード用直列化だけ保存パスの空行プレースホルダ正規化を通しておらず、コピーのたびに空行が4倍になっていた |
+| `image-copy-clipboard-png-fix.md` | `test/webview/rendering/imageCopy.test.ts`（PNG 変換・失敗通知の4件を追加） | 修正済み（2026-07-27）。ユーザー報告「右クリックの Copy Image で何も貼り付かない」。真因は Chromium の Clipboard API が `image/png` 以外を拒否すること（実 Chromium で確認）。PNG へ再エンコードし、失敗は警告メッセージで理由まで出すようにした。**実クリップボードへ実際に載るかは自動テスト不可**（webview の focus/権限が要る） |
+| `triple-click-line-selection-fix.md` | `test/browser/editing-core/tripleClickLine.test.ts`（6件） | 修正済み（2026-07-27）。ユーザー報告「3回クリックすると全部選ばれる」。Enter が hardbreak なので画面上の十数行が1つの paragraph になっており、ProseMirror 既定のブロック全選択が広すぎた。hardbreak を行境界にして1行だけ選ぶ |
+| `nested-code-fence-repair.md` | `test/suite/shared/codeFence.test.ts`（純関数18件）、`test/browser/editing-core/pasteIntoCodeBlock.test.ts`（4件）、`test/extension/raw/editing-core.test.ts` 20.1/20.2（実 VS Code の修復コマンド） | 修正済み（2026-07-27）。ユーザー報告「``` が2行並ぶ・Cmd+A のコピーに ``` が混ざる」の根本原因。コードブロック内へフェンス付きテキストを貼ると本文にフェンスが入り、保存時に外側が4連へ広がって二重フェンス化していた。貼り付け時の防止＋既存ファイルの修復コマンドの両方を用意 |
+| `code-fence-display-length-fix.md` | `test/browser/rendering/nestedFenceSerialization.test.ts`（4連フェンス表示・3連の回帰防止の2件）、`test/browser/shortcuts/selectAllCodeFence.test.ts`（開き・閉じフェンスが選択ハイライトに入らない1件） | 修正済み（2026-07-27）。ユーザー報告「``` が2行並んで見た目が崩れる」。表示用フェンス widget が3連固定で、内容に ``` を含むブロック（ソースは4連）と食い違っていた。直列化と同じ `codeFenceMarker` で計算。**同日追記**: 同じ widget の `side` が全て -1 だったため、本文を選択すると閉じフェンス行だけが青く塗られる非対称も修正（閉じのみ `side: 1`） |
+| `horizontal-rule-editing-fix.md` | `test/browser/editing-core/horizontalRuleEdit.test.ts`（11件。クリック判定領域・選択表示・Backspace/Delete/文字入力/Undo・`---` の直列化） | 修正済み（2026-07-27）。ユーザー報告「横棒も編集できるようにしたい」。`<hr>` の矩形が高さ 1px で掴めず、選択スタイルも無かった。副次的に発見した「無関係な編集で `---` が `***` に書き換わる」内容破壊も `rule: '-'` で修正 |
 
 ## 網羅監査による未消化ギャップ
 

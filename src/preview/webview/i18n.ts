@@ -43,6 +43,9 @@ const JA: Record<string, string> = {
     'Move row down': '行を下へ移動',
     'Move column left': '列を左へ移動',
     'Move column right': '列を右へ移動',
+    // 画像の右クリックメニュー・削除ボタン
+    'Copy Image': '画像をコピー',
+    'Delete Image': '画像を削除',
     // 検索／置換バー
     'Find': '検索',
     'Replace': '置換',

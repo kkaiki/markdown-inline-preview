@@ -171,6 +171,57 @@ describe('imageCopyPlugin: writeDataUrlToClipboard', () => {
         const ok = await writeDataUrlToClipboard(RED_PNG_DATA_URL);
         assert.strictEqual(ok, false);
     });
+
+    // ── Chromium は image/png 以外の画像タイプをクリップボードへ書けない ────────
+    // 実 Chromium で確認した挙動:
+    //   image/jpeg → NotAllowedError: Type image/jpeg not supported on write.
+    // JPEG/GIF/WEBP の画像で「Copy Image しても何も貼り付かない」というユーザー報告
+    // （2026-07-27）の直接原因。PNG へ変換してから書き込む。
+    it('JPEG 画像は image/png に変換して書き込む（Chromium は image/jpeg を拒否するため）', async () => {
+        const jpegUrl = 'data:image/jpeg;base64,/9j/4AAQ';
+        const converted = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' });
+        const ok = await writeDataUrlToClipboard(jpegUrl, {
+            convertToPng: () => Promise.resolve(converted)
+        });
+        assert.strictEqual(ok, true, '変換して書き込めるべき');
+        const types = mock.items[0].map((i) => i.type);
+        assert.ok(types.includes('image/png'), `image/png で書かれていない: ${types.join(',')}`);
+        assert.ok(!types.includes('image/jpeg'), `Chromium が拒否する image/jpeg のまま書いている: ${types.join(',')}`);
+    });
+
+    it('PNG 画像は変換せずそのまま書き込む（余計な再エンコードをしない）', async () => {
+        let converterCalled = false;
+        const ok = await writeDataUrlToClipboard(RED_PNG_DATA_URL, {
+            convertToPng: () => { converterCalled = true; return Promise.resolve(new Blob([])); }
+        });
+        assert.strictEqual(ok, true);
+        assert.strictEqual(converterCalled, false, 'PNG なのに変換が呼ばれた');
+    });
+
+    it('書き込みに失敗したら理由を通知する（無言で失敗しない）', async () => {
+        (navigator.clipboard as unknown as Record<string, unknown>)['write'] = () =>
+            Promise.reject(new DOMException('Document is not focused', 'NotAllowedError'));
+        const reasons: string[] = [];
+        const ok = await writeDataUrlToClipboard(RED_PNG_DATA_URL, {
+            onFailure: (reason) => reasons.push(reason)
+        });
+        assert.strictEqual(ok, false);
+        assert.strictEqual(reasons.length, 1, `失敗通知が 1 回来ていない: ${JSON.stringify(reasons)}`);
+        assert.ok(
+            reasons[0].includes('NotAllowedError') || reasons[0].includes('Document is not focused'),
+            `失敗理由が通知に含まれない: ${reasons[0]}`
+        );
+    });
+
+    it('PNG への変換自体に失敗しても throw せず理由を通知する', async () => {
+        const reasons: string[] = [];
+        const ok = await writeDataUrlToClipboard('data:image/gif;base64,R0lGOD', {
+            convertToPng: () => Promise.reject(new Error("decode failed")),
+            onFailure: (reason) => reasons.push(reason)
+        });
+        assert.strictEqual(ok, false);
+        assert.ok(reasons[0]?.includes('decode failed'), `変換失敗の理由が通知されない: ${JSON.stringify(reasons)}`);
+    });
 });
 
 describe('imageCopyPlugin: createImageCopyPlugin — 画像ノード選択時の copy', () => {

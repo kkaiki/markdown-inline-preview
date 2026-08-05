@@ -21,7 +21,6 @@ import { undoCommand, redoCommand } from '@milkdown/kit/plugin/history';
 import { insertTableCommand } from '@milkdown/kit/preset/gfm';
 import { $prose } from '@milkdown/utils';
 import { applyListType, wrapInBulletListAndSetChecked } from './previewKeymapPlugin';
-import { setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
 import { t } from './i18n';
 
 /** 3×3 のテーブルを表すアイコン（ツールバーのボタン用）。 */
@@ -179,36 +178,28 @@ function toggleCheckbox(view: EditorView): void {
     const bulletList = schema.nodes.bullet_list;
     if (!listItem || !bulletList) return;
 
-    // 展開抑制: wrapInList 後の expand → setChecked 後の collapse →  checked=null 戻し
-    // のループを防ぐ。また liftListItem 前に既存プレフィックスを明示的に畳む（Bug1/Bug3）。
-    setBlockPrefixExpansionSuppressed(true);
-    try {
-        const depth = findListItemDepth(view.state, listItem);
-        if (depth >= 0) {
-            const li = view.state.selection.$from.node(depth);
-            if (li.attrs.checked !== null) {
-                // すでにチェックボックス → リストごと解除して「何もない」段落へ戻す。
-                collapseCurrentExpandedBlock(view);
-                liftListItem(listItem)(view.state, view.dispatch, view);
-                view.focus();
-                return;
-            }
-            // 通常のリスト項目（箇条書き等）→ チェックボックスにする。
-            setChecked(view, depth, false);
+    const depth = findListItemDepth(view.state, listItem);
+    if (depth >= 0) {
+        const li = view.state.selection.$from.node(depth);
+        if (li.attrs.checked !== null) {
+            // すでにチェックボックス → リストごと解除して「何もない」段落へ戻す。
+            liftListItem(listItem)(view.state, view.dispatch, view);
             view.focus();
             return;
         }
-
-        // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
-        // wrap と checked 設定は同じ transaction にまとめて 1 回だけ dispatch する
-        // （2 回に分けると list-item-block Web Component の再マウントでカーソルが別
-        // ブロックへ飛ぶことがある。詳細: docs/specifications/fixes/checkbox-cursor-jump-fix.md）。
-        demoteHeadingToParagraph(view);
-        wrapInBulletListAndSetChecked(view.state, view, false);
+        // 通常のリスト項目（箇条書き等）→ チェックボックスにする。
+        setChecked(view, depth, false);
         view.focus();
-    } finally {
-        setBlockPrefixExpansionSuppressed(false);
+        return;
     }
+
+    // リスト外（見出し含む）→ 段落へ落としてから箇条書きに包み、チェックボックスにする。
+    // wrap と checked 設定は同じ transaction にまとめて 1 回だけ dispatch する
+    // （2 回に分けると list-item-block Web Component の再マウントでカーソルが別
+    // ブロックへ飛ぶことがある。詳細: docs/specifications/fixes/checkbox-cursor-jump-fix.md）。
+    demoteHeadingToParagraph(view);
+    wrapInBulletListAndSetChecked(view.state, view, false);
+    view.focus();
 }
 
 function headingActive(level: number) {

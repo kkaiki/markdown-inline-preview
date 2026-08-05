@@ -16,8 +16,6 @@ import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 import hljs from 'highlight.js/lib/common';
-import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
-import { getExpandedCodeFence } from './codeFenceEditPlugin';
 
 const TEXT_NODE = 3;
 const ELEMENT_NODE = 1;
@@ -26,32 +24,12 @@ const ELEMENT_NODE = 1;
 function decorateCodeBlock(node: ProseNode, nodePos: number, codeStart: number, decorations: Decoration[]): void {
     const language = typeof node.attrs.language === 'string' ? node.attrs.language : '';
 
-    // codeFenceEditPlugin がこのブロックを展開中（フェンスが実テキストとして
-    // 混ざっている）場合、開き・閉じの両方が完全な形で揃っているかを都度判定する。
-    // どちらか一方でも崩れていれば、まだ code_block ノードのまま（変換は
-    // フォーカスを外したときにしか起きない）でも「もうコードブロックとして
-    // 保存されない」ことが分かるよう、`code-fence-broken` クラスを付けて
-    // `.milkdown pre` の背景を動的に解除する（ユーザー要望）。
-    if (getExpandedCodeFence()?.nodePos === nodePos && !parseCodeFenceRealText(node.textContent)) {
-        decorations.push(Decoration.node(nodePos, nodePos + node.nodeSize, { class: 'code-fence-broken' }));
-    }
-
     // mermaid は図として描画するのでシンタックス色は付けない。
     if (language === 'mermaid') return;
 
-    let code = node.textContent;
-    let offsetStart = codeStart;
+    const code = node.textContent;
+    const offsetStart = codeStart;
 
-    // codeFenceEditPlugin がこのブロックを展開中（フェンスが実テキストとして
-    // 混ざっている）なら、マーカー部分を除いた実コードだけを hljs へ渡す。
-    // そのままハイライトすると、マーカー行が不正な構文として色付けされてしまう。
-    if (getExpandedCodeFence()?.nodePos === nodePos) {
-        const parsed = parseCodeFenceRealText(code);
-        if (parsed) {
-            code = parsed.code;
-            offsetStart = codeStart + parsed.openLen;
-        }
-    }
 
     if (!code) return;
 

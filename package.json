@@ -249,6 +249,11 @@
         "command": "markdownInline.toggleLineNumbers",
         "title": "Toggle Line Numbers",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.repairNestedCodeFences",
+        "title": "Repair Double-Fenced Code Blocks",
+        "category": "Markdown Inline Preview"
       }
     ],
     "customEditors": [
@@ -675,8 +680,8 @@
         },
         "markdownInline.preview.showFocusSyntax": {
           "type": "boolean",
-          "default": true,
-          "description": "Show Markdown syntax markers (##, **, links) on the focused block in Preview mode"
+          "default": false,
+          "description": "Show Markdown syntax markers (##, **, links) on the focused block in Preview mode. Off by default so the view never changes when you move the cursor"
         },
         "markdownInline.preview.enableSlashMenu": {
           "type": "boolean",

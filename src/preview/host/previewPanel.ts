@@ -22,6 +22,7 @@ import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';
 import { buildPreviewCsp } from './csp';
 import { splitFrontmatter, mergeFrontmatter } from '../../shared/markdown/frontmatter';
+import { repairNestedCodeFences } from '../../shared/markdown/codeFence';
 import { findScrollAnchor, findLineBySlug } from '../../shared/structure/scrollAnchor';
 import { scrollRatioFromLine, lineFromScrollRatio } from '../../shared/preview/scrollSync';
 import { rawToCursorAnchor, cursorAnchorToRaw, type CursorAnchor } from '../../shared/preview/cursorAnchor';
@@ -181,7 +182,7 @@ function buildSettingsPayload(): PreviewSettings {
         enableMermaid: getConfig<boolean>('preview.enableMermaid', true),
         showFrontmatter: getConfig<boolean>('preview.showFrontmatter', true),
         enableTransitions: getConfig<boolean>('preview.enableTransitions', true),
-        showFocusSyntax: getConfig<boolean>('preview.showFocusSyntax', true),
+        showFocusSyntax: getConfig<boolean>('preview.showFocusSyntax', false),
         enableSlashMenu: getConfig<boolean>('preview.enableSlashMenu', true),
         showToolbar: getConfig<boolean>('preview.showToolbar', true),
         toolbarShowShortcuts: getConfig<boolean>('preview.toolbarShowShortcuts', true),
@@ -642,6 +643,15 @@ class PreviewEditorProvider implements vscode.CustomTextEditorProvider {
                 void handleCopyImageRequest(message.src, document.uri, this.imageUriMaps, webviewPanel.webview);
                 return;
             }
+            if (message.type === 'copyImageFailed') {
+                // WebView 側の Clipboard API 書き込みが失敗した。黙って「何も貼り付かない」
+                // 状態にせず、理由まで見せる（NotAllowedError 等の切り分けができるように）。
+                const reason = typeof message.reason === 'string' ? message.reason : 'unknown error';
+                void vscode.window.showWarningMessage(
+                    vscode.l10n.t('Failed to copy image to clipboard: {0}', reason)
+                );
+                return;
+            }
             if (message.type === 'toggleRaw') {
                 // この Preview の document は確定しているので、findPreviewUri の推測に頼らず
                 // 直接その URI を Raw に戻す。複数の Preview を開いているときに別ファイルへ
@@ -815,6 +825,9 @@ async function handleCopyImageRequest(
     if (!originalRelPath) {
         // uriMap に無い場合（例: 外部 URL、または data: URL が誤って届いた場合）は失敗として返す
         void webview.postMessage({ type: 'imageCopied', dataUrl: null });
+        void vscode.window.showWarningMessage(
+            vscode.l10n.t('Could not copy this image: its source is not a local file in this document.')
+        );
         return;
     }
 
@@ -831,8 +844,12 @@ async function handleCopyImageRequest(
                    : 'image/png';
         const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
         void webview.postMessage({ type: 'imageCopied', dataUrl });
-    } catch {
+    } catch (error) {
         void webview.postMessage({ type: 'imageCopied', dataUrl: null });
+        const reason = error instanceof Error ? error.message : String(error);
+        void vscode.window.showWarningMessage(
+            vscode.l10n.t('Failed to read the image file for copying: {0}', reason)
+        );
     }
 }
 
@@ -1246,6 +1263,43 @@ export function activatePreviewFeature(context: vscode.ExtensionContext): void {
             const config = vscode.workspace.getConfiguration('markdownInline');
             const next = !resolveShowLineNumbers(config);
             await config.update('preview.showLineNumbers', next, vscode.ConfigurationTarget.Global);
+        }),
+
+        vscode.commands.registerCommand('markdownInline.repairNestedCodeFences', async () => {
+            // コードブロックの中へフェンス付きテキストを貼ると内容にフェンスが入り込み、
+            // 保存時に外側が4連へ広がって「二重フェンス」になる（nested-code-fence-repair.md）。
+            // 貼り付け側は防止済みだが、既に壊れたファイルを直す手段としてこのコマンドを持つ。
+            const editor = vscode.window.activeTextEditor;
+            const uri = editor?.document.languageId === 'markdown'
+                ? editor.document.uri
+                : findPreviewUri();
+            if (!uri) {
+                void vscode.window.showWarningMessage(
+                    vscode.l10n.t('Open a Markdown file first.')
+                );
+                return;
+            }
+
+            const doc = await vscode.workspace.openTextDocument(uri);
+            const original = doc.getText();
+            const { markdown, fixed } = repairNestedCodeFences(original);
+            if (fixed === 0) {
+                void vscode.window.showInformationMessage(
+                    vscode.l10n.t('No double-fenced code blocks found in this file.')
+                );
+                return;
+            }
+
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                uri,
+                new vscode.Range(doc.positionAt(0), doc.positionAt(original.length)),
+                markdown
+            );
+            await vscode.workspace.applyEdit(edit);
+            void vscode.window.showInformationMessage(
+                vscode.l10n.t('Repaired {0} double-fenced code block(s).', fixed)
+            );
         }),
 
         vscode.commands.registerCommand('markdownInline.togglePreview', async () => {

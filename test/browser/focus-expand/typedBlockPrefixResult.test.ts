@@ -1,21 +1,13 @@
 /**
- * 実ブラウザ回帰テスト: 見出し・引用のフォーカス展開で、プレフィックスと本文の間の
- * 半角スペースが消える不具合。
+ * 実ブラウザ回帰テスト: 行頭記法をタイプしたときの変換結果（`## ` `# ` `> `）。
  *
- * ## バグ内容
+ * ## 背景
  *
- * `## heading` や `> quote` を1文字ずつ実際にタイプすると、`## `/`> ` へ変換された直後
- * （プレフィックスがまだ空の状態）に続けて文字を打つと、プレフィックスと本文の間の
- * スペースが消える（`##heading`、`>quote` のようにくっつく）。`blockPrefixEditPlugin` が
- * プログラム的に挿入する末尾スペース（素の半角スペース）を、ブラウザが視覚的に潰して
- * しまい、続く実キー入力で ProseMirror の domObserver がその潰れたスペースを文字に
- * 置き換えられたものとして扱ってしまうことが原因。箇条書き・番号付き・チェックボックス
- * （`list-item-block` Web Component でレンダリング）では再現しない。
- *
- * 詳細設計: docs/specifications/fixes/heading-blockquote-prefix-space-fix.md
- *
- * 既存のマークダウンを読み込んだ場合は問題無い。実際にキーを1つずつ押した場合にだけ
- * 再現するため、`h.type()`（実キーイベント）で検証する。
+ * かつては入力ルールで見出し化した直後に `blockPrefixEditPlugin` が `## ` を実テキストと
+ * して再挿入しており、その区切り文字（non-breaking space）が本文へ残る不具合があった。
+ * 記法の実テキスト展開は 2026-07-26 に廃止（`docs/specifications/no-focus-expand.md`）した
+ * ため、タイプ直後の本文には記法も NBSP も残らず、本文テキストだけになるのが正しい。
+ * 「打った直後の見た目」＝「ファイルを開き直した見た目」であることを固定する。
  *
  * 実行: `npm run test:browser`。ブラウザが無い環境では skip。
  */
@@ -49,46 +41,46 @@ describe('実ブラウザ: 見出し・引用のプレフィックス末尾ス�
         return handle;
     }
 
-    it('"## heading" を1文字ずつタイプすると、プレフィックスと本文の間にスペースが保持される', async function () {
+    it('"## heading" を1文字ずつタイプすると、記法は消えて本文だけの見出しになる', async function () {
         if (!browser) { this.skip(); return; }
         h = await typeOnNewLine('## heading');
         const m = await h.model();
         assert.ok(
-            m.outline.includes('heading(2)["## heading"]'),
-            `見出しのスペースが失われた: ${m.outline}`
+            m.outline.includes('heading(2)["heading"]'),
+            `見出しの本文が期待と違う: ${m.outline}`
         );
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('"# item"（H1）でもスペースが保持される', async function () {
+    it('"# item"（H1）でも本文だけの見出しになる', async function () {
         if (!browser) { this.skip(); return; }
         h = await typeOnNewLine('# item');
         const m = await h.model();
         assert.ok(
-            m.outline.includes('heading(1)["# item"]'),
-            `見出しのスペースが失われた: ${m.outline}`
+            m.outline.includes('heading(1)["item"]'),
+            `見出しの本文が期待と違う: ${m.outline}`
         );
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('"### h"（H3）でもスペースが保持される', async function () {
+    it('"### h"（H3）でも本文だけの見出しになる', async function () {
         if (!browser) { this.skip(); return; }
         h = await typeOnNewLine('### h');
         const m = await h.model();
         assert.ok(
-            m.outline.includes('heading(3)["### h"]'),
-            `見出しのスペースが失われた: ${m.outline}`
+            m.outline.includes('heading(3)["h"]'),
+            `見出しの本文が期待と違う: ${m.outline}`
         );
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('"> quote" でもスペースが保持される', async function () {
+    it('"> quote" でも本文だけの引用になる', async function () {
         if (!browser) { this.skip(); return; }
         h = await typeOnNewLine('> quote');
         const m = await h.model();
         assert.ok(
-            m.outline.includes('blockquote[paragraph["> quote"]]'),
-            `引用のスペースが失われた: ${m.outline}`
+            m.outline.includes('blockquote[paragraph["quote"]]'),
+            `引用の本文が期待と違う: ${m.outline}`
         );
         assert.deepStrictEqual(h.errors, []);
     });

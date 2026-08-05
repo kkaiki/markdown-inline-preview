@@ -28,7 +28,6 @@ import type { EditorView } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 import { classifyPreviewShortcut, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
 import { findEnclosingBracketContent } from '../../shared/markdown/bracketSelection';
-import { getExpandedBlock, setBlockPrefixExpansionSuppressed, collapseCurrentExpandedBlock } from './blockPrefixEditPlugin';
 import { isSlashMenuOpen } from './previewSlashMenu';
 import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
 
@@ -116,11 +115,6 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     // コードブロック
     const codeDepth = findDepth($from, ['code_block']);
     if (codeDepth > 0) {
-        // フォーカス中は codeFenceEditPlugin が開き/閉じフェンスを実テキストとして
-        // ノードの中身に挿入している（code-fence-real-text-edit-fix.md）。そのまま
-        // ノード全体を選択するとフェンス自体まで選択に含まれてしまうため、
-        // parseCodeFenceRealText が成功する（＝フェンスが完全な形で存在する）間は
-        // その分だけ範囲を狭める。
         const codeNode = $from.node(codeDepth);
         const parsedFence = parseCodeFenceRealText(codeNode.textContent);
         const rangeStart = $from.start(codeDepth) + (parsedFence?.openLen ?? 0);
@@ -161,11 +155,7 @@ export function handleSelectAll(view: EditorView, ctx: Ctx): boolean {
     // 1 回目はカーソルのある「行（テキストブロック）」の中身を丸ごと選択。
     // 2 回目（既に行全体が選択済み）は文書全体（AllSelection）にする。
     if ($from.parent.isTextblock) {
-        // blockPrefixEditPlugin が展開中のとき、$from.start() はプレフィックス挿入後に
-        // プレフィックス末尾を指す場合がある。contentStart を使って明示的にプレフィックスを
-        // 含む範囲（## や - [ ] を含む）から選択する。
-        const expanded = getExpandedBlock();
-        const blockStart = expanded ? expanded.contentStart : $from.start();
+        const blockStart = $from.start();
         const blockEnd = $from.end();
 
         const blockText = state.doc.textBetween($from.start(), $from.end(), '\n', '\n');
@@ -270,23 +260,15 @@ export function wrapInBulletListAndSetChecked(state: EditorState, view: EditorVi
 }
 
 function makeTodo(view: EditorView): void {
-    // 展開抑制: wrapInBulletList 後に blockPrefixEditPlugin が "- " を展開し、
-    // 続く setNodeAttribute(checked=false) で collapse が走って checked が null に
-    // 戻るのを防ぐ（Bug1）。
-    setBlockPrefixExpansionSuppressed(true);
-    try {
-        const { state } = view;
-        if (findDepth(state.selection.$from, ['list_item']) < 0) {
-            wrapInBulletListAndSetChecked(state, view, false);
-            return;
-        }
-        const depth = findDepth(state.selection.$from, ['list_item']);
-        if (depth < 0) return;
-        const pos = state.selection.$from.before(depth);
-        view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
-    } finally {
-        setBlockPrefixExpansionSuppressed(false);
+    const { state } = view;
+    if (findDepth(state.selection.$from, ['list_item']) < 0) {
+        wrapInBulletListAndSetChecked(state, view, false);
+        return;
     }
+    const depth = findDepth(state.selection.$from, ['list_item']);
+    if (depth < 0) return;
+    const pos = state.selection.$from.before(depth);
+    view.dispatch(state.tr.setNodeAttribute(pos, 'checked', false));
 }
 
 /**
@@ -330,9 +312,7 @@ export function applyListType(view: EditorView, target: 'bullet' | 'ordered'): b
     const listNode = $from.node(listDepth);
 
     // 同種のリスト内 → 解除（段落へ戻す）。ツールバーのアクティブ表示と対になる。
-    // liftListItem 後は nodePos が無効になるため、先にプレフィックスを畳む（Bug3）。
     if (listNode.type === targetType) {
-        collapseCurrentExpandedBlock(view);
         const lifted = liftListItem(listItemType)(view.state, view.dispatch, view);
         view.focus();
         return lifted;
@@ -532,41 +512,6 @@ function handleCodeBlockTab(view: EditorView, shift: boolean): boolean {
     return true;
 }
 
-/**
- * Cmd/Ctrl+← の 2 段階行頭移動。
- *
- * blockPrefixEditPlugin がプレフィックスを展開中のとき：
- *   1. カーソルがコンテンツ内（プレフィックス後）→ プレフィックス直後（コンテンツ先頭）へ
- *   2. カーソルがコンテンツ先頭         → ブロック先頭（プレフィックス前）へ
- *   3. カーソルがブロック先頭           → return false（ブラウザ既定に委ねる）
- *
- * 展開中でなければ return false（ブラウザ既定の Cmd+← に委ねる）。
- */
-function handleLineStart(view: EditorView): boolean {
-    const expanded = getExpandedBlock();
-    if (!expanded) return false;
-
-    const { state } = view;
-    const { $from, empty } = state.selection;
-    if (!empty) return false;
-
-    const { contentStart, prefix } = expanded;
-    const contentBodyStart = contentStart + prefix.length; // プレフィックス後のコンテンツ先頭
-
-    if ($from.pos > contentBodyStart) {
-        // コンテンツ内 → コンテンツ先頭へ
-        view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, contentBodyStart)));
-        return true;
-    }
-    if ($from.pos > contentStart) {
-        // プレフィックス内 or コンテンツ先頭 → ブロック先頭へ
-        view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, contentStart)));
-        return true;
-    }
-    // 既にブロック先頭 → ブラウザ既定に委ねる
-    return false;
-}
-
 export function createPreviewKeymapPlugin() {
     return $prose((ctx) => {
         return new Plugin({
@@ -608,11 +553,8 @@ export function createPreviewKeymapPlugin() {
                             // Cmd/Ctrl+A: テーブルセル/コードブロックの段階選択
                             return handleSelectAll(view, ctx);
                         case 'lineStart':
-                            // Cmd/Ctrl+←: プレフィックス展開中の 2 段階行頭移動
-                            if (handleLineStart(view)) {
-                                event.preventDefault();
-                                return true;
-                            }
+                            // Cmd/Ctrl+←: 記法展開が無くなったのでブラウザ既定の
+                            // 行頭移動に委ねる（Preview の見た目＝ソースの行頭が一致する）。
                             return false;
                         case 'codeBlockTab':
                             // Tab/Shift+Tab: コードブロック内でのインデント操作。

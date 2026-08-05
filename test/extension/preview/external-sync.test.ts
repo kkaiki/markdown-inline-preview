@@ -247,5 +247,33 @@ suite('Preview: external-sync', () => {
             assert.strictEqual(fs.readFileSync(filePath, 'utf-8'), expected,
                 `ディスク上のファイル内容が壊れた（冒頭二重化/巻き戻りの疑い）: ${JSON.stringify(fs.readFileSync(filePath, 'utf-8'))}`);
         });
+
+        // 2026-07-26 の探索的監査（docs/testing/preview-audit-2026-07-26.md）で追加。
+        // 12.2 は「タブが維持される」ことしか見ていなかったため、外部書き換えの内容が
+        // Raw へ戻る経路で失われないことをここで固定する
+        // （stale-document-model-save-defer-fix.md の逆方向＝古い内容での上書き防止）。
+        test('12.8 Preview 表示中に外部からファイルを書き換え、その後 Raw に戻すと最新内容が表示され、古い内容で上書きもされない', async function () {
+            this.timeout(30000);
+
+            const { editor, filePath } = await openRealFile('# 元の内容\n');
+            const uri = editor.document.uri;
+
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await sleep(800);
+            assert.strictEqual(previewTabsForUri(uri).length, 1,
+                `前提: Preview タブが開いていない（アクティブタブ: ${activeTabUri()?.toString()}）`);
+
+            const external = '# 外部が書き換えた内容\n\n追記された段落\n';
+            fs.writeFileSync(filePath, external, 'utf-8');
+            await sleep(1500);
+
+            await vscode.commands.executeCommand('markdownInline.togglePreview');
+            await sleep(1200);
+
+            assert.strictEqual(fs.readFileSync(filePath, 'utf-8'), external,
+                `Raw へ戻す際に古い内容でディスクを上書きしてしまった: ${JSON.stringify(fs.readFileSync(filePath, 'utf-8'))}`);
+            assert.strictEqual(vscode.window.activeTextEditor?.document.getText(), external,
+                `Raw に戻したエディタが外部書き換え後の内容になっていない: ${JSON.stringify(vscode.window.activeTextEditor?.document.getText())}`);
+        });
     });
 });

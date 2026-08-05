@@ -18,6 +18,11 @@ import { Plugin, PluginKey } from '@milkdown/prose/state';
 import type { Slice } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 import { parseCodeFenceRealText } from '../../shared/markdown/focusSyntaxHelpers';
+import {
+    stripListItemPlaceholderBr,
+    stripPlaceholderLineBreaks,
+    tightenListSpacing
+} from '../../shared/markdown/lineBreaks';
 
 const INLINE_BR_RE = /<br\s*\/?>/gi;
 
@@ -66,7 +71,16 @@ export function createClipboardPlainTextPlugin() {
                 const doc: ProseNode | null = schema.topNodeType.createAndFill(undefined, slice.content);
                 if (!doc) return '';
                 const serializer = ctx.get(serializerCtx);
-                return serializer(normalizeExpandedCodeFences(doc)).replace(INLINE_BR_RE, '\n');
+                const raw = serializer(normalizeExpandedCodeFences(doc));
+                // ファイルへ書き戻すとき（milkdownApp.ts の postChange）と同じ正規化を先に
+                // 通す。空行として復元された空 paragraph は `<br />` プレースホルダとして
+                // 直列化されるため、これを飛ばして無条件に改行へ置換すると、コピーのたびに
+                // 空行が増殖する（ソースの空行1行 → 貼り付け先で4行）。
+                const normalized = stripListItemPlaceholderBr(
+                    stripPlaceholderLineBreaks(tightenListSpacing(raw))
+                );
+                // 残った `<br>` は表セル内の実際の改行（保存用表現）なので改行へ戻す。
+                return normalized.replace(INLINE_BR_RE, '\n');
             }
         }
     }));

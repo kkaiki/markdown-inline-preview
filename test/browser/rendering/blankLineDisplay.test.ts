@@ -115,6 +115,54 @@ describe('実ブラウザ: 空行の表示本数（ソースの空行を省略�
         assert.deepStrictEqual(h.errors, []);
     });
 
+    // 2026-07-26 の探索的監査（docs/testing/preview-audit-2026-07-26.md 発見2）で、
+    // 「ノードとノードの間」の空行しか復元しておらず、本文の先頭・末尾の空行が
+    // 消えることが分かった。frontmatter 付きファイルは splitFrontmatter によって
+    // 本文が必ず `\n# 見出し...` の形（先頭が空行）で webview に渡るため、
+    // Preview で1文字打つだけで `---` 直後の空行がファイルから消えていた。
+    it('先頭が空行で始まる本文でも、その空行が Preview に1ブロックとして現れる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '\n# 本文\n\nあいうえお\n', '本文');
+
+        const model = await h.model();
+        assert.deepStrictEqual(
+            model.topTypes,
+            ['paragraph', 'heading', 'paragraph', 'paragraph'],
+            model.outline
+        );
+        assert.strictEqual((await blockTexts(h)).length, 4, '先頭の空行が表示から省略されている');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('先頭が空行の文書は、ガター番号が Raw と同じ 1,2,3,4 になる', async function () {
+        if (!browser) { this.skip(); return; }
+        // Raw では 1=空行, 2=`# 本文`, 3=空行, 4=`あいうえお`。
+        h = await openPreview(browser, '\n# 本文\n\nあいうえお\n', '本文');
+
+        assert.deepStrictEqual(await gutterNumbers(h), ['1', '2', '3', '4']);
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('先頭が空行の文書を編集して保存しても、先頭の空行が消えない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '\n# 本文\n\nあいうえお\n', '本文');
+        await h.placeCursorAfterText('あいうえお');
+        await h.type('X');
+
+        await h.waitForMarkdown('\n# 本文\n\nあいうえおX\n');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('末尾に空行が続く文書を編集して保存しても、末尾の空行が消えない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openPreview(browser, '# 本文\n\nあいうえお\n\n\n', '本文');
+        await h.placeCursorAfterText('あいうえお');
+        await h.type('X');
+
+        await h.waitForMarkdown('# 本文\n\nあいうえおX\n\n\n');
+        assert.deepStrictEqual(h.errors, []);
+    });
+
     it('Enter の直後に箇条書き記法へ自動変換しても、保存される空行は1行のまま', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, 'abc\n\nTAIL\n', 'abc');

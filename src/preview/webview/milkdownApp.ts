@@ -1,7 +1,7 @@
 /**
  * WebView 側エントリポイント。esbuild で media/milkdown.bundle.js にバンドルされる。
  */
-import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx, remarkStringifyOptionsCtx, serializerCtx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx, editorViewCtx, editorViewOptionsCtx, commandsCtx, remarkStringifyOptionsCtx } from '@milkdown/kit/core';
 import { commonmark, insertImageCommand, updateCodeBlockLanguageCommand } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
 import { history } from '@milkdown/kit/plugin/history';
@@ -28,15 +28,13 @@ import {
 import { scrollRatioFromPixels, pixelsFromScrollRatio, contentScrollHeight } from '../../shared/preview/scrollSync';
 import { focusSyntaxPlugin, setFocusSyntaxEnabled } from './focusSyntaxPlugin';
 import { createMarkerBackspacePlugin } from './markerBackspace';
-import { createBlockPrefixEditPlugin, isBlockPrefixActive, setOnCollapseSync } from './blockPrefixEditPlugin';
-import { createInlineMarkEditPlugin, isInlineMarkEditActive, setOnCollapseSync as setInlineMarkOnCollapseSync } from './inlineMarkEditPlugin';
-import { createCodeFenceEditPlugin, isCodeFenceEditActive, setOnCollapseSync as setCodeFenceOnCollapseSync } from './codeFenceEditPlugin';
 import { createLineNumberGutterPlugin } from './lineNumberGutterPlugin';
 import { createSlashMenuPlugin, PreviewSlashMenuController, setSlashMenuEnabled } from './previewSlashMenu';
 import { createTableToolbarPlugin } from './tableToolbarPlugin';
 import { createPreviewToolbarPlugin } from './previewToolbarPlugin';
 import { createTableCellEnterPlugin } from './tableCellEnterPlugin';
 import { createClipboardPlainTextPlugin } from './clipboardPlainTextPlugin';
+import { createCodeBlockPasteFencePlugin } from './codeBlockPasteFence';
 import { createListMarkerDragFixPlugin } from './listMarkerDragFixPlugin';
 import { createTableSelectionFixPlugin } from './tableSelectionFix';
 import { createTableArrowKeymapPlugin } from './tableArrowKeymap';
@@ -57,6 +55,7 @@ import { createPreviewDiffPlugin, setDiffBase } from './previewDiffPlugin';
 import { PreviewFindBar } from './previewFindBar';
 import { setLanguage, t } from './i18n';
 import { createImageCopyPlugin, writeDataUrlToClipboard } from './imageCopyPlugin';
+import { imageDeletePlugin } from './imageDeletePlugin';
 import { imageIsolationPlugin } from './imageIsolationPlugin';
 import { imageMediaView } from './imageMediaView';
 import { trailingNbspFixPlugin } from './trailingNbspFixPlugin';
@@ -439,13 +438,32 @@ function setEditable(editable: boolean): void {
     });
 }
 
-function postChange(markdown: string): void {
+/**
+ * doc 末尾にある空段落（= ソース末尾の空行。blank-line-preservation.md §11）の個数。
+ *
+ * 直列化（remark-stringify）は文書末尾の空段落のうち最後の1つを出力しないため、
+ * 直列化結果の文字列からは本数を復元できない。doc を直接数えて補う。
+ */
+function countTrailingBlankParagraphs(view: EditorView): number {
+    const doc = view.state.doc;
+    let count = 0;
+    for (let i = doc.childCount - 1; i >= 0; i--) {
+        const node = doc.child(i);
+        if (node.type.name !== 'paragraph' || node.content.size !== 0) break;
+        count++;
+    }
+    return count;
+}
+
+function postChange(markdown: string, trailingBlankLines = 0): void {
     // ファイルに書く形（テーブルセル内改行は `<br>` のまま）。
     // 段落間の空行は詰めない（ユーザーが入れた空行を保持する）。リストだけ tight 化。
     // remark-preserve-empty-line が空項目を <br /> として直列化するので除去する。
-    const fileMarkdown = stripListItemPlaceholderBr(
+    const stripped = stripListItemPlaceholderBr(
         stripPlaceholderLineBreaks(tightenListSpacing(markdown))
     );
+    // 末尾の空行は doc 側で数えた本数で置き直す（直列化では最後の1つが失われるため）。
+    const fileMarkdown = `${stripped.replace(/\n+$/, '')}\n${'\n'.repeat(trailingBlankLines)}`;
     // 重複判定は取り込み時と同じ正規形（セル内改行は `&#10;`）で行う。こうしないと
     // ホストからのエコーバック（`<br>`）を正規化した結果と食い違い、無駄な再描画になる。
     const canonical = normalizeMarkdown(markdown);
@@ -511,15 +529,15 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
                     }
                 }
             }));
-            ctx.get(listenerCtx).markdownUpdated((_ctx, nextMarkdown) => {
-                // blockPrefixEditPlugin 展開中はプレフィックスが二重直列化（`## ## Hello`）
-                // されるため、カーソルがブロックを抜けて折りたたみが完了するまで同期を抑制する。
-                if (isBlockPrefixActive() || isInlineMarkEditActive() || isCodeFenceEditActive()) return;
-                postChange(nextMarkdown);
+            ctx.get(listenerCtx).markdownUpdated((innerCtx, nextMarkdown) => {
+                postChange(nextMarkdown, countTrailingBlankParagraphs(innerCtx.get(editorViewCtx)));
             });
             ctx.set(listItemBlockConfig.key, { renderLabel: renderListItemLabel });
-            // リスト記号を `*` ではなく `-` にする（チェックボックスを含む全箇条書き）
-            ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-' }));
+            // リスト記号を `*` ではなく `-` にする（チェックボックスを含む全箇条書き）。
+            // `rule` を指定しないと remark-stringify の既定で水平線が `***` になり、
+            // 無関係な場所を 1 文字編集しただけでソースの `---` が書き換わる
+            // （horizontal-rule-editing-fix.md）。
+            ctx.update(remarkStringifyOptionsCtx, (prev) => ({ ...prev, bullet: '-', rule: '-' }));
             overrideHardbreakSerializer(ctx);
             disableTextEscape(ctx);
         })
@@ -552,6 +570,8 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createImageCopyPlugin({
             postMessage: (msg) => vscodeApi.postMessage(msg)
         }))
+        // 選択中の画像に × ボタンを重ね、クリックで削除できるようにする。
+        .use(imageDeletePlugin)
         // 画像とテキストの混在を防ぐ。文書変更後に混在段落を自動分離する。
         .use(imageIsolationPlugin)
         // 画像リンク先の拡張子に応じて <img>/<video controls>/<audio controls> を出し分ける。
@@ -562,6 +582,9 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         // コピー時、表セルの改行を保存用 markdown の `<br>` のまま漏らさず、実際の
         // 改行として渡す。clipboard プラグインより前に登録し、someProp の先勝ちで上書きする。
         .use(createClipboardPlainTextPlugin())
+        // コードブロックの中へフェンス付きテキストを貼ったとき、外側フェンスを剥がして
+        // 二重フェンスを作らない。clipboard プラグインより前に登録する（先勝ち）。
+        .use(createCodeBlockPasteFencePlugin())
         // 貼り付け/コピーを Markdown ベースにする。これが無いと Preview への貼り付けが
         // ProseMirror 既定（HTML/プレーンテキスト）任せになり、Raw と違って構造が崩れる。
         .use(clipboard)
@@ -577,14 +600,11 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
         .use(createPreviewDiffPlugin())
         .use(focusSyntaxPlugin)
         .use(createMarkerBackspacePlugin())
-        .use(createBlockPrefixEditPlugin())
-        .use(createInlineMarkEditPlugin())
-        .use(createCodeFenceEditPlugin())
         .use(createLineNumberGutterPlugin())
         // 他の全ての Backspace/Delete 系ハンドラ（チェックボックス降格・コード/インライン
         // マーク等）が「自分の担当ではない」と判断して素通りした後の、最後の受け皿として
         // 登録する。より具体的な既存ハンドラより先に横取りしてはいけない
-        // （blockPrefixEditPlugin.ts が使う checked===false でのタスク降格などを壊すため）。
+        // （チェックボックス降格などの既存ハンドラを壊すため）。
         .use(createBlankLinePlaceholderSkipPlugin());
 
     if (settings.showToolbar) {
@@ -608,35 +628,6 @@ async function createEditor(markdown: string, settings: PreviewSettings): Promis
     }
 
     editor = await builder.create();
-    // blockPrefixEditPlugin の collapse（addToHistory: false）は Milkdown の
-    // markdownUpdated リスナーから完全に見えない（同リスナーは addToHistory:false の
-    // transaction を無視するため）。collapse のたびに現在の doc を明示的に再シリアライズ
-    // して postChange することで、リスナー側の取りこぼしに依存せず常に最新内容を
-    // ホストへ届ける（詳細: docs/specifications/fixes/collapse-markdown-sync-fix.md）。
-    setOnCollapseSync(() => {
-        if (!editor) return;
-        editor.action((ctx) => {
-            const serialize = ctx.get(serializerCtx);
-            const view = ctx.get(editorViewCtx);
-            postChange(serialize(view.state.doc));
-        });
-    });
-    setInlineMarkOnCollapseSync(() => {
-        if (!editor) return;
-        editor.action((ctx) => {
-            const serialize = ctx.get(serializerCtx);
-            const view = ctx.get(editorViewCtx);
-            postChange(serialize(view.state.doc));
-        });
-    });
-    setCodeFenceOnCollapseSync(() => {
-        if (!editor) return;
-        editor.action((ctx) => {
-            const serialize = ctx.get(serializerCtx);
-            const view = ctx.get(editorViewCtx);
-            postChange(serialize(view.state.doc));
-        });
-    });
     // テスト専用シーム: 事前に window.__IPREVIEW_TEST_HOOK__ が定義されている場合のみ
     // EditorView を渡す。本番（実 VS Code）では未定義なので何もしない。
     // 実ブラウザ回帰テスト（test/browser）がドキュメントモデル/選択を読むために使う。
@@ -800,9 +791,13 @@ window.addEventListener('message', (event: MessageEvent) => {
     }
     if (message.type === 'imageCopied') {
         // Host がファイルを読んで返した dataUrl をクリップボードに書き込む。
-        // null はファイル読み取り失敗（パス解決不能 / 権限なし等）→ 無視。
+        // null はファイル読み取り失敗（パス解決不能 / 権限なし等）で、Host 側が既に
+        // 警告を出しているのでここでは何もしない。書き込み失敗は Host へ通知して
+        // 無言のまま「何も貼り付かない」状態にならないようにする。
         if (message.dataUrl) {
-            void writeDataUrlToClipboard(message.dataUrl);
+            void writeDataUrlToClipboard(message.dataUrl, {
+                onFailure: (reason) => vscodeApi.postMessage({ type: 'copyImageFailed', reason })
+            });
         }
         return;
     }

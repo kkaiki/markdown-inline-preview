@@ -72,4 +72,38 @@ suite('Raw: editing-core', () => {
             assert.strictEqual(doc.lineAt(2).text, '3. アイテム3');
         });
     });
+
+    suite('20. 二重フェンスのコードブロック修復コマンド', () => {
+
+        // コードブロックの中へフェンス付きテキストを貼ると、内容にフェンスが入り込み
+        // 保存時に外側が4連へ広がって「二重フェンス」になる（2026-07-27 ユーザー報告）。
+        // 貼り付け側は防止済みだが、既に壊れたファイルを直す手段が要る。
+        test('20.1 二重フェンスのブロックを1重に戻す', async function () {
+            this.timeout(10000);
+
+            const content = '前の段落\n\n````\n```\nAnimate the attached image.\n```\n````\n\n後の段落\n';
+            const editor = await createTestDocument(content);
+
+            await vscode.commands.executeCommand('markdownInline.repairNestedCodeFences');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(
+                editor.document.getText(),
+                '前の段落\n\n```\nAnimate the attached image.\n```\n\n後の段落\n',
+                '二重フェンスが1重に修復されていない'
+            );
+        });
+
+        test('20.2 正常なファイルではコマンドを実行しても内容が変わらない', async function () {
+            this.timeout(10000);
+
+            const content = '# 見出し\n\n```js\nconst a = 1;\n```\n\n本文\n';
+            const editor = await createTestDocument(content);
+
+            await vscode.commands.executeCommand('markdownInline.repairNestedCodeFences');
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            assert.strictEqual(editor.document.getText(), content, '正常なファイルを書き換えてしまった');
+        });
+    });
 });

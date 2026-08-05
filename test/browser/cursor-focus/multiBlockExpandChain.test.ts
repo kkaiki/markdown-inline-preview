@@ -104,13 +104,9 @@ describe('実ブラウザ: 複数ブロックをまたぐ expand/collapse チェ
         await h.placeCursorAfterText('引用C');
 
         const m = await h.model();
-        // 引用Cはまだフォーカスが抜けていない（collapse 前）ため、展開中のプレフィックス
-        // "> " が実テキストとして残ったままなのが正しい状態。
-        // ブラウザの contenteditable がスペースを non-breaking space（ ）として
-        // 反映することがある（blockPrefixEditPlugin.ts 冒頭のコメント参照）ため、
-        // 比較前に正規化する。
-        const normalized = m.selParentText.replace(/ /g, ' ');
-        assert.strictEqual(normalized, '> 引用C',
+        // 記法は実テキストとして挿入されない（docs/specifications/no-focus-expand.md）ので、
+        // カーソルのあるブロックの本文は記法抜きの「引用C」そのもの。
+        assert.strictEqual(m.selParentText, '引用C',
             `連鎖移動後にカーソルが最後のブロック以外へ残った: selParentText=${JSON.stringify(m.selParentText)}`);
         assert.deepStrictEqual(h.errors, []);
     });

@@ -114,7 +114,7 @@ npm run docs:test-catalog   # カタログ md を再生成
 | ファイル | 役割 |
 |---|---|
 | `src/preview/webview/milkdownApp.ts` | Milkdown エディタの初期化・プラグイン登録 |
-| `src/preview/webview/blockPrefixEditPlugin.ts` | Typora 風フォーカス展開（`## `, `- ` 等の挿入/削除） |
+| `src/preview/webview/markerBackspace.ts` | 行頭 Backspace での記法解除（見出し降格・リスト解除） |
 | `src/preview/webview/previewKeymapPlugin.ts` | ⌥⌘1-6 等の Preview 内キーマップ |
 | `src/preview/webview/previewToolbarPlugin.ts` | 上部ツールバーの DOM + クリック処理 |
 | `src/preview/webview/tableArrowKeymap.ts` | テーブルセル内 ↑/↓ の列保持移動 |

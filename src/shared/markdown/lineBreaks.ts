@@ -19,18 +19,34 @@ const LIST_ITEM_TRAILING_BR = /^([ \t]*[-*+][ \t]+(?:\[[x ]\][ \t]*)?)<br\s*\/?>
 // 2*N-1 行の空行になってしまい、元の N 行と本数が合わない）。
 // ここで連鎖の長さ（<br /> の個数）から逆算し、正しい本数の空行に一括で戻す。
 const BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n\n/g;
+// 文書の先頭・末尾にある空 paragraph（blank-line-preservation.md §11）。
+// 中間の連鎖と違い、片側にしかセパレータが無いため本数の逆算式が変わる。
+const LEADING_BLANK_PARAGRAPH_CHAIN = /^(?:<br\s*\/?>\n\n)+/;
+const TRAILING_BLANK_PARAGRAPH_CHAIN = /(?:\n\n<br\s*\/?>)+\n*$/;
+
+function countBr(text: string): number {
+    return (text.match(/<br\s*\/?>/gi) ?? []).length;
+}
 
 /**
  * `blankLineRemarkPlugin.ts` が復元した連続空 paragraph の直列化結果を、
  * 元のソースと同じ本数の空行に戻す。`stripPlaceholderLineBreaks` より前に適用する。
+ *
+ * 末尾・先頭を先に処理する: 中間の連鎖パターンは両側に `\n\n` を要求するため、
+ * 末尾の連鎖に対しては「途中まで」しか一致せず、残骸の `<br />` を生むことがある。
  */
 export function collapseBlankLineChains(markdown: string): string {
-    return markdown.replace(BLANK_PARAGRAPH_CHAIN, (chain) => {
-        const brCount = (chain.match(/<br\s*\/?>/gi) ?? []).length;
-        // 空 paragraph はソースの空行と 1:1 で対応する。
-        // brCount 個の空 paragraph → brCount 行の空行 → (brCount + 1) 個の改行文字。
-        return '\n'.repeat(brCount + 1);
-    });
+    return markdown
+        // N 個の末尾空 paragraph → 本文最終行の後ろに N 行の空行（= N+1 個の改行文字）。
+        .replace(TRAILING_BLANK_PARAGRAPH_CHAIN, (chain) => '\n'.repeat(countBr(chain) + 1))
+        // N 個の先頭空 paragraph → 先頭に N 行の空行（= N 個の改行文字）。
+        .replace(LEADING_BLANK_PARAGRAPH_CHAIN, (chain) => '\n'.repeat(countBr(chain)))
+        .replace(BLANK_PARAGRAPH_CHAIN, (chain) => {
+            const brCount = countBr(chain);
+            // 空 paragraph はソースの空行と 1:1 で対応する。
+            // brCount 個の空 paragraph → brCount 行の空行 → (brCount + 1) 個の改行文字。
+            return '\n'.repeat(brCount + 1);
+        });
 }
 
 /**

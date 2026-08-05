@@ -25,5 +25,11 @@
   "Bullet list": "Bullet list",
   "Numbered list": "Numbered list",
   "Checkbox": "Checkbox",
-  "Heading (choose level)": "Heading (choose level)"
+  "Heading (choose level)": "Heading (choose level)",
+  "Failed to copy image to clipboard: {0}": "Failed to copy image to clipboard: {0}",
+  "Failed to read the image file for copying: {0}": "Failed to read the image file for copying: {0}",
+  "Could not copy this image: its source is not a local file in this document.": "Could not copy this image: its source is not a local file in this document.",
+  "Open a Markdown file first.": "Open a Markdown file first.",
+  "No double-fenced code blocks found in this file.": "No double-fenced code blocks found in this file.",
+  "Repaired {0} double-fenced code block(s).": "Repaired {0} double-fenced code block(s)."
 }
