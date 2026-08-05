@@ -120,6 +120,12 @@ npm run docs:test-catalog   # カタログ md を再生成
 | `src/preview/webview/tableArrowKeymap.ts` | テーブルセル内 ↑/↓ の列保持移動 |
 | `src/raw/activate.ts` | Raw モード（CodeMirror）の有効化 |
 | `test/browser/previewBrowserHarness.ts` | ブラウザテスト共通ハーネス |
+| `src/live/shared/revealScope.ts` | **Live モード**: 記法の展開スコープ判定（中核） |
+| `src/live/shared/syntaxRanges.ts` | Live モード: 生 Markdown → 記法トークン範囲の走査 |
+| `src/live/shared/liveEditing.ts` | Live モード: Enter / スマートホームの解決（純関数） |
+| `src/live/webview/liveApp.ts` | Live モード: CodeMirror 6 の初期化・host 通信 |
+| `src/live/host/liveEditorProvider.ts` | Live モード: CustomTextEditorProvider・コマンド |
+| `test/browser/liveBrowserHarness.ts` | Live モードのブラウザテスト共通ハーネス |
 
 ---
 
