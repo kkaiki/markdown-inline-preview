@@ -256,11 +256,17 @@ body.show-line-numbers .milkdown pre code { display: block; overflow-x: auto; }
 }
 .milkdown a:hover { text-decoration: underline; }
 
+/* インラインコードは Raw（インラインプレビュー）と同じ見え方に揃える:
+   背景チップ（背景色 + padding + 角丸）は付けず、テーマのコード色
+   （`textPreformat.foreground`）が付いた等幅テキストだけで区別する。
+   同じファイルを Raw ⇄ Preview で切り替えたときに印象が変わらないようにするため
+   （docs/specifications/no-focus-expand.md と同じ「モード間で見た目を揃える」方針）。
+   コードブロック（`pre`）の背景はブロックとしての区別に必要なので残す。 */
 .milkdown code {
-    background: var(--preview-code-bg);
+    background: none;
     color: var(--preview-code-fg);
-    padding: 0.1em 0.35em;
-    border-radius: 3px;
+    padding: 0;
+    border-radius: 0;
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 0.92em;
 }
@@ -387,13 +393,65 @@ body.theme-dark {
 .milkdown blockquote > :first-child { margin-top: 0; }
 .milkdown blockquote > :last-child { margin-bottom: 0; }
 
+/* 水平線（`---`）。
+   罫線を `border-top` で描くと要素の矩形が高さ 1px になり、実マウスでは掴めない
+   （＝クリックしても ProseMirror の NodeSelection にならず、選択・削除できない）。
+   高さのある帯にして罫線を background のグラデーションで中央へ描くことで、
+   見た目を保ったままクリック判定領域を確保する（horizontal-rule-editing-fix.md）。 */
 .milkdown hr {
     border: none;
-    border-top: 1px solid var(--preview-border);
-    margin: 1.6em 0;
+    height: 12px;
+    margin: 1.1em 0;
+    background: linear-gradient(var(--preview-border), var(--preview-border)) center / 100% 1px no-repeat;
+    cursor: pointer;
+}
+
+/* 選択中（クリックで掴んだ状態）。Backspace で消せることが分かるようにする。 */
+.milkdown hr.ProseMirror-selectednode {
+    background: linear-gradient(
+            var(--vscode-focusBorder, #9370DB),
+            var(--vscode-focusBorder, #9370DB)
+        ) center / 100% 2px no-repeat,
+        var(--vscode-editor-selectionBackground, rgba(147, 112, 219, 0.25));
+    border-radius: 3px;
 }
 
 .milkdown img { max-width: 100%; border-radius: 4px; }
+
+/* 選択中（クリックで掴んだ状態）の画像。× ボタンで消せる状態にあることを示す
+   （image-click-delete-copy.md）。 */
+.milkdown img.ProseMirror-selectednode {
+    outline: 2px solid var(--vscode-focusBorder, #9370DB);
+    outline-offset: 2px;
+}
+
+/* 選択中の画像の右上に重なる削除ボタン（imageDeletePlugin.ts が body 直下に置く）。 */
+.ipreview-image-delete {
+    position: fixed;
+    z-index: 9000;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    border: 1px solid var(--vscode-menu-border, var(--preview-border));
+    border-radius: 50%;
+    background: var(--vscode-menu-background, var(--preview-bg));
+    color: var(--vscode-menu-foreground, var(--preview-fg));
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.ipreview-image-delete:hover,
+.ipreview-image-delete:focus {
+    background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+    color: var(--vscode-menu-selectionForeground, #ffffff);
+    outline: none;
+}
 .milkdown video { max-width: 100%; border-radius: 4px; }
 .milkdown audio { width: 100%; }
 

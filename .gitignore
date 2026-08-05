@@ -54,7 +54,10 @@ coverage/
 .claude/settings.local.json
 
 # --- Private business/strategy notes (never commit to public repo) ---
+# 事業戦略・課金/Pro 機能仕様・マーケ計画は別の private リポジトリで管理する:
+#   git@github.com:kkaiki/markdown-inline-preview-docs.git → docs/private/ に clone
 /private/
+docs/private/
 
 # 実ブラウザテストのスクリーンショット（目視確認用の成果物）
 test-screenshots/

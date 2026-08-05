@@ -13,62 +13,22 @@ import { Decoration, DecorationSet } from '@milkdown/prose/view';
 import { $prose } from '@milkdown/utils';
 
 import { diffBlocks } from '../../shared/markdown/blockDiff';
-import { getExpandedBlock } from './blockPrefixEditPlugin';
-import { getExpandedCodeFenceRanges } from './codeFenceEditPlugin';
-import { getExpandedInlineMarkRanges } from './inlineMarkEditPlugin';
 
 let baseSignatures: string[] | null = null;
 let forceUpdate: (() => void) | null = null;
 
-/** シグネチャ本文から除外する絶対位置レンジ。 */
-export interface ExpandedRange { from: number; to: number }
-
 /**
  * ブロックごとのシグネチャ（種別＋本文テキスト）配列。テスト容易化のため export。
  *
- * `expandedRanges` を渡すと、その絶対位置レンジ（フォーカスで記法展開中に実テキストとして
- * 挿入されている記法文字）をシグネチャの本文テキストから除外する。対象は 2 系統ある:
- *
- * - ブロックプレフィックス（`blockPrefixEditPlugin`）: `## ` / `- ` / `> ` の 1 レンジ。
- * - インライン記法マーカー（`inlineMarkEditPlugin`）: `` ` `` / `**` / `~~` / `[` /
- *   `](url)` の開き・閉じで複数レンジ。
- *
- * 除外しないと、挿入された記法文字ぶんだけ HEAD 側のシグネチャと食い違い、未編集で
- * フォーカスしただけのブロックが「変更」扱い（青バー）になる。
+ * Preview はフォーカスしても Markdown 記法を実テキストとして挿入しない（記法の実テキスト
+ * 展開は 2026-07-26 に廃止）ため、本文テキストをそのまま比較すればよい。展開時代は
+ * 挿入された記法文字を除外しないと、フォーカスしただけのブロックが「変更（青バー）」に
+ * なってしまっていた（docs/specifications/no-focus-expand.md）。
  */
-export function blockSignatures(
-    doc: ProseNode,
-    expandedRanges?: ExpandedRange | readonly ExpandedRange[] | null
-): string[] {
-    const ranges: ExpandedRange[] = !expandedRanges
-        ? []
-        : Array.isArray(expandedRanges)
-            ? [...expandedRanges]
-            : [expandedRanges as ExpandedRange];
-
+export function blockSignatures(doc: ProseNode): string[] {
     const sigs: string[] = [];
-    doc.forEach((node, offset) => {
-        const from = offset;
-        const to = offset + node.nodeSize;
-        const inside = ranges
-            .filter(r => r.from >= from && r.to <= to && r.to > r.from)
-            .sort((a, b) => a.from - b.from);
-
-        let text = node.textContent;
-        if (inside.length > 0 && node.content.size > 0) {
-            const contentStart = from + 1;
-            const contentEnd = to - 1;
-            let cursor = contentStart;
-            let acc = '';
-            for (const r of inside) {
-                if (r.from < cursor) continue; // 重なりは先勝ちで無視
-                acc += doc.textBetween(cursor, Math.min(r.from, contentEnd));
-                cursor = Math.min(r.to, contentEnd);
-            }
-            acc += doc.textBetween(cursor, contentEnd);
-            text = acc;
-        }
-        sigs.push(`${node.type.name} ${text}`);
+    doc.forEach((node) => {
+        sigs.push(`${node.type.name} ${node.textContent}`);
     });
     return sigs;
 }
@@ -108,16 +68,7 @@ export function createPreviewDiffPlugin() {
                 decorations(state) {
                     if (!baseSignatures) return DecorationSet.empty;
                     try {
-                        // フォーカス展開中に実テキストとして挿入されている記法文字は、
-                        // ブロックプレフィックス側・インラインマーク側の両方を除外する
-                        // （除外しないとフォーカスしただけで「変更」になる）。
-                        const expanded = getExpandedBlock();
-                        const expandedRanges: ExpandedRange[] = expanded
-                            ? [{ from: expanded.contentStart, to: expanded.contentStart + expanded.prefix.length }]
-                            : [];
-                        expandedRanges.push(...getExpandedInlineMarkRanges(state.doc));
-                        expandedRanges.push(...getExpandedCodeFenceRanges(state.doc));
-                        const current = blockSignatures(state.doc, expandedRanges);
+                        const current = blockSignatures(state.doc);
                         const { statuses, deletionsBefore } = diffBlocks(baseSignatures, current);
 
                         const decorations: Decoration[] = [];

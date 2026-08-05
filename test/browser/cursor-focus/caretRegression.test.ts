@@ -85,8 +85,12 @@ describe('実ブラウザ回帰: Preview のキャレット保持（markerBacksp
     });
 
     it('通常の箇条書き（非チェックボックス）+ 前に段落でも飛ばない', async function () {
+        // 行頭 Backspace は「箇条書き → 素のトップレベル段落」への昇格（liftListItem）に
+        // なる。list_item 内の段落と素の段落では CSS マージンが違うため、正しく昇格できて
+        // いるときも数 px（実測 -7px）上へ動く。別ブロック（前の段落）へ飛ぶ誤バグは行の
+        // 高さぶん（20px 超）動くので、下の単独チェックボックスと同じ 10px の許容で区別する。
         if (!browser) { this.skip(); return; }
-        await expectNoUpwardJump('intro line\n\n- plain bullet\n', 'plain bullet');
+        await expectNoUpwardJump('intro line\n\n- plain bullet\n', 'plain bullet', 1, 10);
     });
 
     it('単独チェックボックス（前に行なし）で連続 Backspace しても飛ばない（回帰）', async function () {
@@ -102,5 +106,46 @@ describe('実ブラウザ回帰: Preview のキャレット保持（markerBacksp
         // 前提に、この項目だけ緩めた許容値で「別ブロックへの飛び」でないことを確認する。
         if (!browser) { this.skip(); return; }
         await expectNoUpwardJump('- [ ] solo task\n', 'solo task', 2, 10);
+    });
+
+    it('コード本文の末尾にカーソルを置くと、キャレットは閉じフェンス行より上（最終行）に出る', async function () {
+        // 表示用の閉じフェンス widget が side:-1（位置の手前）だったとき、コード本文の
+        // 末尾位置に置いたキャレットが widget の後ろの DOM 位置へ回り、``` の「下」に
+        // 空行があるかのように見えていた（キャレット矩形すら取れない状態。
+        // 2026-07-27 ユーザー報告）。閉じフェンスを side:1 にして解消したことを固定する。
+        if (!browser) { this.skip(); return; }
+        const handle = await openPreview(
+            browser,
+            '前の段落\n\n```\ndocs/\n  examples/\n```\n\n後の段落\n',
+            '後の段落',
+            { showLineNumbers: true }
+        );
+        try {
+            await handle.placeCursorAfterText('  examples/');
+            await handle.page.waitForTimeout(150);
+
+            const geometry = await handle.page.evaluate(() => {
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return null;
+                const range = sel.getRangeAt(0);
+                const rects = range.getClientRects();
+                const rect = rects.length ? rects[0] : range.getBoundingClientRect();
+                const fence = document.querySelectorAll('.milkdown .code-fence-display')[1];
+                const fenceRect = fence.getBoundingClientRect();
+                return { caretTop: rect.top, caretHeight: rect.height, fenceTop: fenceRect.top };
+            });
+            assert.ok(geometry, 'キャレットの矩形が取得できない');
+            assert.ok(
+                geometry.caretHeight > 0,
+                `キャレット矩形が潰れている（widget の裏に回った疑い）: ${JSON.stringify(geometry)}`
+            );
+            assert.ok(
+                geometry.caretTop < geometry.fenceTop,
+                `キャレットが閉じフェンスより下に出ている: ${JSON.stringify(geometry)}`
+            );
+            assert.deepStrictEqual(handle.errors, []);
+        } finally {
+            await handle.close();
+        }
     });
 });

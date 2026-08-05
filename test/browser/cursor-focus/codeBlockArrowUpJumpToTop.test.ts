@@ -14,17 +14,13 @@
  * コードブロック内の ↑/↓ を横取りし、`code_block` の生テキストを行分割して移動先を
  * 手動計算することで、ネイティブのキャレット移動を経由しないようにした。
  *
- * ## 2026-07-09 の仕様変更に伴う更新
+ * ## 2026-07-26 の仕様変更に伴う更新
  *
- * `code-fence-real-text-edit-fix.md` により、フォーカス中はフェンス（```python` /
- * ```` ``` ````）が widget ではなく**実テキストの行**としてブロックの中身に挿入される
- * ようになった。そのため、`codeBlockArrowKeymap.ts` の行分割計算（変更なし・元々
- * `node.textContent` の生テキストを見ているだけ）から見ると、フェンス行も「ブロック内の
- * 1行」として扱われる。結果として:
- * - 旧: 最初の実コード行で ArrowUp を押すとブロックの外（直前の段落）へ抜けた。
- * - 新: 最初の実コード行で ArrowUp を押すとフェンス行（```python）へ留まり、
- *   フェンス行でさらに ArrowUp を押して初めてブロックの外へ抜ける。
- * 最終行 / 終了フェンスでの ArrowDown も対称に1行分伸びる。
+ * 記法の実テキスト展開を廃止した（`docs/specifications/no-focus-expand.md`）ため、
+ * フォーカス中でもフェンス行はブロックの中身に存在しない。`codeBlockArrowKeymap.ts` の
+ * 行分割（`node.textContent` を見るだけ）から見えるのは実コード行だけになり、
+ * 最初の実コード行での ArrowUp は 1 回でブロックの外（直前の段落）へ抜ける。
+ * 最終行での ArrowDown も対称に 1 回で外（直後の見出し）へ抜ける。
  *
  * 実座標クリックについて: `page.getByText(...).click()` は要素境界（hljs のシンタックス
  * ハイライト `<span>` 分割等）に依存して意図しない位置をクリックすることがあるため、
@@ -69,25 +65,12 @@ describe('修正確認: コードブロック内 ↑/↓ でブロック境界�
         '見出し3'
     ].join('\n');
 
-    it('コードブロック1行目（実コード）の単語選択 → ArrowUp で、ブロック内の開始フェンス行へ留まる', async function () {
+    it('コードブロック1行目の単語選択 → ArrowUp で、直前の段落（文書先頭ではない）へ抜ける', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, md, '見出し3');
 
         await h.doubleClickTextAt('InterviewStructuredData');
         await h.press('ArrowUp');
-
-        const line = await h.currentLineText();
-        assert.strictEqual(line, '```python', `ArrowUp が開始フェンス行へ留まらなかった: ${JSON.stringify(line)}`);
-        assert.deepStrictEqual(h.errors, []);
-    });
-
-    it('開始フェンス行から ArrowUp で、直前の段落（文書先頭ではない）へ抜ける', async function () {
-        if (!browser) { this.skip(); return; }
-        h = await openPreview(browser, md, '見出し3');
-
-        await h.doubleClickTextAt('InterviewStructuredData');
-        await h.press('ArrowUp'); // 実コード1行目 → 開始フェンス行
-        await h.press('ArrowUp'); // 開始フェンス行 → ブロックの外
 
         const m = await h.model();
         assert.strictEqual(
@@ -134,25 +117,12 @@ describe('修正確認: コードブロック内 ↑/↓ でブロック境界�
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('コードブロック最終行の単語選択 → ArrowDown で、ブロック内の終了フェンス行へ留まる', async function () {
+    it('コードブロック最終行の単語選択 → ArrowDown で、直後の見出し（ブロック内に留まらない）へ抜ける', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, md, '見出し3');
 
         await h.doubleClickTextAt('personality_traits');
         await h.press('ArrowDown');
-
-        const line = await h.currentLineText();
-        assert.strictEqual(line, '```', `ArrowDown が終了フェンス行へ留まらなかった: ${JSON.stringify(line)}`);
-        assert.deepStrictEqual(h.errors, []);
-    });
-
-    it('終了フェンス行から ArrowDown で、直後の見出し（ブロック内に留まらない）へ抜ける', async function () {
-        if (!browser) { this.skip(); return; }
-        h = await openPreview(browser, md, '見出し3');
-
-        await h.doubleClickTextAt('personality_traits');
-        await h.press('ArrowDown'); // 実コード最終行 → 終了フェンス行
-        await h.press('ArrowDown'); // 終了フェンス行 → ブロックの外
 
         const m = await h.model();
         assert.strictEqual(

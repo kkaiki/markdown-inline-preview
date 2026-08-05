@@ -15,7 +15,6 @@ import type { EditorState } from '@milkdown/prose/state';
 import type { Mark, Node as ProseNode } from '@milkdown/prose/model';
 import { $prose } from '@milkdown/utils';
 
-import { isInlineMarkEditActive } from './inlineMarkEditPlugin';
 
 /** 解除できるインライン mark（focusSyntaxHelpers のマーカー対象と一致させる）。 */
 export const REMOVABLE_INLINE_MARKS: ReadonlySet<string> = new Set([
@@ -112,11 +111,6 @@ export function createInlineMarkBackspacePlugin() {
                     : null;
                 if (!direction) return false;
 
-                // inlineMarkEditPlugin がフォーカス中ブロックのマークを実テキストとして
-                // 展開中は、マーカー文字自体を1文字ずつ Backspace/Delete で消すのが自然な
-                // 挙動なので、ここではスキップして既定の文字削除に委ねる
-                // （blockPrefixEditPlugin 展開中に markerBackspace をスキップするのと同じ方針）。
-                if (isInlineMarkEditActive()) return false;
 
                 const removal = computeInlineMarkRemoval(view.state, direction);
                 if (!removal) return false;

@@ -198,10 +198,10 @@ describe('実ブラウザ: タイプ中・確定後の文字忠実性', function
             if (!browser) { this.skip(); return; }
             h = await openPreview(browser, '```js\nTAIL\n```\n', 'TAIL');
             await h.placeCursorBeforeText('TAIL');
-            // codeFenceEditPlugin（code-fence-real-text-edit-fix.md）により、フォーカス中は
-            // 開始フェンス（```js\n）が実テキストとして docText() に含まれる。
+            // 記法は実テキストとして挿入されない（docs/specifications/no-focus-expand.md）ので、
+            // docText() にフェンス行は含まれず、打った文字とコード本文だけになる。
             const typed = '# not-heading\n  - not-list\n';
-            await typeCharByCharExact(h, typed, () => h.docText(), (typedSoFar) => `\`\`\`js\n${typedSoFar}TAIL\n\`\`\``);
+            await typeCharByCharExact(h, typed, () => h.docText(), (typedSoFar) => `${typedSoFar}TAIL`);
             const m = await h.model();
             assert.ok(m.topTypes.includes('code_block'), m.outline);
             assert.deepStrictEqual(h.errors, []);

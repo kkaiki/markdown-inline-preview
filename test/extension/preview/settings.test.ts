@@ -266,6 +266,36 @@ suite('Preview: settings', () => {
             );
         });
 
+        // 2026-07-26 の探索的監査で追加。16.3 は「OFF のまま切り替えても書かない」ことしか
+        // 見ておらず、ON で書いた後に OFF へ変えたときの撤去経路
+        // （onDidChangeConfiguration → applyDefaultEditorAssociation → computeEditorAssociations(null)）
+        // が未検証だった。
+        test('16.5 controlDefaultEditor を on→off に変えると、拡張が書いた関連付けが撤去される', async function () {
+            this.timeout(30000);
+
+            await openRealMdFile('assoc-cleanup.md', '# 制御 OFF への切替\n');
+            await ensurePreview();
+            await sleep(600);
+            const before = getAssociations();
+            assert.strictEqual(
+                before?.['*.md'], PREVIEW_VIEW_TYPE,
+                `前提: Preview モードで *.md の関連付けが書かれていません: ${JSON.stringify(before)}`
+            );
+
+            await updateMarkdownInlineSetting('preview.controlDefaultEditor', false);
+            await sleep(800);
+
+            const after = getAssociations();
+            assert.ok(
+                !after || after['*.md'] === undefined,
+                `制御を OFF にしたのに拡張が書いた *.md の関連付けが残っています: ${JSON.stringify(after)}`
+            );
+            assert.ok(
+                !after || after['*.markdown'] === undefined,
+                `制御を OFF にしたのに拡張が書いた *.markdown の関連付けが残っています: ${JSON.stringify(after)}`
+            );
+        });
+
         test('16.4 他拡張のための関連付け（*.pdf など）はモード切替で消えない', async function () {
             this.timeout(30000);
 

@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS = {
     enableMermaid: false,
     showFrontmatter: false,
     enableTransitions: false,
-    showFocusSyntax: true,
+    showFocusSyntax: false,
     enableSlashMenu: true,
     showToolbar: false,
     toolbarShowShortcuts: false,
@@ -419,9 +419,14 @@ export async function openPreview(
                     return true;
                 });
                 if (at < 0) return false;
-                const TextSelection = view.state.selection.constructor;
+                // 現在の選択が NodeSelection（画像をクリックした後など）でも必ず
+                // TextSelection を作れるよう、基底クラスの fromJSON 経由で生成する
+                // （`selection.constructor` だと NodeSelection.create が呼ばれて落ちる）。
+                const Selection = Object.getPrototypeOf(view.state.selection.constructor);
                 view.focus();
-                view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+                view.dispatch(view.state.tr.setSelection(
+                    Selection.fromJSON(view.state.doc, { type: 'text', anchor: at, head: at })
+                ));
                 return true;
             }, text);
             /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -441,9 +446,12 @@ export async function openPreview(
                     return true;
                 });
                 if (at < 0) return false;
-                const TextSelection = view.state.selection.constructor;
+                // placeCursorAfterText と同じ理由で基底クラスの fromJSON 経由で作る。
+                const Selection = Object.getPrototypeOf(view.state.selection.constructor);
                 view.focus();
-                view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at)));
+                view.dispatch(view.state.tr.setSelection(
+                    Selection.fromJSON(view.state.doc, { type: 'text', anchor: at, head: at })
+                ));
                 return true;
             }, text);
             /* eslint-enable @typescript-eslint/no-explicit-any */

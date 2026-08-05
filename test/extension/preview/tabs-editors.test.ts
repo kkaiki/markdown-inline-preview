@@ -998,4 +998,217 @@ suite('Preview: tabs-editors', () => {
             }
         });
     });
+
+    // 2026-07-26 の探索的監査（docs/testing/preview-audit-2026-07-26.md）で追加。
+    // 「Preview 表示中に VS Code 側でファイルやエディタが動く」系の操作を実際に走らせ、
+    // 例外・タブの増殖/消失・内容破壊が起きないことを固定する。
+    suite('18. Preview 表示中の外部イベント・標準エディタ操作への耐性', () => {
+        let tmpDir: string | undefined;
+
+        function sleep(ms: number): Promise<void> {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function tabsSnapshot(): string {
+            return vscode.window.tabGroups.all.map((g, i) =>
+                `group${i}[` + g.tabs.map(t => {
+                    const kind = t.input instanceof vscode.TabInputCustom
+                        ? `custom(${t.input.viewType})`
+                        : t.input instanceof vscode.TabInputText ? 'text' : 'other';
+                    return `${t.label}:${kind}${t.isActive ? '*' : ''}`;
+                }).join(', ') + ']'
+            ).join(' / ');
+        }
+
+        function tabsForUri(uri: vscode.Uri): { preview: vscode.Tab[]; raw: vscode.Tab[] } {
+            const preview: vscode.Tab[] = [];
+            const raw: vscode.Tab[] = [];
+            for (const group of vscode.window.tabGroups.all) {
+                for (const tab of group.tabs) {
+                    if (tab.input instanceof vscode.TabInputCustom
+                        && tab.input.viewType === PREVIEW_VIEW_TYPE
+                        && tab.input.uri.toString() === uri.toString()) {
+                        preview.push(tab);
+                    } else if (tab.input instanceof vscode.TabInputText
+                        && tab.input.uri.toString() === uri.toString()) {
+                        raw.push(tab);
+                    }
+                }
+            }
+            return { preview, raw };
+        }
+
+        function writeMd(name: string, content: string): vscode.Uri {
+            if (!tmpDir) tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-18-'));
+            const filePath = path.join(tmpDir, name);
+            fs.writeFileSync(filePath, content, 'utf-8');
+            return vscode.Uri.file(filePath);
+        }
+
+        async function openRaw(uri: vscode.Uri): Promise<vscode.TextEditor> {
+            const doc = await vscode.workspace.openTextDocument(uri);
+            return await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One, preview: false });
+        }
+
+        async function ensurePreview(): Promise<void> {
+            for (let i = 0; i < 3; i++) {
+                if (vscode.window.tabGroups.activeTabGroup.activeTab?.input instanceof vscode.TabInputCustom) return;
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(600);
+            }
+        }
+
+        teardown(async () => {
+            await closeAllEditors();
+            if (tmpDir) {
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+                tmpDir = undefined;
+            }
+        });
+
+        test('18.1 Preview 表示中に元ファイルが外部から削除されても、その後 別ファイルを Preview 化できる', async function () {
+            this.timeout(40000);
+
+            const uri = writeMd('deleted.md', '# 削除される\n\n本文\n');
+            await openRaw(uri);
+            await ensurePreview();
+            await sleep(600);
+            assert.strictEqual(tabsForUri(uri).preview.length, 1, `前提: Preview タブが1枚でない: ${tabsSnapshot()}`);
+
+            fs.unlinkSync(uri.fsPath);
+            await sleep(1500);
+
+            const other = writeMd('after-delete.md', '# 後続\n');
+            await openRaw(other);
+            await ensurePreview();
+            await sleep(700);
+            assert.strictEqual(tabsForUri(other).preview.length, 1,
+                `削除イベントの後、別ファイルを Preview 化できなくなった: ${tabsSnapshot()}`);
+            assert.strictEqual(tabsForUri(other).raw.length, 0,
+                `別ファイルの Raw タブが Preview と重複して残っている: ${tabsSnapshot()}`);
+        });
+
+        test('18.2 Preview 表示中にファイルが外部からリネームされても、その後 別ファイルを Preview 化できる', async function () {
+            this.timeout(40000);
+
+            const uri = writeMd('renamed.md', '# リネームされる\n\n本文\n');
+            await openRaw(uri);
+            await ensurePreview();
+            await sleep(700);
+
+            fs.renameSync(uri.fsPath, path.join(path.dirname(uri.fsPath), 'renamed-after.md'));
+            await sleep(1500);
+
+            const other = writeMd('after-rename.md', '# 後続\n');
+            await openRaw(other);
+            await ensurePreview();
+            await sleep(700);
+            assert.strictEqual(tabsForUri(other).preview.length, 1,
+                `リネーム後に別ファイルを Preview 化できなくなった: ${tabsSnapshot()}`);
+        });
+
+        test('18.3 Preview タブを閉じて「閉じたエディタを再度開く」で復元しても、Raw と Preview が重複しない', async function () {
+            this.timeout(40000);
+
+            const uri = writeMd('reopen-closed.md', '# 復元\n\n本文\n');
+            await openRaw(uri);
+            await ensurePreview();
+            await sleep(600);
+
+            await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+            await sleep(600);
+            assert.strictEqual(tabsForUri(uri).preview.length + tabsForUri(uri).raw.length, 0,
+                `前提: タブが閉じきれていない: ${tabsSnapshot()}`);
+
+            await vscode.commands.executeCommand('workbench.action.reopenClosedEditor');
+            await sleep(1500);
+
+            const { preview, raw } = tabsForUri(uri);
+            assert.strictEqual(preview.length + raw.length, 1,
+                `復元後にタブが重複または消失している（preview=${preview.length}, raw=${raw.length}）: ${tabsSnapshot()}`);
+        });
+
+        test('18.4 Preview 中に同じファイルを右のグループへ Raw で開くと、左 Preview・右 Raw の2画面構成が保てる', async function () {
+            this.timeout(40000);
+
+            const uri = writeMd('two-columns.md', '# 2画面\n');
+            await openRaw(uri);
+            await ensurePreview();
+            await sleep(800);
+
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Two, preview: false });
+            await sleep(1500);
+
+            const state = tabsForUri(uri);
+            assert.strictEqual(state.raw.length, 1,
+                `右グループへ明示的に開いた Raw タブが重複解消で閉じられた: ${tabsSnapshot()}`);
+            assert.strictEqual(state.preview.length, 1,
+                `左グループの Preview タブが失われた: ${tabsSnapshot()}`);
+        });
+
+        test('18.5 Preview 表示中に revert を実行してもタブが壊れず、ディスク内容も変わらない', async function () {
+            this.timeout(40000);
+
+            const uri = writeMd('revert.md', '# revert\n');
+            await openRaw(uri);
+            await ensurePreview();
+            await sleep(800);
+
+            await vscode.commands.executeCommand('workbench.action.files.revert');
+            await sleep(1200);
+
+            const state = tabsForUri(uri);
+            assert.strictEqual(state.preview.length + state.raw.length, 1,
+                `revert 後にタブが重複/消失している（preview=${state.preview.length}, raw=${state.raw.length}）: ${tabsSnapshot()}`);
+            assert.strictEqual(fs.readFileSync(uri.fsPath, 'utf-8'), '# revert\n',
+                `revert でディスク内容が変わった: ${JSON.stringify(fs.readFileSync(uri.fsPath, 'utf-8'))}`);
+        });
+
+        test('18.6 togglePreview を 80ms 間隔で10回連打しても、タブが1枚に収束し内容も dirty 状態も壊れない', async function () {
+            this.timeout(60000);
+
+            const content = '# 連打\n\n本文\n';
+            const uri = writeMd('rapid-toggle.md', content);
+            const editor = await openRaw(uri);
+
+            for (let i = 0; i < 10; i++) {
+                await vscode.commands.executeCommand('markdownInline.togglePreview');
+                await sleep(80);
+            }
+            await sleep(2500);
+
+            const { preview, raw } = tabsForUri(uri);
+            assert.strictEqual(preview.length + raw.length, 1,
+                `連打後にタブが重複/消失している（preview=${preview.length}, raw=${raw.length}）: ${tabsSnapshot()}`);
+            assert.strictEqual(fs.readFileSync(uri.fsPath, 'utf-8'), content,
+                `連打で内容が書き換わった: ${JSON.stringify(fs.readFileSync(uri.fsPath, 'utf-8'))}`);
+            assert.strictEqual(editor.document.isDirty, false, '連打で dirty になっている');
+        });
+
+        test('18.7 モード記憶が preview のとき、5ファイルを続けて開いても Raw タブが1枚も残らない', async function () {
+            this.timeout(60000);
+
+            await openRaw(writeMd('seq-0.md', '# 0\n'));
+            await ensurePreview();
+            await sleep(800);
+
+            const uris: vscode.Uri[] = [];
+            for (let i = 1; i <= 5; i++) {
+                const uri = writeMd(`seq-${i}.md`, `# ${i}\n`);
+                uris.push(uri);
+                await openRaw(uri);
+                await sleep(700);
+            }
+            await sleep(1500);
+
+            for (const uri of uris) {
+                const state = tabsForUri(uri);
+                assert.strictEqual(state.raw.length, 0,
+                    `${path.basename(uri.fsPath)}: Raw タブが残っている: ${tabsSnapshot()}`);
+                assert.strictEqual(state.preview.length, 1,
+                    `${path.basename(uri.fsPath)}: Preview タブが1枚でない: ${tabsSnapshot()}`);
+            }
+        });
+    });
 });

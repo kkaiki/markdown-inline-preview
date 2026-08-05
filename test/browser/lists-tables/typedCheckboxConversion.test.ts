@@ -121,14 +121,4 @@ describe('実ブラウザ: タイプによるチェックボックス変換の�
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('回帰確認: 通常の箇条書き（チェックボックスでない）は今まで通りフォーカス中に "- " が展開される', async function () {
-        if (!browser) { this.skip(); return; }
-        h = await typeOnNewLine('Start\n\nTAIL\n', 'Start', '- 普通のアイテム');
-        const m = await h.model();
-        assert.ok(
-            m.outline.includes('list_item(checked=null)[paragraph["- 普通のアイテム"]]'),
-            `フォーカス中の "- " プレフィックス展開が退行した: ${m.outline}`
-        );
-        assert.deepStrictEqual(h.errors, []);
-    });
 });

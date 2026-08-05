@@ -7,7 +7,6 @@ import {
     findFocusedBlockDepth,
     getBlockPrefix
 } from '../../shared/markdown/focusSyntaxHelpers';
-import { getExpandedBlock } from './blockPrefixEditPlugin';
 
 let enabled = true;
 
@@ -16,7 +15,7 @@ export function setFocusSyntaxEnabled(value: boolean): void {
 }
 
 /**
- * 見出し等の行頭マーカーの装飾要素（行内記法マーカーは全て `inlineMarkEditPlugin` の
+ * 見出し等の行頭マーカーの装飾要素（行内記法マーカーは `inlineMarkBackspace` の
  * 実テキスト展開でカバーされるため、この widget はもう使わない）。
  *
  * **`contenteditable="false"` が重要**: これが無いとマーカーの `<span>` がエディタから
@@ -66,14 +65,9 @@ function blockMarkerDecoration($from: ResolvedPos): Decoration[] {
     const depth = findFocusedBlockDepth($from);
     if (depth === null) return [];
 
-    // フェンスコードブロックは codeFenceEditPlugin が実テキストとしてフェンスを展開する
-    // ため、ここでは何もしない（かつては widget 表示のみだったが、
-    // code-fence-real-text-edit-fix.md でこの widget は不要になった）。
+    // フェンスコードブロックの ``` は表示しない（背景と等幅フォントで十分に区別でき、
+    // 記法文字を出すとフォーカスの前後で見た目が変わってしまう）。
     if ($from.node(depth).type.name === 'code_block') return [];
-
-    // blockPrefixEditPlugin が実テキストとしてプレフィックスを展開中は
-    // 二重表示を防ぐためスキップする。
-    if (getExpandedBlock() !== null) return [];
 
     const prefix = getBlockPrefix($from, depth);
     if (!prefix) return [];

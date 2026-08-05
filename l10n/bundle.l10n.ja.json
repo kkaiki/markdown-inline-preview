@@ -25,5 +25,11 @@
   "Bullet list": "箇条書きリスト",
   "Numbered list": "番号付きリスト",
   "Checkbox": "チェックボックス",
-  "Heading (choose level)": "見出し (レベル指定)"
+  "Heading (choose level)": "見出し (レベル指定)",
+  "Failed to copy image to clipboard: {0}": "画像をクリップボードにコピーできませんでした: {0}",
+  "Failed to read the image file for copying: {0}": "コピーする画像ファイルを読み込めませんでした: {0}",
+  "Could not copy this image: its source is not a local file in this document.": "この画像はコピーできません（参照先がこのドキュメント内のローカルファイルではありません）。",
+  "Open a Markdown file first.": "先に Markdown ファイルを開いてください。",
+  "No double-fenced code blocks found in this file.": "このファイルに二重フェンスのコードブロックはありませんでした。",
+  "Repaired {0} double-fenced code block(s).": "二重フェンスのコードブロックを {0} 件修復しました。"
 }

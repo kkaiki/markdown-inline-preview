@@ -15,11 +15,6 @@ import { liftListItem } from '@milkdown/prose/schema-list';
 import { $prose } from '@milkdown/utils';
 
 import { headingDowngradeLevel } from '../../shared/markdown/headingBackspace';
-import {
-    collapseCurrentExpandedBlock,
-    getExpandedBlock,
-    markRecentCheckboxDemotion
-} from './blockPrefixEditPlugin';
 
 /**
  * 変換後に選択位置を「固定」する。
@@ -68,28 +63,9 @@ export function createMarkerBackspacePlugin() {
         props: {
             handleKeyDown(view, event) {
                 if (event.key !== 'Backspace') return false;
-                let state = view.state;
-                let { $from, empty } = state.selection;
+                const state = view.state;
+                const { $from, empty } = state.selection;
                 if (!empty) return false;
-
-                // blockPrefixEditPlugin が展開中はプレフィックスが実テキストになっている。
-                // Backspace でプレフィックス文字を 1 文字ずつ削除するのが自然な挙動なので、
-                // 原則スキップする。ただし本文が空のタスク項目だけは、見えている
-                // "- [ ] " を1文字ずつ壊さず、先に折りたたんで空タスク削除として扱う。
-                const expanded = getExpandedBlock();
-                if (expanded !== null) {
-                    const expandedNode = state.doc.nodeAt(expanded.nodePos);
-                    const isEmptyExpandedTask =
-                        expanded.nodeType === 'list_item' &&
-                        /^- \[[ xX]\] $/.test(expanded.prefix) &&
-                        expandedNode?.firstChild?.textContent === expanded.prefix;
-                    if (!isEmptyExpandedTask) return false;
-
-                    collapseCurrentExpandedBlock(view);
-                    state = view.state;
-                    ({ $from, empty } = state.selection);
-                    if (!empty) return false;
-                }
 
                 // 1) 見出し: 行頭で 1 レベル降格 → 最後は段落
                 for (let depth = $from.depth; depth > 0; depth--) {
@@ -141,22 +117,7 @@ export function createMarkerBackspacePlugin() {
                     }
 
                     // チェックボックス → 箇条書き（チェック属性を外す）。
-                    // setNodeMarkup 直後、この list_item は checked=null（＝普通の箇条書き）
-                    // になり、まだカーソルもその中にある。blockPrefixEditPlugin はこれを
-                    // 「フォーカス中の普通の箇条書きになった」と見なして "- " を実テキストとして
-                    // 展開してしまう（previewKeymapPlugin.ts の makeTodo() が対処済みの Bug1 と
-                    // 同種）。加えて list-item-block コンポーネントの非同期再描画が少し遅れて
-                    // 追加の selectionchange を発火させることがあり、同期的な抑制解除では
-                    // そちらまでは防げない。markRecentCheckboxDemotion でこの list_item の
-                    // 位置を時間窓つきで記録し、blockPrefixEditPlugin 側にこのノードだけ
-                    // 展開対象から一時的に除外させる（pendingCheckboxSelectionGuard と同じ
-                    // 「位置追跡 + 時間窓」方式。グローバルな抑制フラグを rAF を跨いで
-                    // 持ち続けると、無関係な他ブロックの正当な展開まで巻き込んで止めてしまう）。
-                    // setNodeMarkup の view.dispatch() は同期的に view.update() を
-                    // 呼び出す（blockPrefixEditPlugin の誤検知はまさにこの中で起きる）ため、
-                    // 記録は必ず dispatch より前に行う。
                     const liPos = $from.before(liDepth);
-                    markRecentCheckboxDemotion(liPos);
                     view.dispatch(
                         state.tr.setNodeMarkup(liPos, undefined, { ...listItem.attrs, checked: null })
                             .scrollIntoView()

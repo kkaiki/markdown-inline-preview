@@ -38,15 +38,14 @@ describe('実ブラウザ: コードブロックの Cmd+A がフェンス自体�
         });
     }
 
-    it('フォーカス中（フェンスが実テキスト化された状態）でも Cmd+A はコード本文だけを選択する', async function () {
+    it('コードブロック内の Cmd+A はコード本文だけを選択する（記法は本文に無い）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, '```python\nconst a = 1\nconst b = 2\n```\n\n段落\n', '段落');
 
-        // フォーカスしてフェンスを実テキスト化させる。
         await h.placeCursorAfterText('const a = 1');
         await h.page.waitForTimeout(150);
-        let model = await h.model();
-        assert.ok(model.text.includes('```python'), `前提: フェンスが実テキスト化されていない: ${JSON.stringify(model.text)}`);
+        const model = await h.model();
+        assert.strictEqual(model.text.includes('```'), false, `前提: 記法が本文に入っている: ${JSON.stringify(model.text)}`);
 
         await h.press('Meta+a');
         const selected = await selectedText(h);
@@ -54,7 +53,34 @@ describe('実ブラウザ: コードブロックの Cmd+A がフェンス自体�
         assert.deepStrictEqual(h.errors, []);
     });
 
-    it('フォーカス中の Cmd+A → もう一度で文書全体になる（フェンス実テキスト化中でも段階選択が壊れない）', async function () {
+    it('コードブロック内の Cmd+A で、表示用フェンス行が選択のハイライトに入らない（開き・閉じとも）', async function () {
+        if (!browser) { this.skip(); return; }
+        // 表示用フェンス（`.code-fence-display` widget）は全て side: -1 で「位置の手前」に
+        // 描画されていたため、閉じフェンスだけが DOM 上の選択範囲の内側に入り、開きは
+        // 入らない、という非対称なハイライトになっていた（2026-07-27 ユーザー報告の
+        // スクリーンショット: 上の ``` は白いのに下の ``` だけ青く塗られる）。
+        h = await openPreview(browser, '```\ndocs/\n  testing/\n```\n\n段落\n', '段落', { showLineNumbers: true });
+
+        await h.placeCursorAfterText('docs/');
+        await h.page.waitForTimeout(150);
+        await h.press('Meta+a');
+
+        const contained = await h.page.evaluate(() => {
+            const fences = Array.from(document.querySelectorAll('.milkdown .code-fence-display'));
+            const sel = window.getSelection();
+            if (!sel) return [];
+            return fences.map((f) => sel.containsNode(f, true));
+        });
+        assert.strictEqual(contained.length, 2, `表示フェンスが2本無い: ${JSON.stringify(contained)}`);
+        assert.deepStrictEqual(
+            contained,
+            [false, false],
+            `フェンス行が選択ハイライトに含まれている（[開き, 閉じ]）: ${JSON.stringify(contained)}`
+        );
+        assert.deepStrictEqual(h.errors, []);
+    });
+
+    it('コードブロック内の Cmd+A → もう一度で文書全体になる（段階選択が壊れない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openPreview(browser, '```\nfoo\n```\n\n段落\n', '段落');
 
