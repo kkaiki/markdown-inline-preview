@@ -19,6 +19,8 @@ interface ToolbarButton {
     wrap?: string;
     /** モード切替なら遷移先。 */
     mode?: 'preview' | 'raw';
+    /** その他のホスト側コマンド。 */
+    command?: 'exportPdf';
 }
 
 const BUTTONS: ToolbarButton[] = [
@@ -35,6 +37,7 @@ const BUTTONS: ToolbarButton[] = [
 ];
 
 const MODES: ToolbarButton[] = [
+    { label: 'PDF', title: 'PDF に書き出す', command: 'exportPdf' },
     { label: 'Preview', title: 'Preview モードで開く', mode: 'preview' },
     { label: 'Raw', title: 'Raw モードで開く', mode: 'raw' }
 ];
@@ -46,6 +49,8 @@ export interface ToolbarHandlers {
     wrapInline(view: EditorView, marker: string): void;
     /** 別モードで開き直す。 */
     switchMode(mode: 'preview' | 'raw'): void;
+    /** ホスト側のコマンドを実行する。 */
+    runCommand(command: 'exportPdf'): void;
 }
 
 /** ツールバーの DOM を作って `parent` の先頭に差し込む。 */
@@ -84,7 +89,8 @@ function makeButton(b: ToolbarButton, view: EditorView, handlers: ToolbarHandler
     // ボタンを押してもエディタのフォーカス・選択を失わないようにする
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', () => {
-        if (b.mode) handlers.switchMode(b.mode);
+        if (b.command) handlers.runCommand(b.command);
+        else if (b.mode) handlers.switchMode(b.mode);
         else if (b.block) handlers.applyBlock(view, b.block);
         else if (b.wrap) handlers.wrapInline(view, b.wrap);
         view.focus();

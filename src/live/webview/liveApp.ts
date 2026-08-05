@@ -62,10 +62,14 @@ const sendEdits = EditorView.updateListener.of((u: ViewUpdate) => {
     if (changes.length === 0) return;
     const revision = echo.markLocal();
     vscode?.postMessage({ type: 'edit', changes, revision });
-    // テスト用シーム（実 host が無いブラウザテストでも送信内容を検証できるようにする）
-    const sent = (window as unknown as { __sent?: unknown[] }).__sent;
-    if (!vscode && Array.isArray(sent)) sent.push({ type: 'edit', changes, revision });
+    pushSent({ type: 'edit', changes, revision });
 });
+
+/** テスト用シーム（実 host が無いブラウザテストでも送信内容を検証できるようにする）。 */
+function pushSent(message: unknown): void {
+    const sent = (window as unknown as { __sent?: unknown[] }).__sent;
+    if (!vscode && Array.isArray(sent)) sent.push(message);
+}
 
 /*
  * 組版（フォント・文字サイズ・色）は media/live-preview.css に一本化する。
@@ -124,6 +128,11 @@ function createEditor(text: string, settings: LiveSettings): void {
             },
             switchMode: (mode) => {
                 vscode?.postMessage({ type: 'switchMode', mode });
+                pushSent({ type: 'switchMode', mode });
+            },
+            runCommand: (command) => {
+                vscode?.postMessage({ type: command });
+                pushSent({ type: command });
             }
         });
     }

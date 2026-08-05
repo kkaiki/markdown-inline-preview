@@ -20,6 +20,7 @@ import { promisify } from 'util';
 import { buildPreviewCsp } from '../../preview/host/csp';
 import { changeToRange, createEchoGuard, type DocChange } from '../shared/documentSync';
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
+import { exportToPdfLocal } from './localExport';
 
 const execFileAsync = promisify(execFile);
 
@@ -65,6 +66,16 @@ function html(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     });
 }
 
+/** PDF 書き出し。失敗しても webview は壊さず、メッセージだけ出す。 */
+async function exportPdf(document: vscode.TextDocument, extensionPath: string): Promise<void> {
+    try {
+        await exportToPdfLocal(document, extensionPath);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(vscode.l10n.t('PDF export failed: {0}', msg));
+    }
+}
+
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -74,6 +85,7 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
         _token: vscode.CancellationToken
     ): void {
         const echo = createEchoGuard();
+        const extensionPath = this.extensionUri.fsPath;
         panel.webview.options = {
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')]
@@ -118,6 +130,10 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             if (msg.type === 'ready') {
                 sendInit();
                 void sendDiffBase();
+                return;
+            }
+            if (msg.type === 'exportPdf') {
+                await exportPdf(document, extensionPath);
                 return;
             }
             if (msg.type === 'switchMode') {
@@ -186,11 +202,28 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     }
 }
 
+/** アクティブなタブから Markdown の TextDocument を得る（custom editor でも拾えるように）。 */
+async function activeMarkdownDocument(): Promise<vscode.TextDocument | undefined> {
+    const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input as { uri?: vscode.Uri } | undefined;
+    if (!input?.uri) return undefined;
+    return vscode.workspace.openTextDocument(input.uri);
+}
+
 export function activateLiveFeature(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(LIVE_VIEW_TYPE, new LiveEditorProvider(context.extensionUri), {
             webviewOptions: { retainContextWhenHidden: true },
             supportsMultipleEditorsPerDocument: false
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('markdownInline.exportPdf', async () => {
+            const doc =
+                vscode.window.activeTextEditor?.document ??
+                (await activeMarkdownDocument());
+            if (!doc) return;
+            await exportPdf(doc, context.extensionUri.fsPath);
         })
     );
 

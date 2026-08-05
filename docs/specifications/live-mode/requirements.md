@@ -386,7 +386,9 @@ URL（`https://`）の中では発火しない。
 
 - 左: ブロック変換（H1/H2/H3・チェックボックス・箇条書き・番号リスト・引用）と
   インライン書式（太字・斜体・インラインコード）
-- 右: 現在のモード表示（Live）と、**Preview / Raw への切り替えボタン**
+- 右: 現在のモード表示（Live）、**PDF 書き出し**、**Preview / Raw への切り替えボタン**
+- PDF 書き出しは既存 Preview と同じ `exportToPdfLocal`（Chrome ヘッドレスの `--print-to-pdf`）を使う。
+  コマンドパレットからも `Markdown Inline Preview: Export to PDF` で実行できる
 - ボタンを押しても**エディタのフォーカスと選択を失わない**こと（`mousedown` で `preventDefault`）
 
 ### 4.7 背景・配色 `MUST`

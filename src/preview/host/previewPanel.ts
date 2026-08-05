@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { exportToPdfLocal } from './localExport';
+import { exportToPdfLocal } from '../../live/host/localExport';
 
 import type { PreviewSettings, ScrollAnchorPayload } from '../webview/types';
 import { prepareMarkdownImagesForWebview, restoreMarkdownImagesFromWebview } from './markdownTransform';

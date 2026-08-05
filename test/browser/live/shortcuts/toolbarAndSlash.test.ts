@@ -81,6 +81,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             assert.ok(labels.includes('H1'), `見出しボタンが無い: ${labels.join(',')}`);
             assert.ok(labels.includes('Preview'), 'Preview へ切り替えるボタンが無い');
             assert.ok(labels.includes('Raw'), 'Raw へ切り替えるボタンが無い');
+            assert.ok(labels.includes('PDF'), 'PDF 書き出しボタンが無い');
         });
 
         it('現在のモードが Live と表示される', async function () {
@@ -117,6 +118,15 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             await h.page.waitForTimeout(150);
             const sent = (await h.sent()).filter((m) => m.type === 'switchMode');
             assert.deepStrictEqual(sent, [{ type: 'switchMode', mode: 'preview' }]);
+        });
+
+        it('PDF ボタンで host へ書き出しを依頼する', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '本文\n');
+            await h.page.click('.cm-live-toolbar-button[title^="PDF"]');
+            await h.page.waitForTimeout(150);
+            const sent = (await h.sent()).filter((m) => m.type === 'exportPdf');
+            assert.deepStrictEqual(sent, [{ type: 'exportPdf' }]);
         });
 
         it('ツールバーを押してもエディタのフォーカスが外れない', async function () {

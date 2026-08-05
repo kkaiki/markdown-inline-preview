@@ -8,7 +8,7 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1730 件**
+**総テスト数: 1731 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 140 件
 
@@ -343,7 +343,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 480 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 481 件
 
 実行: `npm run test:browser`
 
@@ -1574,7 +1574,7 @@
     - コードブロックは等幅フォントで背景と枠がある
     - 表のセルに十分なパディングがある
 
-### `test/browser/live/shortcuts/toolbarAndSlash.test.ts`（12 件）
+### `test/browser/live/shortcuts/toolbarAndSlash.test.ts`（13 件）
 
 > ツールバー・Notion 風ショートカット（⌥⌘数字）・スラッシュコマンドを
 > 実 Chromium で固定する。
@@ -1596,6 +1596,7 @@
     - H1 ボタンで見出しになる
     - B ボタンで選択を太字にする
     - Preview ボタンで host へモード切替を送る
+    - PDF ボタンで host へ書き出しを依頼する
     - ツールバーを押してもエディタのフォーカスが外れない
   - **スラッシュコマンド**
     - "/" を打つとメニューが出る

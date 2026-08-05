@@ -265,6 +265,11 @@
         "command": "markdownInline.toggleLive",
         "title": "Toggle Live / Raw",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.exportPdf",
+        "title": "Export to PDF",
+        "category": "Markdown Inline Preview"
       }
     ],
     "customEditors": [
