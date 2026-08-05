@@ -12,6 +12,7 @@ import { type KeyBinding } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
 import { parseLinePrefix, parseQuotePrefix, resolveEnter, resolveSmartHome } from '../shared/liveEditing';
 import { applyBlockAction } from '../shared/blockActions';
+import { nextSelectAllRange } from '../shared/selectAllScope';
 import { getNotionBlockAction, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
 
 /** Enter: リスト・チェックボックス・引用の継続と、空マーカー行のマーカー削除。 */
@@ -145,7 +146,19 @@ for (let n = 0; n <= 9; n++) {
     });
 }
 
+/**
+ * ⌘A: 押すたびに選択を広げる。
+ * コードフェンスなら 中身 → ブロック全体 → 文書全体、表なら 行 → 表全体 → 文書全体。
+ */
+function liveSelectAll(view: EditorView): boolean {
+    const sel = view.state.selection.main;
+    const next = nextSelectAllRange(view.state.doc.toString(), { from: sel.from, to: sel.to });
+    view.dispatch({ selection: { anchor: next.from, head: next.to } });
+    return true;
+}
+
 export const liveKeymap: KeyBinding[] = [
+    { key: 'Mod-a', run: liveSelectAll },
     ...blockKeymap,
     { key: 'Mod-b', run: (view) => wrapInlineMarker(view, '**') },
     { key: 'Mod-i', run: (view) => wrapInlineMarker(view, '*') },

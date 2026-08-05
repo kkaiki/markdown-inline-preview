@@ -18,7 +18,7 @@ interface ToolbarButton {
     /** インライン書式なら囲む記号。 */
     wrap?: string;
     /** モード切替なら遷移先。 */
-    mode?: 'preview' | 'raw';
+    mode?: 'raw';
     /** その他のホスト側コマンド。 */
     command?: 'exportPdf';
 }
@@ -38,7 +38,6 @@ const BUTTONS: ToolbarButton[] = [
 
 const MODES: ToolbarButton[] = [
     { label: 'PDF', title: 'PDF に書き出す', command: 'exportPdf' },
-    { label: 'Preview', title: 'Preview モードで開く', mode: 'preview' },
     { label: 'Raw', title: 'Raw モードで開く', mode: 'raw' }
 ];
 
@@ -48,7 +47,7 @@ export interface ToolbarHandlers {
     /** 選択を記号で囲む。 */
     wrapInline(view: EditorView, marker: string): void;
     /** 別モードで開き直す。 */
-    switchMode(mode: 'preview' | 'raw'): void;
+    switchMode(mode: 'raw'): void;
     /** ホスト側のコマンドを実行する。 */
     runCommand(command: 'exportPdf'): void;
 }

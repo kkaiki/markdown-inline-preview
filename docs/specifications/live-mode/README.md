@@ -17,15 +17,17 @@ VS Code 上で **Obsidian の Live Preview と同じ操作感**を実現する�
 2. 記法の展開スコープは要素ごとに **トークン / 行 / ブロック / 常時変換** の4種類。
    インライン記法は `from <= cursor <= to`（両端含む）という厳密な境界を持つ。
 3. したがって Live モードは **CodeMirror 6 + decoration** で作る。
-   既存 Preview（Milkdown/ProseMirror）とは思想が違うので、置き換えずに並存させる。
+   既存 Preview（Milkdown/ProseMirror）とは思想が違うため、最終的に Preview は削除して一本化した。
 
 ## 3つのモードの位置づけ
 
 | モード | 実装 | ドキュメントモデル | 記法の扱い |
 |---|---|---|---|
 | **Raw** | VS Code 標準エディタ + decoration | 生 Markdown | 常に表示。装飾のみ |
-| **Preview** | webview + Milkdown (ProseMirror) | ノードツリー（往復変換） | 常に実テキスト表示（`4af4491` でフォーカス展開を廃止） |
-| **Live モード**（新規） | webview + CodeMirror 6 | 生 Markdown | **カーソル位置で展開/収縮**（Obsidian と同一） |
+| **Live** | webview + CodeMirror 6 | 生 Markdown | **カーソル位置で展開/収縮**（Obsidian と同一） |
+
+> **2026-08-05**: Preview モード（Milkdown / ProseMirror）はコード・テストごと削除し、
+> Live モードへ一本化した。当時の仕様書は `docs/archive/preview-era/` にある。
 
 ## 実装状況
 
@@ -42,6 +44,8 @@ VS Code 上で **Obsidian の Live Preview と同じ操作感**を実現する�
 | 4b | 表のセル内直接編集（Obsidian と同じ「畳んだまま編集」） | **完了**（2026-08-05） |
 | 6b | Git 差分ガター（Obsidian 由来ではない独自機能） | **完了**（2026-08-05） |
 | 7 | ツールバー・Notion 風ショートカット（⌥⌘数字）・スラッシュコマンド・表の複数セル選択 | **完了**（2026-08-05） |
+| 8 | PDF 書き出し・既定モードの追従・段階的な ⌘A・mermaid プレビュー | **完了**（2026-08-05） |
+| — | **Preview モード（Milkdown）を削除**し Live へ一本化 | **完了**（2026-08-05） |
 
 ### 使い方（現時点）
 
@@ -72,6 +76,9 @@ npm run test:browser        # 実 Chromium での統合テスト
 | `src/live/shared/tableSelection.ts` | 表の矩形セル選択とコピー（純関数） |
 | `src/live/webview/liveToolbar.ts` | 上部ツールバー（モード切替・ブロック変換・書式） |
 | `src/live/webview/liveSlashMenu.ts` | スラッシュコマンド |
+| `src/live/shared/selectAllScope.ts` | 段階的な ⌘A の範囲計算（純関数） |
+| `src/live/host/defaultEditorAssociation.ts` | 既定モードの追従（純関数 + 適用） |
+| `src/live/host/localExport.ts` | PDF 書き出し |
 | `src/live/shared/liveWebviewHtml.ts` | webview HTML の組み立て（純関数・スタイル読み込み漏れ防止） |
 | `media/live-preview.css` | 固定パレット（背景は常に白）・記法の装飾 |
 | `src/live/webview/liveApp.ts` | webview エントリ（CM6 EditorView + host 通信） |

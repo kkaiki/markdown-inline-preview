@@ -112,3 +112,17 @@ describe('Live モード: 表', () => {
         assert.deepStrictEqual(pick(scanSyntaxRanges(doc), 'strong'), []);
     });
 });
+
+describe('Live モード: mermaid コードブロック', () => {
+    const DOC = 'あ\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n\nい\n';
+
+    it('言語が mermaid のフェンスとして検出できる', () => {
+        const r = scanSyntaxRanges(DOC).filter((x) => x.kind === 'codeFence')[0];
+        assert.strictEqual(r.info, 'mermaid');
+    });
+
+    it('mermaid でもソースは畳まない（コードフェンスと同じ扱い）', () => {
+        const r = scanSyntaxRanges(DOC).filter((x) => x.kind === 'codeFence')[0];
+        assert.strictEqual(DOC.slice(r.revealFrom, r.revealTo), '```mermaid\ngraph TD;\n  A-->B;\n```');
+    });
+});
