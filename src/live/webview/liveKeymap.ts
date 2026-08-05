@@ -10,7 +10,13 @@ import { indentLess, indentMore } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
 import { type KeyBinding } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
-import { parseLinePrefix, parseQuotePrefix, resolveEnter, resolveSmartHome } from '../shared/liveEditing';
+import {
+    parseLinePrefix,
+    parseQuotePrefix,
+    resolveEnter,
+    resolveFenceEnter,
+    resolveSmartHome
+} from '../shared/liveEditing';
 import { applyBlockAction } from '../shared/blockActions';
 import { nextSelectAllRange } from '../shared/selectAllScope';
 import { getNotionBlockAction, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
@@ -19,6 +25,23 @@ import { getNotionBlockAction, type NotionBlockAction } from '../../shared/previ
 function liveEnter(view: EditorView): boolean {
     const sel = view.state.selection.main;
     if (!sel.empty) return false;
+
+    /*
+     * 閉じていない開始フェンスの行末なら、本文行と閉じフェンスを補う。
+     * 本文行が無いとコードブロックの「中」にカーソルを置く場所そのものが無い
+     * （ユーザー報告 2026-08-05）。
+     */
+    const fence = resolveFenceEnter(view.state.doc.toString(), sel.head);
+    if (fence) {
+        view.dispatch({
+            changes: { from: sel.head, insert: fence.insert },
+            selection: { anchor: sel.head + fence.cursorDelta },
+            scrollIntoView: true,
+            userEvent: 'input'
+        });
+        return true;
+    }
+
     const line = view.state.doc.lineAt(sel.head);
     const r = resolveEnter(line.text, sel.head - line.from);
     if (!r) return false;
