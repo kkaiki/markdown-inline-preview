@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "commonjs",
-    "lib": ["ES2020"],
+    "lib": [
+      "ES2020"
+    ],
     "outDir": "./out-test",
     "strict": false,
     "esModuleInterop": true,
@@ -12,8 +14,17 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowJs": false,
-    "types": ["mocha", "node"]
+    "types": [
+      "mocha",
+      "node"
+    ]
   },
-  "include": ["test/**/*.ts"],
-  "exclude": ["node_modules", "out-test", "test/webview", "test/browser"]
+  "include": [
+    "test/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "out-test",
+    "test/browser"
+  ]
 }

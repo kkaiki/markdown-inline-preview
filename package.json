@@ -36,7 +36,6 @@
   },
   "activationEvents": [
     "onLanguage:markdown",
-    "onCustomEditor:ipreview.preview",
     "onCustomEditor:ipreview.live"
   ],
   "main": "./out/extension.js",
@@ -225,25 +224,10 @@
         "category": "Markdown Inline Preview"
       },
       {
-        "command": "markdownInline.openPreview",
-        "title": "Preview",
-        "shortTitle": "Preview",
-        "icon": "$(open-preview)",
-        "category": "Markdown Inline Preview"
-      },
-      {
         "command": "markdownInline.openRaw",
         "title": "Raw",
         "shortTitle": "Raw",
         "icon": "$(code)",
-        "category": "Markdown Inline Preview"
-      },
-      {
-        "command": "markdownInline.togglePreview",
-        "title": "Toggle Preview / Raw",
-        "shortTitle": "Preview / Raw",
-        "icon": "$(book)",
-        "enablement": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview' || resourceLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
@@ -273,19 +257,6 @@
       }
     ],
     "customEditors": [
-      {
-        "viewType": "ipreview.preview",
-        "displayName": "Markdown Inline Preview",
-        "selector": [
-          {
-            "filenamePattern": "*.md"
-          },
-          {
-            "filenamePattern": "*.markdown"
-          }
-        ],
-        "priority": "default"
-      },
       {
         "viewType": "ipreview.live",
         "displayName": "Markdown Live (Obsidian-style)",
@@ -428,22 +399,11 @@
         "win": "alt+ctrl+3",
         "linux": "alt+ctrl+3",
         "when": "editorTextFocus && editorLangId == markdown"
-      },
-      {
-        "command": "markdownInline.togglePreview",
-        "key": "ctrl+shift+.",
-        "mac": "cmd+shift+.",
-        "when": "resourceLangId == markdown && !ipreview.previewActive"
       }
     ],
     "configuration": {
       "title": "Markdown Inline Preview",
       "properties": {
-        "markdownInline.enablePreview": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable inline decorations in the Raw editor (checkbox strikethrough, heading styles, etc.). Markdown syntax markers (##, **) are always shown in Raw; use Preview mode for Obsidian-like WYSIWYG editing."
-        },
         "markdownInline.checkboxStyle": {
           "type": "string",
           "default": "icons",
@@ -572,16 +532,6 @@
           "default": true,
           "description": "Advanced: Disable built-in Markdown completion and table formatter settings that conflict with this extension"
         },
-        "markdownInline.preview.showToggleCodeLens": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show a Preview / Raw toggle as a CodeLens above the first line of Markdown files. Off by default; use the editor title-bar toggle icon or Cmd/Ctrl+Shift+. instead. (CodeLens cannot be right-aligned and shares the line with git blame.)"
-        },
-        "markdownInline.preview.showToggleLineWidget": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show a 'Preview / Raw' label aligned to the right of the first line in Raw (text) mode. Click the end of the first line, or use the title-bar icon / Cmd+Shift+. (Ctrl+Shift+.), to switch."
-        },
         "markdownInline.export.mode": {
           "type": "string",
           "default": "local",
@@ -599,123 +549,6 @@
           "type": "string",
           "default": "",
           "description": "Path to the Chrome / Edge / Chromium executable for local PDF export. Leave empty to auto-detect from standard install locations."
-        },
-        "markdownInline.preview.showToolbar": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show a formatting toolbar (heading / checkbox / numbered list / export) fixed at the top of the Preview editor"
-        },
-        "markdownInline.preview.toolbarShowShortcuts": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show keyboard shortcuts in the tooltip when hovering over Preview toolbar buttons"
-        },
-        "markdownInline.preview.showLineNumbers": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show the source Markdown line number at the left of each block in the Preview editor (alongside the Git diff gutter), matching the line numbers always visible in Raw mode"
-        },
-        "markdownInline.preview.defaultMode": {
-          "type": "string",
-          "default": "preview",
-          "enum": [
-            "raw",
-            "preview"
-          ],
-          "description": "Default mode when opening a Markdown file (raw = normal editing, preview = WYSIWYG editor)"
-        },
-        "markdownInline.preview.controlDefaultEditor": {
-          "type": "boolean",
-          "default": true,
-          "description": "Keep VS Code's default editor for Markdown in sync with the current mode. This directly sets workbench.editorAssociations for *.md / *.markdown (a global VS Code setting), so switching to Raw makes Markdown files open as plain text from the start — no Preview editor is created and bounced back — and it also resolves conflicts with other extensions that claim *.md as their default editor. Disable this to leave workbench.editorAssociations untouched."
-        },
-        "markdownInline.preview.rememberMode": {
-          "type": "boolean",
-          "default": true,
-          "description": "Remember the last used mode (Preview/Raw) and apply it to all Markdown files. Switching one file to Preview makes newly opened files open in Preview too."
-        },
-        "markdownInline.preview.alwaysOpenNewTab": {
-          "type": "boolean",
-          "default": true,
-          "description": "Always open files in a brand-new tab instead of reusing VS Code's single-click \"preview\" tab. This directly sets workbench.editor.enablePreview to false (a global VS Code setting, so it also affects non-Markdown files); disable this to restore VS Code's default tab-reuse behavior."
-        },
-        "markdownInline.preview.wordWrap": {
-          "type": "boolean",
-          "default": true,
-          "description": "Word-wrap Markdown files by default instead of horizontal scrolling. This directly sets editor.wordWrap to \"on\" for the Markdown language (a [markdown]-scoped override, so it doesn't affect other languages)."
-        },
-        "markdownInline.preview.wrapTabs": {
-          "type": "boolean",
-          "default": true,
-          "description": "Wrap the editor tab bar onto multiple rows instead of horizontal scrolling when many tabs are open. This directly sets workbench.editor.wrapTabs (a global VS Code setting, so it also affects non-Markdown files)."
-        },
-        "markdownInline.preview.syncScroll": {
-          "type": "boolean",
-          "default": true,
-          "description": "Approximate scroll position when switching between Preview and Raw"
-        },
-        "markdownInline.preview.theme": {
-          "type": "string",
-          "default": "light",
-          "enum": [
-            "auto",
-            "light",
-            "dark"
-          ],
-          "description": "Color theme used by the Preview WYSIWYG editor"
-        },
-        "markdownInline.preview.fontFamily": {
-          "type": "string",
-          "default": "",
-          "description": "Font family used in the Preview editor (empty = follow editor font)"
-        },
-        "markdownInline.preview.fontSize": {
-          "type": "number",
-          "default": 12,
-          "minimum": 10,
-          "maximum": 32,
-          "description": "Body font size (px) used in the Preview editor"
-        },
-        "markdownInline.preview.maxWidth": {
-          "type": "number",
-          "default": 800,
-          "minimum": 0,
-          "description": "Maximum content width (px) in the Preview editor, 0 = unlimited"
-        },
-        "markdownInline.preview.editable": {
-          "type": "boolean",
-          "default": true,
-          "description": "Allow direct editing inside the Preview editor"
-        },
-        "markdownInline.preview.enableMath": {
-          "type": "boolean",
-          "default": true,
-          "description": "Render KaTeX math ($...$ and $$...$$) in Preview mode"
-        },
-        "markdownInline.preview.enableMermaid": {
-          "type": "boolean",
-          "default": true,
-          "description": "Render ```mermaid code blocks as diagrams in Preview mode"
-        },
-        "markdownInline.preview.showFrontmatter": {
-          "type": "boolean",
-          "default": true,
-          "description": "Display YAML frontmatter as a formatted panel in Preview mode"
-        },
-        "markdownInline.preview.enableTransitions": {
-          "type": "boolean",
-          "default": true,
-          "description": "Fade-in animation when opening Preview mode"
-        },
-        "markdownInline.preview.showFocusSyntax": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show Markdown syntax markers (##, **, links) on the focused block in Preview mode. Off by default so the view never changes when you move the cursor"
-        },
-        "markdownInline.preview.enableSlashMenu": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show slash command menu (/) in Preview WYSIWYG mode"
         },
         "markdownInline.imagePreview.enabled": {
           "type": "boolean",
@@ -758,6 +591,45 @@
           "type": "boolean",
           "default": true,
           "description": "Live モードでスラッシュコマンド（/）を有効にする"
+        },
+        "markdownInline.live.defaultMode": {
+          "type": "string",
+          "default": "live",
+          "enum": [
+            "raw",
+            "live"
+          ],
+          "description": "Markdown を開くときの既定モード（raw = 通常のテキスト編集、live = Obsidian 風のライブ編集）"
+        },
+        "markdownInline.live.rememberMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "直前に使ったモード（Live / Raw）を覚えて、次に開く Markdown もそのモードで開く"
+        },
+        "markdownInline.live.controlDefaultEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": ".md の既定エディタ（workbench.editorAssociations）を現在のモードへ追従させる。他拡張との競合や、開いた直後に別エディタへ跳ね返る過渡状態を防ぐ"
+        },
+        "markdownInline.live.alwaysOpenNewTab": {
+          "type": "boolean",
+          "default": true,
+          "description": "ファイルを常に新しいタブで開く（VS Code のプレビュータブ再利用を無効にする）"
+        },
+        "markdownInline.live.wordWrap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Markdown を既定で折り返す（[markdown] スコープの editor.wordWrap を設定する）"
+        },
+        "markdownInline.live.wrapTabs": {
+          "type": "boolean",
+          "default": true,
+          "description": "タブが多いときにタブバーを複数行へ折り返す（workbench.editor.wrapTabs）"
+        },
+        "markdownInline.enablePreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Markdown の装飾（見出し・チェックボックス等のデコレーション）を有効にする"
         }
       }
     },
@@ -789,19 +661,17 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:webview && npm run build:livewebview && npm run build:webview-test",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:livewebview",
     "build:host": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode",
-    "build:webview": "esbuild src/preview/webview/milkdownApp.ts --bundle --minify --outfile=media/milkdown.bundle.js --format=iife --platform=browser --target=es2020",
-    "build:webview-test": "npx tsc -p tsconfig.webview-test.json && esbuild test/webview/*/*.test.ts --bundle --platform=node --format=cjs --outdir=out-test/webview --external:jsdom --log-level=error",
     "watch": "npx tsc --watch",
     "lint": "eslint src test --ext .ts",
     "lint:error": "eslint src test --ext .ts --max-warnings 0",
     "lint:fix": "eslint src test --ext .ts --fix",
     "pretest": "npm run compile",
     "test": "node ./out-test/test/runTest.js",
-    "test:unit": "mocha \"out-test/test/suite/**/*.test.js\" \"out-test/webview/**/*.test.js\" --timeout 15000",
+    "test:unit": "mocha \"out-test/test/suite/**/*.test.js\" --timeout 15000",
     "build:browser-test": "npx tsc -p tsconfig.browser-test.json",
-    "test:browser": "npm run build:webview && npm run build:livewebview && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
+    "test:browser": "npm run build:livewebview && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "docs:test-catalog": "node scripts/generate-test-catalog.mjs",
@@ -814,7 +684,6 @@
     "build:livewebview": "esbuild src/live/webview/liveApp.ts --bundle --minify --outfile=media/live.bundle.js --format=iife --platform=browser --target=es2020"
   },
   "devDependencies": {
-    "@milkdown/kit": "^7.21.2",
     "@types/jsdom": "^28.0.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^16.18.126",

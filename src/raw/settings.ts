@@ -112,7 +112,7 @@ export function isWrapTabsEnabled(): boolean {
     return resolveWrapTabs(getMarkdownInlineConfig());
 }
 
-// markdownInline.preview.alwaysOpenNewTab は VS Code 本体の workbench.editor.enablePreview
+// markdownInline.live.alwaysOpenNewTab は VS Code 本体の workbench.editor.enablePreview
 // （シングルクリックで開いたタブが次のファイルで上書きされる「プレビュータブ」機能）を
 // 直接書き換える。VS Code 側に言語別スコープが無いグローバル設定のため、Markdown 以外の
 // ファイルにも影響する（applyMarkdownSettings と同じ「本体設定を直接操作する」方針）。
@@ -123,10 +123,10 @@ export function applyAlwaysOpenNewTabSetting(): void {
         !enabled,
         vscode.ConfigurationTarget.Global
     );
-    debugLog(`Applied workbench.editor.enablePreview=${!enabled} (markdownInline.preview.alwaysOpenNewTab=${enabled})`);
+    debugLog(`Applied workbench.editor.enablePreview=${!enabled} (markdownInline.live.alwaysOpenNewTab=${enabled})`);
 }
 
-// markdownInline.preview.wordWrap は VS Code 本体の editor.wordWrap を Markdown 言語限定
+// markdownInline.live.wordWrap は VS Code 本体の editor.wordWrap を Markdown 言語限定
 // （[markdown] オーバーライド）で書き換える。editor.wordWrap は言語別スコープに対応しているため、
 // 他言語のファイルには影響しない。
 export function applyDefaultWordWrapSetting(): void {
@@ -137,10 +137,10 @@ export function applyDefaultWordWrapSetting(): void {
         vscode.ConfigurationTarget.Global,
         true
     );
-    debugLog(`Applied [markdown].editor.wordWrap=${enabled ? 'on' : 'off'} (markdownInline.preview.wordWrap=${enabled})`);
+    debugLog(`Applied [markdown].editor.wordWrap=${enabled ? 'on' : 'off'} (markdownInline.live.wordWrap=${enabled})`);
 }
 
-// markdownInline.preview.wrapTabs は VS Code 本体の workbench.editor.wrapTabs
+// markdownInline.live.wrapTabs は VS Code 本体の workbench.editor.wrapTabs
 // （タブが多いときに横スクロールせず複数行に折り返す機能）を直接書き換える。
 // alwaysOpenNewTab と同様、VS Code 側に言語別スコープが無いグローバル設定のため、
 // Markdown 以外のファイルにも影響する。
@@ -151,5 +151,5 @@ export function applyWrapTabsSetting(): void {
         enabled,
         vscode.ConfigurationTarget.Global
     );
-    debugLog(`Applied workbench.editor.wrapTabs=${enabled} (markdownInline.preview.wrapTabs=${enabled})`);
+    debugLog(`Applied workbench.editor.wrapTabs=${enabled} (markdownInline.live.wrapTabs=${enabled})`);
 }

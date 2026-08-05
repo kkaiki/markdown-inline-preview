@@ -17,14 +17,68 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { buildPreviewCsp } from '../../preview/host/csp';
+import { buildPreviewCsp } from './csp';
 import { changeToRange, createEchoGuard, type DocChange } from '../shared/documentSync';
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
+import {
+    computeEditorAssociations,
+    editorAssociationsEqual,
+    resolveDefaultOpenMode,
+    type LiveMode
+} from './defaultEditorAssociation';
 
 const execFileAsync = promisify(execFile);
 
 export const LIVE_VIEW_TYPE = 'ipreview.live';
+
+/** 直前に使っていたモードの記憶キー（グローバル）。 */
+const MODE_MEMORY_KEY = 'markdownInline.liveMode';
+
+/**
+ * 次に Markdown を開くモードを決める。
+ *
+ * 初回は Live。以後は**直前に使ったモードに追従**する（Raw で閉じたら次も Raw）。
+ * ユーザー指示 2026-08-05:「最初のデフォルトは live、その後は raw の時は raw」。
+ */
+function nextOpenMode(context: vscode.ExtensionContext): LiveMode {
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    const remembered = config.get<boolean>('live.rememberMode', true)
+        ? context.globalState.get<LiveMode>(MODE_MEMORY_KEY)
+        : undefined;
+    return resolveDefaultOpenMode({
+        remembered,
+        defaultMode: config.get<string>('live.defaultMode', 'live')
+    });
+}
+
+/** 使ったモードを覚えて、`.md` の既定エディタをそれに追従させる。 */
+async function rememberMode(context: vscode.ExtensionContext, mode: LiveMode): Promise<void> {
+    await context.globalState.update(MODE_MEMORY_KEY, mode);
+    await applyDefaultEditorAssociation(context);
+}
+
+/**
+ * `workbench.editorAssociations` を現在のモードへ合わせる。
+ *
+ * customEditor の priority だけでは、同じパターンを主張する他拡張と競合したときに
+ * 解決先が一意にならない。ユーザー設定であるこちらを書くことで、開く前から
+ * 解決先を1つに確定させる。
+ */
+async function applyDefaultEditorAssociation(context: vscode.ExtensionContext): Promise<void> {
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    const controlled = config.get<boolean>('live.controlDefaultEditor', true);
+    const desired = controlled ? nextOpenMode(context) : null;
+    const workbench = vscode.workspace.getConfiguration('workbench');
+    const current = workbench.get<Record<string, string>>('editorAssociations');
+    const next = computeEditorAssociations(current, desired);
+    if (editorAssociationsEqual(current, next)) return;
+    try {
+        await workbench.update('editorAssociations', next, vscode.ConfigurationTarget.Global);
+    } catch {
+        // 設定を書けない環境（制限モード等）では黙って諦める
+    }
+}
 
 /**
  * Git HEAD 版のファイル本文。git 管理外・新規ファイルなら null。
@@ -77,7 +131,10 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
 }
 
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
-    constructor(private readonly extensionUri: vscode.Uri) {}
+    constructor(
+        private readonly extensionUri: vscode.Uri,
+        private readonly context: vscode.ExtensionContext
+    ) {}
 
     resolveCustomTextEditor(
         document: vscode.TextDocument,
@@ -86,6 +143,7 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     ): void {
         const echo = createEchoGuard();
         const extensionPath = this.extensionUri.fsPath;
+        void rememberMode(this.context, 'live');
         panel.webview.options = {
             enableScripts: true,
             localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')]
@@ -210,8 +268,23 @@ async function activeMarkdownDocument(): Promise<vscode.TextDocument | undefined
 }
 
 export function activateLiveFeature(context: vscode.ExtensionContext): void {
+    // 起動時に、記憶しているモード（初回は Live）へ既定エディタを合わせる
+    void applyDefaultEditorAssociation(context);
+
+    /*
+     * 素のテキストエディタで Markdown を開いたら「Raw を使っている」と覚える。
+     * 次にファイルを開くときはそのモードで開く（ユーザー指示 2026-08-05）。
+     */
     context.subscriptions.push(
-        vscode.window.registerCustomEditorProvider(LIVE_VIEW_TYPE, new LiveEditorProvider(context.extensionUri), {
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (!editor) return;
+            if (editor.document.languageId !== 'markdown') return;
+            void rememberMode(context, 'raw');
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.window.registerCustomEditorProvider(LIVE_VIEW_TYPE, new LiveEditorProvider(context.extensionUri, context), {
             webviewOptions: { retainContextWhenHidden: true },
             supportsMultipleEditorsPerDocument: false
         })

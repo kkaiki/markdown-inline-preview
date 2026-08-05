@@ -1,7 +1,7 @@
 /**
- * Preview webview の Content-Security-Policy 文字列組み立て。
+ * Live webview の Content-Security-Policy 文字列組み立て。
  * `vscode` に依存しない純関数として切り出し、jsdom から直接テストできるようにしている
- * （`previewPanel.ts` は `vscode` に依存するため jsdom から import できない）。
+ * （host のプロバイダは `vscode` に依存するため jsdom から import できない）。
  */
 export function buildPreviewCsp(cspSource: string, nonce: string): string {
     return [
