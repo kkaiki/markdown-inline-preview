@@ -79,6 +79,42 @@ describe('Live モード: 読みやすさ（実ブラウザ）', function () {
             assert.ok(w.content < w.viewport, '本文がビューポート幅と同じで余白が無い');
         });
 
+        it('画面が狭いときは本文が画面幅に収まり、横スクロールが出ない', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, `${'長い本文。'.repeat(40)}\n`);
+            await h.page.setViewportSize({ width: 420, height: 500 });
+            await h.page.waitForTimeout(150);
+            const r = await h.page.evaluate<{ contentW: number; viewportW: number; overflow: boolean }>(`(() => {
+                const s = document.querySelector('.cm-scroller');
+                return {
+                    contentW: document.querySelector('.cm-content').getBoundingClientRect().width,
+                    viewportW: s.getBoundingClientRect().width,
+                    overflow: s.scrollWidth > s.clientWidth + 1
+                };
+            })()`);
+            assert.ok(r.contentW <= r.viewportW, `本文が画面からはみ出している: ${r.contentW} > ${r.viewportW}`);
+            assert.strictEqual(r.overflow, false, '横スクロールが出ている');
+        });
+
+        it('画面が広いときは読み幅で頭打ちになり中央に寄る', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '本文\n');
+            await h.page.setViewportSize({ width: 1600, height: 500 });
+            await h.page.waitForTimeout(150);
+            const r = await h.page.evaluate<{ w: number; left: number; right: number }>(`(() => {
+                const c = document.querySelector('.cm-content').getBoundingClientRect();
+                const s = document.querySelector('.cm-scroller').getBoundingClientRect();
+                return { w: c.width, left: c.x - s.x, right: s.right - c.right };
+            })()`);
+            assert.ok(r.w <= 800, `読み幅の上限が効いていない: ${r.w}px`);
+            assert.ok(r.left > 100 && r.right > 100, `中央に寄っていない: 左${r.left} / 右${r.right}`);
+            // ガターぶんのズレは許容するが、左右の差が読み幅の1割を超えたら偏りすぎ
+            assert.ok(
+                Math.abs(r.left - r.right) < 80,
+                `左右の余白が偏っている: 左${r.left} / 右${r.right}`
+            );
+        });
+
         it('本文と背景のコントラストは十分にある', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文です。\n');
