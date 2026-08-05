@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -743,6 +743,16 @@
           "type": "boolean",
           "default": true,
           "description": "Live モードで Git HEAD との差分を左ガターに表示する"
+        },
+        "markdownInline.live.showToolbar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Live モードで上部ツールバーを表示する"
+        },
+        "markdownInline.live.enableSlashMenu": {
+          "type": "boolean",
+          "default": true,
+          "description": "Live モードでスラッシュコマンド（/）を有効にする"
         }
       }
     },
@@ -820,6 +830,7 @@
     "typescript-eslint": "^8.61.1"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",

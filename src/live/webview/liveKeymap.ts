@@ -11,6 +11,8 @@ import { indentUnit } from '@codemirror/language';
 import { type KeyBinding } from '@codemirror/view';
 import type { EditorView } from '@codemirror/view';
 import { parseLinePrefix, parseQuotePrefix, resolveEnter, resolveSmartHome } from '../shared/liveEditing';
+import { applyBlockAction } from '../shared/blockActions';
+import { getNotionBlockAction, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
 
 /** Enter: リスト・チェックボックス・引用の継続と、空マーカー行のマーカー削除。 */
 function liveEnter(view: EditorView): boolean {
@@ -81,7 +83,72 @@ function liveOutdent(view: EditorView): boolean {
     return indentLess(view);
 }
 
+/**
+ * Notion 風のブロック変換を当てる（⌥⌘0〜9 とツールバーから共用）。
+ * カーソルのある行（複数選択なら選択が触れている全行）を変換する。
+ */
+export function applyBlockActionToSelection(view: EditorView, action: NotionBlockAction): boolean {
+    const { state } = view;
+    const sel = state.selection.main;
+    const first = state.doc.lineAt(sel.from).number;
+    const last = state.doc.lineAt(sel.to).number;
+
+    if (action === 'codeBlock') {
+        // コードブロックだけは行の置換で表せないので、選択範囲をフェンスで包む
+        const from = state.doc.line(first).from;
+        const to = state.doc.line(last).to;
+        const body = state.doc.sliceString(from, to);
+        view.dispatch({
+            changes: { from, to, insert: `\u0060\u0060\u0060\n${body}\n\u0060\u0060\u0060` },
+            userEvent: 'input'
+        });
+        return true;
+    }
+
+    const changes: { from: number; to: number; insert: string }[] = [];
+    let caret = sel.head;
+    for (let n = first; n <= last; n++) {
+        const line = state.doc.line(n);
+        const r = applyBlockAction(line.text, action);
+        if (!r) continue;
+        changes.push({ from: line.from, to: line.to, insert: r.text });
+        if (n === state.doc.lineAt(sel.head).number) caret = line.from + r.contentStart;
+    }
+    if (changes.length === 0) return false;
+    view.dispatch({ changes, selection: { anchor: caret }, scrollIntoView: true, userEvent: 'input' });
+    return true;
+}
+
+/** 選択を記号で囲む（囲み済みなら外す）。ツールバーの B / I / <> から使う。 */
+export function wrapInlineMarker(view: EditorView, marker: string): boolean {
+    const sel = view.state.selection.main;
+    const text = view.state.doc.sliceString(sel.from, sel.to);
+    const wrapped = text.startsWith(marker) && text.endsWith(marker) && text.length >= marker.length * 2;
+    const insert = wrapped ? text.slice(marker.length, -marker.length) : `${marker}${text}${marker}`;
+    const inner = wrapped ? insert.length : text.length;
+    view.dispatch({
+        changes: { from: sel.from, to: sel.to, insert },
+        selection: { anchor: sel.from + (wrapped ? 0 : marker.length), head: sel.from + (wrapped ? 0 : marker.length) + inner },
+        userEvent: 'input'
+    });
+    return true;
+}
+
+/** ⌥⌘0〜9 のブロック変換キーバインド。対応表は Raw / Preview と共通。 */
+const blockKeymap: KeyBinding[] = [];
+for (let n = 0; n <= 9; n++) {
+    const action = getNotionBlockAction(n);
+    if (!action) continue;
+    blockKeymap.push({
+        key: `Mod-Alt-${n}`,
+        run: (view: EditorView) => applyBlockActionToSelection(view, action)
+    });
+}
+
 export const liveKeymap: KeyBinding[] = [
+    ...blockKeymap,
+    { key: 'Mod-b', run: (view) => wrapInlineMarker(view, '**') },
+    { key: 'Mod-i', run: (view) => wrapInlineMarker(view, '*') },
     { key: 'Enter', run: liveEnter },
     { key: 'Home', run: liveHome },
     { key: 'Tab', run: liveIndent },

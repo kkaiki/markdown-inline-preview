@@ -20,6 +20,7 @@ import { scanSyntaxRanges, type SyntaxKind, type SyntaxRange } from '../shared/s
 import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
 import { inlineSegments } from '../shared/inlineSegments';
+import { cellsInRect, selectionToMarkdown, type CellPos } from '../shared/tableSelection';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
 const HIDE = Decoration.replace({});
@@ -197,24 +198,27 @@ class TableWidget extends WidgetType {
         const thead = document.createElement('thead');
         const tbody = document.createElement('tbody');
 
-        for (const row of parseTableCells(this.source, this.from)) {
+        parseTableCells(this.source, this.from).forEach((row, rowIndex) => {
             const tr = document.createElement('tr');
-            for (const cell of row.cells) {
+            row.cells.forEach((cell, colIndex) => {
                 const td = document.createElement(row.isHeader ? 'th' : 'td');
                 td.contentEditable = 'true';
                 td.spellcheck = false;
                 td.dataset.from = String(cell.from);
                 td.dataset.to = String(cell.to);
+                td.dataset.row = String(rowIndex);
+                td.dataset.col = String(colIndex);
                 renderCell(td, cell.text);
                 if (cell.align) td.style.textAlign = cell.align;
                 tr.appendChild(td);
-            }
+            });
             (row.isHeader ? thead : tbody).appendChild(tr);
-        }
+        });
         table.appendChild(thead);
         table.appendChild(tbody);
         wrap.appendChild(table);
 
+        attachRangeSelection(wrap);
         wrap.addEventListener('input', () => this.onInput(wrap, view));
         wrap.addEventListener('keydown', (e) => this.onKeyDown(e, wrap, view));
         /*
@@ -301,6 +305,95 @@ class TableWidget extends WidgetType {
             view.focus();
         }
     }
+}
+
+/**
+ * セルをまたぐ範囲選択を付ける。
+ *
+ * セルは個別の contenteditable なので、ブラウザの選択は1セルで止まる。
+ * ドラッグ（と Shift+クリック）でアンカー〜フォーカスの矩形を持ち、
+ * 選択セルにクラスを付けてハイライトし、コピーはタブ/改行区切りで書き出す。
+ */
+function attachRangeSelection(wrap: HTMLElement): void {
+    let anchor: CellPos | null = null;
+    let dragging = false;
+
+    const cellAt = (target: EventTarget | null): HTMLElement | null =>
+        (target as HTMLElement | null)?.closest<HTMLElement>('[contenteditable="true"]') ?? null;
+
+    const posOf = (cell: HTMLElement): CellPos => ({
+        row: Number(cell.dataset.row),
+        col: Number(cell.dataset.col)
+    });
+
+    const clear = (): void => {
+        for (const el of wrap.querySelectorAll('.cm-live-cell-selected')) {
+            el.classList.remove('cm-live-cell-selected');
+        }
+    };
+
+    const highlight = (focus: CellPos): void => {
+        clear();
+        if (!anchor) return;
+        const cells = cellsInRect(anchor, focus);
+        if (cells.length <= 1) return; // 単一セルは通常のテキスト選択に任せる
+        for (const c of cells) {
+            wrap
+                .querySelector(`[data-row="${c.row}"][data-col="${c.col}"]`)
+                ?.classList.add('cm-live-cell-selected');
+        }
+    };
+
+    wrap.addEventListener('mousedown', (e) => {
+        const cell = cellAt(e.target);
+        if (!cell) return;
+        if (e.shiftKey && anchor) {
+            e.preventDefault();
+            highlight(posOf(cell));
+            return;
+        }
+        anchor = posOf(cell);
+        dragging = true;
+        clear();
+    });
+
+    wrap.addEventListener('mouseover', (e) => {
+        // ウィジェットは作り直されるので window へリスナーを足さない（漏れる）。
+        // ボタンが離されていたらドラッグ終了とみなす。
+        if (e.buttons === 0) dragging = false;
+        if (!dragging) return;
+        const cell = cellAt(e.target);
+        if (!cell) return;
+        const focus = posOf(cell);
+        if (anchor && (focus.row !== anchor.row || focus.col !== anchor.col)) {
+            // セルをまたいだ時点で、崩れたブラウザ選択は捨てて矩形選択に切り替える
+            window.getSelection()?.removeAllRanges();
+        }
+        highlight(focus);
+    });
+
+    wrap.addEventListener('mouseup', () => {
+        dragging = false;
+    });
+
+    wrap.addEventListener('copy', (e) => {
+        const selected = [...wrap.querySelectorAll<HTMLElement>('.cm-live-cell-selected')];
+        if (selected.length === 0) return; // 単一セルは既定のコピーに任せる
+        const rows: string[][] = [];
+        for (const el of wrap.querySelectorAll<HTMLElement>('[contenteditable="true"]')) {
+            const r = Number(el.dataset.row);
+            const c = Number(el.dataset.col);
+            rows[r] = rows[r] ?? [];
+            rows[r][c] = el.textContent ?? '';
+        }
+        const cells = selected.map(posOf);
+        e.clipboardData?.setData('text/plain', selectionToMarkdown(rows, cells));
+        e.preventDefault();
+    });
+
+    wrap.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') clear();
+    });
 }
 
 /** セルのソース範囲から生テキストを取り出す。 */
