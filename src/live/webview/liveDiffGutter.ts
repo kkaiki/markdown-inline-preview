@@ -84,8 +84,9 @@ function markerFor(view: EditorView, block: BlockInfo): GutterMarker | null {
 export const liveDiffGutter = gutter({
     class: 'cm-live-diff-gutter',
     lineMarker: markerFor,
-    // 畳まれたブロックにも、その先頭行の差分状態を出す
-    widgetMarker: (view, _widget, block) => markerFor(view, block),
+    // 畳まれたブロックにも、その先頭行の差分状態を出す。
+    // 幅0の追加ウィジェット（数式プレビュー等）は行を持たないので出さない。
+    widgetMarker: (view, _widget, block) => (block.length === 0 ? null : markerFor(view, block)),
     /*
      * CodeMirror のガターは「文書変更・ビューポート変更」でしか marker を計算し直さない。
      * HEAD 本文は StateEffect で後から届くので、これを明示しないと

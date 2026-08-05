@@ -487,21 +487,18 @@ function pushRange(
         return;
     }
     if (r.kind === 'mathBlock') {
-        if (!revealed) {
-            decos.push(
-                Decoration.replace({ widget: new MathWidget(r.info ?? '', true), block: true }).range(
-                    r.revealFrom,
-                    r.revealTo
-                )
-            );
-        } else {
-            // 実測どおり、展開中もソースの下に描画結果を併記する
-            decos.push(
-                Decoration.widget({ widget: new MathWidget(r.info ?? '', true), block: true, side: 1 }).range(
-                    r.revealTo
-                )
-            );
+        // ソースは常に見せて（編集しやすさ優先）、その下に描画結果を併記する。
+        const first = state.doc.lineAt(r.revealFrom).number;
+        const last = state.doc.lineAt(r.revealTo).number;
+        for (let n = first; n <= last; n++) {
+            const edge = n === first ? ' cm-live-math-first' : n === last ? ' cm-live-math-last' : '';
+            decos.push(lineDeco(`cm-live-math-line${edge}`).range(state.doc.line(n).from));
         }
+        decos.push(
+            Decoration.widget({ widget: new MathWidget(r.info ?? '', true), block: true, side: 1 }).range(
+                r.revealTo
+            )
+        );
         return;
     }
     if (!revealed && r.kind === 'callout') {
