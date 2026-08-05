@@ -447,11 +447,20 @@ function pushRange(
 
     if (r.kind === 'quoteMarker') {
         const line = state.doc.lineAt(r.revealFrom);
-        decos.push(lineDeco(`cm-live-quote cm-live-quote-${Math.min(r.level ?? 1, 3)}`).range(line.from));
+        // 引用の塊の最初/最後の行に角丸と余白を付けるため、境界を判定してクラスを足す
+        const prev = line.number > 1 ? state.doc.line(line.number - 1).text : '';
+        const next = line.number < state.doc.lines ? state.doc.line(line.number + 1).text : '';
+        const edge =
+            (/^>/.test(prev) ? '' : ' cm-live-quote-first') + (/^>/.test(next) ? '' : ' cm-live-quote-last');
+        decos.push(
+            lineDeco(`cm-live-quote cm-live-quote-${Math.min(r.level ?? 1, 3)}${edge}`).range(line.from)
+        );
     }
     if (r.kind === 'listMarker' || r.kind === 'orderedMarker' || r.kind === 'task') {
         const line = state.doc.lineAt(r.revealFrom);
-        decos.push(lineDeco('cm-live-list-line').range(line.from));
+        // ネストの深さをクラスに出す（ソースのインデント幅だけでは視覚的に浅すぎるため）
+        const level = Math.min(r.level ?? 1, 6);
+        decos.push(lineDeco(`cm-live-list-line cm-live-list-level-${level}`).range(line.from));
     }
 
     if (r.kind === 'codeFence') {

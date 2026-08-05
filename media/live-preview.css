@@ -7,11 +7,16 @@
  * エディタの中で、この編集エリアだけが白い紙のように見えるのが意図した挙動。
  *
  * 組版の数値（行間・読み幅・見出しの余白・引用の罫線コントラスト・リストの揃え）は
- * `test/browser/live/rendering/typography.test.ts` でロックしてある。「チープに見える」
- * という指摘の再発防止なので、値を緩めるときはテストも一緒に見直すこと。
+ * `test/browser/live/rendering/typography.test.ts` でロックしてある。値を緩めるときは
+ * テストも一緒に見直すこと。
  *
- * 記法文字を「消す」のは decoration（replace）側の仕事。ここは装飾だけを持つ。
- * リスト "-" と引用 ">" は消さずに透明化して幅を残す（桁をソースと 1:1 に保つため）。
+ * 設計方針:
+ *   - 区切りは「罫線」ではなく**余白**で作る（罫線が多いと画面が煩くなる）
+ *   - 装飾は淡く、本文のコントラストだけ強く
+ *   - ブロック要素（引用・コールアウト・コード・表）は角丸のカードとして揃える
+ *
+ * CodeMirror が注入する `.cm-line` の基底スタイルに負けるため、行 decoration の
+ * セレクタは `.cm-line.cm-live-*` と書くこと（クラス単体では効かない）。
  */
 
 :root {
@@ -19,12 +24,11 @@
     --live-fg: #1f2328;
     --live-muted: #59636e;
     --live-faint: #8c959f;
-    --live-border: #d1d9e0;
+    --live-border: #d8dee4;
     --live-rule: #656d76;
     --live-link: #0969da;
-    --live-code-bg: #f6f8fa;
-    --live-quote-bg: #f6f8fa;
-    --live-inline-code-bg: rgba(129, 139, 152, 0.16);
+    --live-surface: #f6f8fa;
+    --live-inline-code-bg: rgba(129, 139, 152, 0.13);
     --live-highlight-bg: #fff2c2;
     --live-selection: #b6dcfe;
 
@@ -35,6 +39,8 @@
 
     /* 読み幅。Obsidian の readable line length 相当 */
     --live-measure: 720px;
+    /* リストのネスト1段ぶんの追加インデント */
+    --live-indent: 1.1em;
 }
 
 html,
@@ -45,6 +51,7 @@ body {
     background: var(--live-bg);
     color: var(--live-fg);
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 #live-root {
@@ -74,7 +81,7 @@ body {
     line-height: 1.75;
     max-width: var(--live-measure);
     margin: 0 auto;
-    padding: 40px 8px 56px;
+    padding: 40px 12px 64px;
     caret-color: var(--live-fg);
 }
 
@@ -90,28 +97,23 @@ body {
 }
 
 /* ── 見出し ───────────────────────────────────────
- * "# " が出入りしても行の高さが変わらないよう、行に対してサイズを当てる。
- * 上に余白を入れて、本文の塊と見分けが付くようにする。
+ * 罫線ではなく余白と大きさの差で階層を見せる。"# " が出入りしても
+ * 行の高さが変わらないよう、サイズは行に対して当てる。
  */
 .cm-line.cm-live-heading {
     font-weight: 700;
-    line-height: 1.35;
-    letter-spacing: 0.01em;
-    padding-top: 0.6em;
+    line-height: 1.4;
+    padding-top: 1em;
+    padding-bottom: 0.1em;
 }
 .cm-line.cm-live-h1 {
-    font-size: 1.85em;
-    padding-top: 0.35em;
-    padding-bottom: 0.15em;
-    border-bottom: 1px solid var(--live-border);
+    font-size: 1.95em;
+    padding-top: 0.6em;
+    letter-spacing: -0.01em;
 }
-.cm-line.cm-live-h2 {
-    font-size: 1.45em;
-    padding-bottom: 0.1em;
-    border-bottom: 1px solid var(--live-border);
-}
-.cm-line.cm-live-h3 { font-size: 1.22em; }
-.cm-line.cm-live-h4 { font-size: 1.08em; }
+.cm-line.cm-live-h2 { font-size: 1.5em; }
+.cm-line.cm-live-h3 { font-size: 1.25em; }
+.cm-line.cm-live-h4 { font-size: 1.1em; }
 .cm-line.cm-live-h5 { font-size: 1em; }
 .cm-line.cm-live-h6 { font-size: 0.95em; color: var(--live-muted); }
 
@@ -143,17 +145,20 @@ body {
     text-decoration: underline;
 }
 
-/* ── 箇条書き ─────────────────────────────────────
- * Obsidian 実測: "-" の文字は消さず透明にして幅を残し、その上に "•" を描く。
+/* ── リスト ───────────────────────────────────────
+ * ソースのインデント（空白2つ）だけでは視覚的に浅いので、ネストの段数に応じて
+ * 行ごと字下げする。マーカーの表示幅は箇条書きとチェックボックスで揃えて、
+ * 本文の開始位置がズレないようにする。
  */
 .cm-line.cm-live-list-line {
     padding-top: 0.05em;
 }
+.cm-line.cm-live-list-level-2 { padding-left: var(--live-indent); }
+.cm-line.cm-live-list-level-3 { padding-left: calc(var(--live-indent) * 2); }
+.cm-line.cm-live-list-level-4 { padding-left: calc(var(--live-indent) * 3); }
+.cm-line.cm-live-list-level-5 { padding-left: calc(var(--live-indent) * 4); }
+.cm-line.cm-live-list-level-6 { padding-left: calc(var(--live-indent) * 5); }
 
-/*
- * 箇条書きとチェックボックスで本文の開始位置を揃えるため、マーカーの表示幅を
- * 両方とも同じ固定幅にする（"-" とチェックボックスでは素の幅が違うため）。
- */
 .cm-live-bullet {
     display: inline-block;
     width: 1.1em;
@@ -161,10 +166,7 @@ body {
     color: transparent;
     position: relative;
 }
-/*
- * "•" のグリフはフォント依存で小さく高い位置に出るため、CSS で丸を描く。
- * inline-block の箱の中央に置くので、行間を変えても位置が破綻しない。
- */
+/* "•" のグリフはフォント依存で小さく高い位置に出るため、CSS で丸を描く。 */
 .cm-live-bullet::after {
     content: '';
     position: absolute;
@@ -180,24 +182,12 @@ body {
 
 .cm-live-ordered {
     color: var(--live-muted);
-}
-
-/* ── 引用 ─────────────────────────────────────────
- * ユーザー報告「引用が見えていない」への対応。罫線を濃くし、背景を敷いて
- * ブロックとして認識できるようにする。本文の色は薄くしない。
- */
-.cm-live-quote-marker {
-    color: transparent;
-}
-.cm-line.cm-live-quote {
-    border-left: 4px solid var(--live-rule);
-    background: var(--live-quote-bg);
-    color: var(--live-fg);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ── チェックボックス ───────────────────────────
  * "- [ ]"（5文字）をウィジェットで置換するため、そのままだと本文の開始位置が
- * 箇条書きより左へ寄る。ラベルに固定幅を持たせて箇条書きと揃える。
+ * 箇条書きより左へ寄る。ラベルに箇条書きと同じ固定幅を持たせて揃える。
  */
 .cm-live-task-label {
     display: inline-flex;
@@ -208,39 +198,60 @@ body {
 }
 .cm-live-checkbox {
     margin: 0;
-    width: 1.05em;
-    height: 1.05em;
+    width: 0.95em;
+    height: 0.95em;
     cursor: pointer;
     accent-color: var(--live-link);
 }
 .cm-live-task-done {
     text-decoration: line-through;
-    color: var(--live-muted);
+    color: var(--live-faint);
+}
+
+/* ── 引用 ─────────────────────────────────────────
+ * 罫線を色付きにして、背景と字下げでブロックとして見せる。
+ */
+.cm-live-quote-marker {
+    color: transparent;
+}
+.cm-line.cm-live-quote {
+    border-left: 4px solid var(--live-rule);
+    background: var(--live-surface);
+    color: var(--live-fg);
+    padding-left: 14px;
+    padding-right: 14px;
+}
+.cm-line.cm-live-quote-first {
+    border-top-right-radius: 8px;
+    padding-top: 8px;
+}
+.cm-line.cm-live-quote-last {
+    border-bottom-right-radius: 8px;
+    padding-bottom: 8px;
 }
 
 /* ── コードブロック ─────────────────────────────
- * フェンス行を含むブロック全体に背景を敷く。収縮時は開始フェンスが言語ラベル、
- * 終了フェンスは空表示になる（高さは残る）。
+ * 収縮時は開始フェンスが言語ラベル、終了フェンスは空表示になる（高さは残る）。
  */
 .cm-line.cm-live-code-line {
-    background: var(--live-code-bg);
+    background: var(--live-surface);
     font-family: var(--live-mono);
-    font-size: 0.9em;
-    line-height: 1.6;
-    padding-left: 14px;
-    padding-right: 14px;
+    font-size: 0.88em;
+    line-height: 1.65;
+    padding-left: 18px;
+    padding-right: 18px;
     box-shadow: inset 1px 0 0 var(--live-border), inset -1px 0 0 var(--live-border);
 }
 .cm-line.cm-live-code-first {
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    padding-top: 6px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding-top: 8px;
     box-shadow: inset 1px 1px 0 var(--live-border), inset -1px 0 0 var(--live-border);
 }
 .cm-line.cm-live-code-last {
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    padding-bottom: 6px;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    padding-bottom: 8px;
     box-shadow: inset 1px -1px 0 var(--live-border), inset -1px 0 0 var(--live-border);
 }
 .cm-live-fence-lang {
@@ -251,42 +262,7 @@ body {
     user-select: none;
 }
 
-/* ── 表 ─────────────────────────────────────────── */
-.cm-live-table-wrap {
-    overflow-x: auto;
-    padding: 6px 0 10px;
-}
-.cm-live-table {
-    border-collapse: separate;
-    border-spacing: 0;
-    font-size: 0.95em;
-    border: 1px solid var(--live-border);
-    border-radius: 8px;
-    overflow: hidden;
-}
-.cm-live-table th,
-.cm-live-table td {
-    border-bottom: 1px solid var(--live-border);
-    border-right: 1px solid var(--live-border);
-    padding: 7px 14px;
-    text-align: left;
-}
-.cm-live-table th:last-child,
-.cm-live-table td:last-child {
-    border-right: none;
-}
-.cm-live-table tbody tr:last-child td {
-    border-bottom: none;
-}
-.cm-live-table th {
-    background: var(--live-code-bg);
-    font-weight: 600;
-}
-
-/* ── 水平線 ─────────────────────────────────────
- * 行の内容（"---"）をウィジェットで置き換え、罫線として描く。
- * カーソルがその行に来ると生の "---" に戻る（行スコープ）。
- */
+/* ── 水平線 ───────────────────────────────────── */
 .cm-live-hr {
     display: inline-block;
     width: 100%;
@@ -297,19 +273,22 @@ body {
 
 /* ── frontmatter ─────────────────────────────────
  * Obsidian はプロパティパネルに置換するが、我々は生の YAML を編集できるままにする
- * （requirements.md §2.9 の意図的な逸脱）。見分けが付くよう色だけ変える。
+ * （requirements.md §2.9 の意図的な逸脱）。本文の邪魔をしないよう控えめに。
  */
 .cm-line.cm-live-frontmatter {
-    background: var(--live-code-bg);
+    background: transparent;
+    border-left: 2px solid var(--live-border);
+    padding-left: 12px;
     font-family: var(--live-mono);
-    font-size: 0.88em;
-    color: var(--live-muted);
+    font-size: 0.8em;
+    line-height: 1.9;
+    color: var(--live-faint);
 }
 
 /* ── 数式 ───────────────────────────────────────── */
 .cm-live-math-block {
     display: block;
-    padding: 10px 0;
+    padding: 14px 0;
     text-align: center;
     overflow-x: auto;
 }
@@ -325,50 +304,110 @@ body {
 .cm-live-image {
     max-width: 100%;
     height: auto;
-    border-radius: 6px;
+    border-radius: 8px;
     vertical-align: middle;
 }
 
-/* ── コールアウト ─────────────────────────────── */
+/* ── コールアウト ───────────────────────────────
+ * 種別ごとにアクセント色とアイコンを変える。
+ */
 .cm-live-callout {
-    border: 1px solid var(--live-border);
+    border: 1px solid var(--live-callout-border, rgba(9, 105, 218, 0.3));
     border-left: 4px solid var(--live-callout-accent, #0969da);
-    border-radius: 8px;
-    padding: 10px 14px;
-    margin: 6px 0;
-    background: var(--live-callout-bg, rgba(9, 105, 218, 0.06));
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 8px 0;
+    background: var(--live-callout-bg, rgba(9, 105, 218, 0.05));
 }
 .cm-live-callout-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 700;
     color: var(--live-callout-accent, #0969da);
 }
+.cm-live-callout-title::before {
+    content: var(--live-callout-icon, '📝');
+    font-size: 0.95em;
+    line-height: 1;
+}
 .cm-live-callout-body {
     white-space: pre-wrap;
-    margin-top: 4px;
+    margin-top: 6px;
     color: var(--live-fg);
 }
-.cm-live-callout-note { --live-callout-accent: #0969da; --live-callout-bg: rgba(9, 105, 218, 0.06); }
-.cm-live-callout-tip { --live-callout-accent: #1a7f37; --live-callout-bg: rgba(26, 127, 55, 0.06); }
-.cm-live-callout-warning { --live-callout-accent: #9a6700; --live-callout-bg: rgba(154, 103, 0, 0.08); }
+.cm-live-callout-note,
+.cm-live-callout-info {
+    --live-callout-accent: #0969da;
+    --live-callout-bg: rgba(9, 105, 218, 0.05);
+    --live-callout-border: rgba(9, 105, 218, 0.25);
+    --live-callout-icon: 'ℹ️';
+}
+.cm-live-callout-tip,
+.cm-live-callout-success {
+    --live-callout-accent: #1a7f37;
+    --live-callout-bg: rgba(26, 127, 55, 0.05);
+    --live-callout-border: rgba(26, 127, 55, 0.25);
+    --live-callout-icon: '💡';
+}
+.cm-live-callout-warning,
+.cm-live-callout-caution {
+    --live-callout-accent: #9a6700;
+    --live-callout-bg: rgba(154, 103, 0, 0.07);
+    --live-callout-border: rgba(154, 103, 0, 0.25);
+    --live-callout-icon: '⚠️';
+}
 .cm-live-callout-danger,
-.cm-live-callout-error { --live-callout-accent: #cf222e; --live-callout-bg: rgba(207, 34, 46, 0.06); }
-.cm-live-callout-info { --live-callout-accent: #0969da; --live-callout-bg: rgba(9, 105, 218, 0.06); }
+.cm-live-callout-error,
+.cm-live-callout-bug {
+    --live-callout-accent: #cf222e;
+    --live-callout-bg: rgba(207, 34, 46, 0.05);
+    --live-callout-border: rgba(207, 34, 46, 0.25);
+    --live-callout-icon: '🛑';
+}
+.cm-live-callout-quote {
+    --live-callout-accent: #6e7781;
+    --live-callout-bg: rgba(110, 119, 129, 0.06);
+    --live-callout-border: rgba(110, 119, 129, 0.25);
+    --live-callout-icon: '💬';
+}
 
-/* ── 行番号ガター ─────────────────────────────── */
-.cm-gutters {
-    background: var(--live-bg);
+/* ── 表 ─────────────────────────────────────────
+ * セルは contenteditable（Phase 4b）。編集中のセルが分かるようにする。
+ */
+.cm-live-table-wrap {
+    overflow-x: auto;
+    padding: 8px 0 12px;
+}
+.cm-live-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.95em;
+    border: 1px solid var(--live-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+.cm-live-table th,
+.cm-live-table td {
+    border-bottom: 1px solid var(--live-border);
+    border-right: 1px solid var(--live-border);
+    padding: 8px 16px;
+    text-align: left;
+}
+.cm-live-table th:last-child,
+.cm-live-table td:last-child {
     border-right: none;
-    color: var(--live-faint);
 }
-.cm-live-gutter .cm-gutterElement {
-    padding: 0 12px 0 8px;
-    font-family: var(--live-mono);
-    font-size: 0.8em;
-    min-width: 2.5em;
-    text-align: right;
+.cm-live-table tbody tr:last-child td {
+    border-bottom: none;
 }
-
-/* セル内直接編集（Phase 4b）。編集中のセルが分かるようにする。 */
+.cm-live-table th {
+    background: var(--live-surface);
+    font-weight: 600;
+}
+.cm-live-table tbody tr:hover td {
+    background: rgba(129, 139, 152, 0.06);
+}
 .cm-live-table [contenteditable='true'] {
     outline: none;
     min-width: 2em;
@@ -379,12 +418,26 @@ body {
     box-shadow: inset 0 0 0 2px var(--live-link);
 }
 
-/* ── Git 差分ガター（Phase 6b） ─────────────────
- * 見やすさ優先で、VS Code / GitHub と同じ配色の太めの縦バーにする。
- * 追加 = 緑 / 変更 = 青 / 削除 = 赤い三角（境界に出す）
+/* ── ガター ─────────────────────────────────────
+ * 行番号は淡く小さく。差分バーはその左に細く出す。
  */
+.cm-gutters {
+    background: var(--live-bg);
+    border-right: none;
+    color: var(--live-faint);
+}
+.cm-live-gutter .cm-gutterElement {
+    padding: 0 14px 0 6px;
+    font-family: var(--live-mono);
+    font-size: 0.75em;
+    min-width: 2.5em;
+    text-align: right;
+    color: #b1b8c0;
+}
+
+/* Git 差分ガター（追加=緑 / 変更=青 / 削除=赤三角） */
 .cm-live-diff-gutter {
-    min-width: 6px;
+    min-width: 8px;
     padding: 0;
 }
 .cm-live-diff-gutter .cm-gutterElement {
@@ -392,9 +445,9 @@ body {
 }
 .cm-live-diff {
     position: relative;
-    width: 4px;
+    width: 3px;
     height: 100%;
-    margin-left: 2px;
+    margin-left: 4px;
     border-radius: 2px;
 }
 .cm-live-diff-added {
