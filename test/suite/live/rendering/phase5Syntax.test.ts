@@ -63,10 +63,12 @@ describe('Live モード: 水平線', () => {
 describe('Live モード: 数式ブロック', () => {
     const DOC = 'あ\n\n$$\nE = mc^2\n$$\n\nい\n';
 
-    it('"$$ … $$" をブロックスコープで検出する', () => {
+    it('"$$ … $$" を検出し、ソースは常に表示する（mermaid と同じ見せ方）', () => {
         const r = pick(scanSyntaxRanges(DOC), 'mathBlock')[0];
         assert.ok(r, '数式ブロックが検出されない');
-        assert.strictEqual(r.scope, 'block');
+        // ユーザー指示（2026-08-05）: 数式はソースを編集できるまま、下にプレビューを出す。
+        // したがってソースを畳まない = never スコープ。
+        assert.strictEqual(r.scope, 'never');
         assert.strictEqual(DOC.slice(r.revealFrom, r.revealTo), '$$\nE = mc^2\n$$');
     });
 
@@ -74,9 +76,9 @@ describe('Live モード: 数式ブロック', () => {
         assert.strictEqual(pick(scanSyntaxRanges(DOC), 'mathBlock')[0].info, 'E = mc^2');
     });
 
-    it('収縮時はブロック全体を1つのウィジェットで置換する', () => {
+    it('ソースを隠さない（hidden は空）', () => {
         const r = pick(scanSyntaxRanges(DOC), 'mathBlock')[0];
-        assert.deepStrictEqual(r.hidden, [{ from: r.revealFrom, to: r.revealTo }]);
+        assert.deepStrictEqual(r.hidden, [], '数式はソースを常に見せるので隠す範囲は無い');
     });
 
     it('数式ブロックの中身は他の記法として解釈しない', () => {

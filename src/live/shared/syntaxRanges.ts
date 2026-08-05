@@ -465,9 +465,11 @@ export function scanSyntaxRanges(doc: string): SyntaxRange[] {
         const from = lineFrom[b.startLine];
         const to = lineTo(b.endLine);
         out.push({
+            // 数式はソースを畳まず、下にプレビューを併記する（mermaid と同じ見せ方）。
+            // 「普通の部分は編集しやすいように」というユーザー指示（2026-08-05）による。
             kind: 'mathBlock',
-            scope: 'block',
-            hidden: [{ from, to }],
+            scope: 'never',
+            hidden: [],
             revealFrom: from,
             revealTo: to,
             markFrom: from,

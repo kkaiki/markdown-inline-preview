@@ -33,8 +33,12 @@ function sourceLineNumber(view: EditorView, at: number): number {
 export const liveLineNumbers = gutter({
     class: 'cm-lineNumbers cm-live-gutter',
     lineMarker: (view: EditorView, line: BlockInfo) => new LineNumberMarker(sourceLineNumber(view, line.from)),
-    // 畳まれたブロックには先頭のソース行番号を出す（中間行の番号は出さない）
+    /*
+     * 畳まれたブロック（表・コールアウトなど）には先頭のソース行番号を出す。
+     * ただし数式のプレビューのように「ソースを置換せず下に足しただけ」の
+     * 幅0ウィジェットには番号を出さない（同じ行番号が2回出てしまうため）。
+     */
     widgetMarker: (view: EditorView, _widget: unknown, block: BlockInfo) =>
-        new LineNumberMarker(sourceLineNumber(view, block.from)),
+        block.length === 0 ? null : new LineNumberMarker(sourceLineNumber(view, block.from)),
     initialSpacer: (view: EditorView) => new LineNumberMarker(view.state.doc.lines)
 });

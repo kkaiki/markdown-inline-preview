@@ -50,18 +50,21 @@ describe('Live モード: Phase 5 の描画（実ブラウザ）', function () {
         });
     });
 
-    describe('数式ブロック（ブロックスコープ）', () => {
-        it('カーソルが外にあるとき KaTeX で描画される', async function () {
+    describe('数式ブロック（常にソース + 下にプレビュー）', () => {
+        it('カーソルが外にあってもソースが見えたままで、下に KaTeX が出る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, MATH);
             await h.setCursor(0);
+            const lines = await h.renderedLines();
+            assert.ok(lines.some((l) => l === '$$'), `ソースが畳まれている: ${JSON.stringify(lines)}`);
+            assert.ok(lines.some((l) => l === 'E = mc^2'), '数式本体が見えていない');
             const n = await h.page.evaluate<number>(
                 `document.querySelectorAll('.cm-live-math-block .katex').length`
             );
-            assert.strictEqual(n, 1, 'KaTeX が描画されていない');
+            assert.strictEqual(n, 1, 'KaTeX のプレビューが出ていない');
         });
 
-        it('ブロックの中にカーソルを置くと生テキストに戻り、描画結果も併記される', async function () {
+        it('ブロックの中にカーソルを置いても表示は変わらない', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, MATH);
             await h.setCursor(10); // 'E = mc^2' の中
@@ -70,7 +73,15 @@ describe('Live モード: Phase 5 の描画（実ブラウザ）', function () {
             const n = await h.page.evaluate<number>(
                 `document.querySelectorAll('.cm-live-math-block .katex').length`
             );
-            assert.strictEqual(n, 1, '展開中に描画結果が併記されていない');
+            assert.strictEqual(n, 1, '描画結果が併記されていない');
+        });
+
+        it('数式ブロックの行はコードブロックと同じ背景で編集しやすくする', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, MATH);
+            await h.setCursor(0);
+            const n = await h.page.evaluate<number>(`document.querySelectorAll('.cm-live-math-line').length`);
+            assert.strictEqual(n, 3, '$$ / 本体 / $$ の3行に背景が付くべき');
         });
 
         it('壊れた数式でもエディタが落ちない', async function () {

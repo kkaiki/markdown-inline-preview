@@ -63,12 +63,13 @@ const sendEdits = EditorView.updateListener.of((u: ViewUpdate) => {
     if (!vscode && Array.isArray(sent)) sent.push({ type: 'edit', changes, revision });
 });
 
+/*
+ * 組版（フォント・文字サイズ・色）は media/live-preview.css に一本化する。
+ * ここで font-family / font-size を指定すると CodeMirror が生成するクラス付きの
+ * ルールになり、スタイルシート側の指定を上書きしてしまう（2026-08-05 に踏んだ）。
+ */
 const theme = EditorView.theme({
-    '&': { height: '100%', fontSize: '14px' },
-    '.cm-content': {
-        fontFamily: 'var(--vscode-font-family, sans-serif)',
-        caretColor: 'var(--vscode-editor-foreground, #ddd)'
-    },
+    '&': { height: '100%' },
     '.cm-scroller': { overflow: 'auto' }
 });
 

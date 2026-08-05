@@ -173,6 +173,13 @@ StateField からは見えない。Phase 6 で以下のように解決した。
 | インライン置換（画像・チェックボックス・インライン数式） | `Decoration.replace({ widget })` |
 | ブロック置換（表・コールアウト・数式ブロック・hr） | `Decoration.replace({ widget, block: true })` |
 
+#### 組版の所有権は CSS 側にある
+
+フォント・文字サイズ・色は `media/live-preview.css` に一本化する。
+`EditorView.theme({...})` で `font-family` などを指定すると CodeMirror が生成する
+クラス付きルールになり、**スタイルシート側の指定を上書きしてしまう**
+（2026-08-05 に実際に踏んだ）。JS 側のテーマはレイアウト（高さ・スクロール）だけに留める。
+
 #### 表のセル内編集（Phase 4b）
 
 表は `never` スコープ（常時ウィジェット）にしたうえで、ウィジェット内の `<th>`/`<td>` を
