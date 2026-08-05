@@ -32,7 +32,7 @@ Chromium を実際に起動してカテゴリ横断でシナリオを総当た�
 
 | コマンド | 対象 | 特徴 |
 |---|---|---|
-| `npm run test:unit` | `test/suite/**/*.test.ts`, `test/webview/**/*.test.ts` | jsdom 上でのユニット・純関数テスト。高速（数秒）。 |
+| `npm run test:unit` | `test/suite/**/*.test.ts` | jsdom 上でのユニット・純関数テスト。高速（数秒）。 |
 | `npm run test:browser` | `test/browser/**/*.test.ts` | **実 Chromium** での統合テスト。UI バグの最終判定。 |
 | `npm run test:all` | 全テスト | CI 相当。 |
 | `npm run test` | `test/extension/**/*.test.ts` | **実 VS Code**（拡張ホスト）での統合テスト。コマンド・タブ・フォーカス・設定連携。**VS Code は 1 回だけ起動し、その同じインスタンス内で全ファイルを連続実行する**。`MOCHA_GREP='12\.'` で絞り込み可。 |
@@ -113,13 +113,7 @@ npm run docs:test-catalog   # カタログ md を再生成
 
 | ファイル | 役割 |
 |---|---|
-| `src/preview/webview/milkdownApp.ts` | Milkdown エディタの初期化・プラグイン登録 |
-| `src/preview/webview/markerBackspace.ts` | 行頭 Backspace での記法解除（見出し降格・リスト解除） |
-| `src/preview/webview/previewKeymapPlugin.ts` | ⌥⌘1-6 等の Preview 内キーマップ |
-| `src/preview/webview/previewToolbarPlugin.ts` | 上部ツールバーの DOM + クリック処理 |
-| `src/preview/webview/tableArrowKeymap.ts` | テーブルセル内 ↑/↓ の列保持移動 |
-| `src/raw/activate.ts` | Raw モード（CodeMirror）の有効化 |
-| `test/browser/previewBrowserHarness.ts` | ブラウザテスト共通ハーネス |
+| `src/raw/activate.ts` | Raw モード（VS Code 標準エディタ + decoration）の有効化 |
 | `src/live/shared/revealScope.ts` | **Live モード**: 記法の展開スコープ判定（中核） |
 | `src/live/shared/syntaxRanges.ts` | Live モード: 生 Markdown → 記法トークン範囲の走査 |
 | `src/live/shared/liveEditing.ts` | Live モード: Enter / スマートホームの解決（純関数） |
@@ -132,9 +126,12 @@ npm run docs:test-catalog   # カタログ md を再生成
 ## ビルド
 
 ```bash
-npm run build:webview          # webview バンドルのみ（テスト前に必要）
+npm run build:livewebview      # webview バンドルのみ（テスト前に必要）
 npx tsc --noEmit               # 型チェックのみ
 npm run compile                # 全ビルド（CI 相当）
 ```
 
-webview 側のファイル（`src/preview/webview/`）を変更したら必ず `build:webview` してからテスト。
+webview 側のファイル（`src/live/webview/`）を変更したら必ず `build:livewebview` してからテスト。
+
+> **2026-08-05**: Preview モード（Milkdown）は削除し、Live モード（CodeMirror 6）へ一本化した。
+> 当時の仕様書は `docs/archive/preview-era/` に退避してある。

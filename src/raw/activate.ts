@@ -18,11 +18,8 @@ import {
     smartEnterCommand,
     toggleCheckbox
 } from './list';
-import * as previewModule from '../preview/activate';
 import * as liveModule from '../live/activate';
 import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
-import { registerPreviewToggleCodeLensProvider } from './providers/previewToggleCodeLens';
-import { registerPreviewToggleLineWidget } from './providers/previewToggleLineWidget';
 import { showWhatsNewIfUpdated } from './whatsNew';
 import { registerImageHoverProvider } from './providers/imageHover';
 import { registerTableWrapHoverProvider } from './providers/tableWrapHover';
@@ -90,19 +87,9 @@ export function activate(context: vscode.ExtensionContext): void {
         moveLineWithHierarchy
     });
 
-    previewModule.setDebugLog(debugLog);
-    previewModule.activatePreviewFeature(context);
     liveModule.activateLiveFeature(context);
 
-    registerCheckboxCodeLensProvider(context, () => isPreviewEnabled() && isShowCheckboxCodeLensEnabled());
-    registerPreviewToggleCodeLensProvider(
-        context,
-        () => getMarkdownInlineConfig().get<boolean>('preview.showToggleCodeLens', false)
-    );
-    registerPreviewToggleLineWidget(
-        context,
-        () => getMarkdownInlineConfig().get<boolean>('preview.showToggleLineWidget', true)
-    );
+    registerCheckboxCodeLensProvider(context, () => isShowCheckboxCodeLensEnabled());
     registerImageHoverProvider(context, () => isImageHoverPreviewEnabled());
     registerTableWrapHoverProvider(
         context,

@@ -72,5 +72,3 @@ export {
 
 export { SLASH_MENU_ITEMS, filterSlashMenuItems } from './slash/slashMenuItems';
 export type { SlashMenuItemDef } from './slash/slashMenuItems';
-export { detectSlashMatch } from './slash/slashMatch';
-export type { SlashMatch } from './slash/slashMatch';

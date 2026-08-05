@@ -72,16 +72,16 @@ describe('markdownInlineSettings', () => {
     });
 
     // ── Preview 行番号ガター（preview.showLineNumbers）──────────────
-    // 既定 on。Raw モードでは VS Code 本体の行番号が常に左に見えるのに、Preview へ
+    // 既定 on。Raw モードでは VS Code 本体の行番号が常に左に見えるのに、Live へ
     // 切り替えた途端に行番号が消えると「機能が消えた」ように見えるため、既定で表示して
     // Raw との見た目の一貫性を保つ。不要なユーザーは設定で off にできる。
     describe('resolveShowLineNumbers', () => {
-        it('既定では on（Preview でもソース行番号を表示する）', () => {
+        it('既定では on（Live でもソース行番号を表示する）', () => {
             assert.strictEqual(resolveShowLineNumbers(createConfig({})), true);
         });
 
         it('showLineNumbers=false を明示したときは off', () => {
-            const config = createConfig({ 'preview.showLineNumbers': false });
+            const config = createConfig({ 'live.showLineNumbers': false });
             assert.strictEqual(resolveShowLineNumbers(config), false);
         });
 
@@ -91,7 +91,7 @@ describe('markdownInlineSettings', () => {
             const pkg = JSON.parse(
                 fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8')
             );
-            const decl = pkg.contributes.configuration.properties['markdownInline.preview.showLineNumbers'];
+            const decl = pkg.contributes.configuration.properties['markdownInline.live.showLineNumbers'];
             assert.strictEqual(decl.default, true);
         });
     });

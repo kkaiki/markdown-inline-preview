@@ -2,7 +2,7 @@
 /**
  * テストカタログ生成スクリプト。
  *
- * 全テストファイル（test/suite, test/webview, test/browser, test/extension。いずれも
+ * 全テストファイル（test/suite, test/browser, test/extension。いずれも
  * レイヤー配下に cursor-focus / shortcuts / lists-tables 等の症状カテゴリで分類されている。
  * 詳細は docs/testing/test-directory-design.md）から describe/suite/it/test の
  * タイトルとファイル冒頭のドキュメントコメントを抽出し、
@@ -26,25 +26,19 @@ const SECTIONS = [
     {
         title: '実 VS Code 拡張ホスト（`@vscode/test-electron`）',
         run: 'npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js',
-        note: '実際の VS Code を **1 回だけ起動し、その同じインスタンス内で** raw/preview 両方・全カテゴリのテストを連続実行する。コマンド・タブ・フォーカス・設定連携を検証する、最も実践に近い層。`raw/`＝Raw、`preview/`＝Preview、それぞれ配下を `lists-tables`/`navigation`/`tabs-editors` 等の症状カテゴリで分類。`MOCHA_GREP` で絞り込み可。',
+        note: '実際の VS Code を **1 回だけ起動し、その同じインスタンス内で** raw/live 両方・全カテゴリのテストを連続実行する。コマンド・タブ・フォーカス・設定連携を検証する、最も実践に近い層。`raw/`＝Raw、`live/`＝Live、それぞれ配下を `lists-tables`/`navigation`/`tabs-editors` 等の症状カテゴリで分類。`MOCHA_GREP` で絞り込み可。',
         files: () => listTests(path.join(ROOT, 'test', 'extension'))
     },
     {
-        title: '実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview',
+        title: '実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Live',
         run: 'npm run test:browser',
-        note: '実レイアウト・実キー入力・実キャレット座標で Preview（Milkdown）を検証する。UI バグの最終判定。配下は `cursor-focus`/`focus-expand`/`ime` 等の症状カテゴリで分類。',
+        note: '実レイアウト・実キー入力・実キャレット座標で Live（CodeMirror 6）を検証する。UI バグの最終判定。配下は `focus-expand`/`editing-core`/`ime` 等の症状カテゴリで分類。',
         files: () => listTests(path.join(ROOT, 'test', 'browser'))
     },
     {
-        title: 'webview 統合（jsdom + Milkdown 実エディタ）— すべて Preview',
+        title: 'ユニット・純関数（jsdom）— live/ raw/ shared/ に分類',
         run: 'npm run test:unit',
-        note: 'jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメント変換・シリアライズを検証する。配下は browser/ と同じ症状カテゴリで分類。',
-        files: () => listTests(path.join(ROOT, 'test', 'webview'))
-    },
-    {
-        title: 'ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類',
-        run: 'npm run test:unit',
-        note: 'ロジック単体の高速テスト。`preview/`＝Preview 側、`raw/`＝Raw 側（各々さらに症状カテゴリで分類）、`shared/`＝両モード共通のロジック（カテゴリ分割せず均質に管理）。',
+        note: 'ロジック単体の高速テスト。`live/`＝Live 側、`raw/`＝Raw 側（各々さらに症状カテゴリで分類）、`shared/`＝両モード共通のロジック（カテゴリ分割せず均質に管理）。',
         files: () => listTests(path.join(ROOT, 'test', 'suite'))
     }
 ];
