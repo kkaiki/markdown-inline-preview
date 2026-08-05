@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -242,12 +242,12 @@
       },
       {
         "command": "markdownInline.openLive",
-        "title": "Live",
+        "title": "Live モードで開く",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.toggleLive",
-        "title": "Toggle Live / Raw",
+        "title": "Live / Raw を切り替え",
         "category": "Markdown Inline Preview"
       },
       {
@@ -274,9 +274,23 @@
     "menus": {
       "editor/title": [
         {
-          "command": "markdownInline.togglePreview",
-          "when": "editorLangId == markdown || activeCustomEditorId == 'ipreview.preview'",
+          "command": "markdownInline.toggleLive",
+          "when": "editorLangId == markdown || activeCustomEditorId == 'ipreview.live'",
           "group": "navigation@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "markdownInline.openLive",
+          "when": "resourceLangId == markdown",
+          "group": "navigation@10"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "markdownInline.openLive",
+          "when": "resourceLangId == markdown",
+          "group": "1_open@10"
         }
       ]
     },
