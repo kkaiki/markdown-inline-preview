@@ -254,6 +254,16 @@
         "command": "markdownInline.repairNestedCodeFences",
         "title": "Repair Double-Fenced Code Blocks",
         "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.openLive",
+        "title": "Live",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.toggleLive",
+        "title": "Toggle Live / Raw",
+        "category": "Markdown Inline Preview"
       }
     ],
     "customEditors": [
@@ -269,6 +279,19 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "ipreview.live",
+        "displayName": "Markdown Live (Obsidian-style)",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
       }
     ],
     "menus": {
@@ -709,6 +732,16 @@
           "minimum": 8,
           "maximum": 80,
           "description": "Column width (characters) for wrapped table hover preview"
+        },
+        "markdownInline.live.showLineNumbers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Live モードで行番号を表示する"
+        },
+        "markdownInline.live.showDiffGutter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Live モードで Git HEAD との差分を左ガターに表示する"
         }
       }
     },
@@ -740,7 +773,7 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:webview && npm run build:webview-test",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:webview && npm run build:livewebview && npm run build:webview-test",
     "build:host": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode",
     "build:webview": "esbuild src/preview/webview/milkdownApp.ts --bundle --minify --outfile=media/milkdown.bundle.js --format=iife --platform=browser --target=es2020",
     "build:webview-test": "npx tsc -p tsconfig.webview-test.json && esbuild test/webview/*/*.test.ts --bundle --platform=node --format=cjs --outdir=out-test/webview --external:jsdom --log-level=error",
@@ -752,7 +785,7 @@
     "test": "node ./out-test/test/runTest.js",
     "test:unit": "mocha \"out-test/test/suite/**/*.test.js\" \"out-test/webview/**/*.test.js\" --timeout 15000",
     "build:browser-test": "npx tsc -p tsconfig.browser-test.json",
-    "test:browser": "npm run build:webview && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
+    "test:browser": "npm run build:webview && npm run build:livewebview && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "docs:test-catalog": "node scripts/generate-test-catalog.mjs",
@@ -761,7 +794,8 @@
     "package": "vsce package",
     "publish:vsce": "vsce publish -p $VSCE_PAT",
     "publish:ovsx": "ovsx publish *.vsix -p $OVSX_PAT",
-    "publish:all": "npm run package && npm run publish:vsce && npm run publish:ovsx"
+    "publish:all": "npm run package && npm run publish:vsce && npm run publish:ovsx",
+    "build:livewebview": "esbuild src/live/webview/liveApp.ts --bundle --minify --outfile=media/live.bundle.js --format=iife --platform=browser --target=es2020"
   },
   "devDependencies": {
     "@milkdown/kit": "^7.21.2",
@@ -785,6 +819,13 @@
     "typescript-eslint": "^8.61.1"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.10.4",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.1",
+    "@codemirror/view": "^6.43.8",
+    "@lezer/highlight": "^1.2.3",
+    "@lezer/markdown": "^1.7.2",
     "katex": "^0.17.0",
     "marked": "^18.0.5",
     "mermaid": "^11.15.0"

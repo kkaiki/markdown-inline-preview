@@ -34,7 +34,9 @@ npm-debug.log*
 /out-test/
 *.vsix
 media/milkdown.bundle.js
-media/milkdown.bundle.js.map
+media/live.bundle.js
+media/milkdown.bundle.js
+media/live.bundle.js.map
 
 # Legacy paths from pre-refactor layout
 /commands/

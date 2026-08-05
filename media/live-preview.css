@@ -1,0 +1,415 @@
+/*
+ * Live モード（CodeMirror 6）のスタイル。
+ *
+ * 背景は **VS Code / Cursor のテーマに関係なく常に白（紙）** に固定する
+ * （ユーザー指示 2026-08-05: 「そこの md ファイルの背景だけ常に白になるようにして欲しい」）。
+ * そのため `--vscode-*` 変数には依存せず、固定パレットを持つ。ダークテーマの
+ * エディタの中で、この編集エリアだけが白い紙のように見えるのが意図した挙動。
+ *
+ * 組版の数値（行間・読み幅・見出しの余白・引用の罫線コントラスト・リストの揃え）は
+ * `test/browser/live/rendering/typography.test.ts` でロックしてある。「チープに見える」
+ * という指摘の再発防止なので、値を緩めるときはテストも一緒に見直すこと。
+ *
+ * 記法文字を「消す」のは decoration（replace）側の仕事。ここは装飾だけを持つ。
+ * リスト "-" と引用 ">" は消さずに透明化して幅を残す（桁をソースと 1:1 に保つため）。
+ */
+
+:root {
+    --live-bg: #ffffff;
+    --live-fg: #1f2328;
+    --live-muted: #59636e;
+    --live-faint: #8c959f;
+    --live-border: #d1d9e0;
+    --live-rule: #656d76;
+    --live-link: #0969da;
+    --live-code-bg: #f6f8fa;
+    --live-quote-bg: #f6f8fa;
+    --live-inline-code-bg: rgba(129, 139, 152, 0.16);
+    --live-highlight-bg: #fff2c2;
+    --live-selection: #b6dcfe;
+
+    --live-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans',
+        'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', Meiryo, sans-serif;
+    --live-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+        'Liberation Mono', monospace;
+
+    /* 読み幅。Obsidian の readable line length 相当 */
+    --live-measure: 720px;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: var(--live-bg);
+    color: var(--live-fg);
+    -webkit-font-smoothing: antialiased;
+}
+
+#live-root {
+    height: 100%;
+    background: var(--live-bg);
+}
+
+.cm-editor {
+    height: 100%;
+    background: var(--live-bg);
+    color: var(--live-fg);
+}
+
+.cm-editor.cm-focused {
+    outline: none;
+}
+
+.cm-scroller {
+    font-family: var(--live-font);
+    line-height: 1.75;
+}
+
+/* 読み幅を中央に置き、上下にゆとりを持たせる */
+.cm-content {
+    font-family: var(--live-font);
+    font-size: 16px;
+    line-height: 1.75;
+    max-width: var(--live-measure);
+    margin: 0 auto;
+    padding: 40px 8px 56px;
+    caret-color: var(--live-fg);
+}
+
+.cm-cursor,
+.cm-dropCursor {
+    border-left-width: 2px;
+    border-left-color: var(--live-fg);
+}
+
+.cm-selectionBackground,
+.cm-content ::selection {
+    background: var(--live-selection) !important;
+}
+
+/* ── 見出し ───────────────────────────────────────
+ * "# " が出入りしても行の高さが変わらないよう、行に対してサイズを当てる。
+ * 上に余白を入れて、本文の塊と見分けが付くようにする。
+ */
+.cm-line.cm-live-heading {
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    padding-top: 0.6em;
+}
+.cm-line.cm-live-h1 {
+    font-size: 1.85em;
+    padding-top: 0.35em;
+    padding-bottom: 0.15em;
+    border-bottom: 1px solid var(--live-border);
+}
+.cm-line.cm-live-h2 {
+    font-size: 1.45em;
+    padding-bottom: 0.1em;
+    border-bottom: 1px solid var(--live-border);
+}
+.cm-line.cm-live-h3 { font-size: 1.22em; }
+.cm-line.cm-live-h4 { font-size: 1.08em; }
+.cm-line.cm-live-h5 { font-size: 1em; }
+.cm-line.cm-live-h6 { font-size: 0.95em; color: var(--live-muted); }
+
+/* ── インライン記法 ───────────────────────────────── */
+.cm-live-strong { font-weight: 700; }
+.cm-live-em { font-style: italic; }
+.cm-live-strike { text-decoration: line-through; color: var(--live-muted); }
+
+.cm-live-highlight {
+    background: var(--live-highlight-bg);
+    border-radius: 3px;
+    padding: 0.1em 0.15em;
+}
+
+.cm-live-code {
+    font-family: var(--live-mono);
+    font-size: 0.88em;
+    background: var(--live-inline-code-bg);
+    border-radius: 5px;
+    padding: 0.15em 0.35em;
+}
+
+.cm-live-link {
+    color: var(--live-link);
+    text-decoration: none;
+    cursor: pointer;
+}
+.cm-live-link:hover {
+    text-decoration: underline;
+}
+
+/* ── 箇条書き ─────────────────────────────────────
+ * Obsidian 実測: "-" の文字は消さず透明にして幅を残し、その上に "•" を描く。
+ */
+.cm-line.cm-live-list-line {
+    padding-top: 0.05em;
+}
+
+/*
+ * 箇条書きとチェックボックスで本文の開始位置を揃えるため、マーカーの表示幅を
+ * 両方とも同じ固定幅にする（"-" とチェックボックスでは素の幅が違うため）。
+ */
+.cm-live-bullet {
+    display: inline-block;
+    width: 1.1em;
+    text-align: center;
+    color: transparent;
+    position: relative;
+}
+/*
+ * "•" のグリフはフォント依存で小さく高い位置に出るため、CSS で丸を描く。
+ * inline-block の箱の中央に置くので、行間を変えても位置が破綻しない。
+ */
+.cm-live-bullet::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    margin-left: -3px;
+    margin-top: -3px;
+    border-radius: 50%;
+    background: var(--live-muted);
+}
+
+.cm-live-ordered {
+    color: var(--live-muted);
+}
+
+/* ── 引用 ─────────────────────────────────────────
+ * ユーザー報告「引用が見えていない」への対応。罫線を濃くし、背景を敷いて
+ * ブロックとして認識できるようにする。本文の色は薄くしない。
+ */
+.cm-live-quote-marker {
+    color: transparent;
+}
+.cm-line.cm-live-quote {
+    border-left: 4px solid var(--live-rule);
+    background: var(--live-quote-bg);
+    color: var(--live-fg);
+}
+
+/* ── チェックボックス ───────────────────────────
+ * "- [ ]"（5文字）をウィジェットで置換するため、そのままだと本文の開始位置が
+ * 箇条書きより左へ寄る。ラベルに固定幅を持たせて箇条書きと揃える。
+ */
+.cm-live-task-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1em;
+    vertical-align: baseline;
+}
+.cm-live-checkbox {
+    margin: 0;
+    width: 1.05em;
+    height: 1.05em;
+    cursor: pointer;
+    accent-color: var(--live-link);
+}
+.cm-live-task-done {
+    text-decoration: line-through;
+    color: var(--live-muted);
+}
+
+/* ── コードブロック ─────────────────────────────
+ * フェンス行を含むブロック全体に背景を敷く。収縮時は開始フェンスが言語ラベル、
+ * 終了フェンスは空表示になる（高さは残る）。
+ */
+.cm-line.cm-live-code-line {
+    background: var(--live-code-bg);
+    font-family: var(--live-mono);
+    font-size: 0.9em;
+    line-height: 1.6;
+    padding-left: 14px;
+    padding-right: 14px;
+    box-shadow: inset 1px 0 0 var(--live-border), inset -1px 0 0 var(--live-border);
+}
+.cm-line.cm-live-code-first {
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    padding-top: 6px;
+    box-shadow: inset 1px 1px 0 var(--live-border), inset -1px 0 0 var(--live-border);
+}
+.cm-line.cm-live-code-last {
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    padding-bottom: 6px;
+    box-shadow: inset 1px -1px 0 var(--live-border), inset -1px 0 0 var(--live-border);
+}
+.cm-live-fence-lang {
+    float: right;
+    font-size: 0.85em;
+    color: var(--live-faint);
+    font-family: var(--live-mono);
+    user-select: none;
+}
+
+/* ── 表 ─────────────────────────────────────────── */
+.cm-live-table-wrap {
+    overflow-x: auto;
+    padding: 6px 0 10px;
+}
+.cm-live-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.95em;
+    border: 1px solid var(--live-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.cm-live-table th,
+.cm-live-table td {
+    border-bottom: 1px solid var(--live-border);
+    border-right: 1px solid var(--live-border);
+    padding: 7px 14px;
+    text-align: left;
+}
+.cm-live-table th:last-child,
+.cm-live-table td:last-child {
+    border-right: none;
+}
+.cm-live-table tbody tr:last-child td {
+    border-bottom: none;
+}
+.cm-live-table th {
+    background: var(--live-code-bg);
+    font-weight: 600;
+}
+
+/* ── 水平線 ─────────────────────────────────────
+ * 行の内容（"---"）をウィジェットで置き換え、罫線として描く。
+ * カーソルがその行に来ると生の "---" に戻る（行スコープ）。
+ */
+.cm-live-hr {
+    display: inline-block;
+    width: 100%;
+    height: 1px;
+    vertical-align: middle;
+    background: var(--live-border);
+}
+
+/* ── frontmatter ─────────────────────────────────
+ * Obsidian はプロパティパネルに置換するが、我々は生の YAML を編集できるままにする
+ * （requirements.md §2.9 の意図的な逸脱）。見分けが付くよう色だけ変える。
+ */
+.cm-line.cm-live-frontmatter {
+    background: var(--live-code-bg);
+    font-family: var(--live-mono);
+    font-size: 0.88em;
+    color: var(--live-muted);
+}
+
+/* ── 数式 ───────────────────────────────────────── */
+.cm-live-math-block {
+    display: block;
+    padding: 10px 0;
+    text-align: center;
+    overflow-x: auto;
+}
+.cm-live-math-inline {
+    display: inline-block;
+}
+.cm-live-math-error {
+    font-family: var(--live-mono);
+    color: #cf222e;
+}
+
+/* ── 画像 ───────────────────────────────────────── */
+.cm-live-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    vertical-align: middle;
+}
+
+/* ── コールアウト ─────────────────────────────── */
+.cm-live-callout {
+    border: 1px solid var(--live-border);
+    border-left: 4px solid var(--live-callout-accent, #0969da);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 6px 0;
+    background: var(--live-callout-bg, rgba(9, 105, 218, 0.06));
+}
+.cm-live-callout-title {
+    font-weight: 700;
+    color: var(--live-callout-accent, #0969da);
+}
+.cm-live-callout-body {
+    white-space: pre-wrap;
+    margin-top: 4px;
+    color: var(--live-fg);
+}
+.cm-live-callout-note { --live-callout-accent: #0969da; --live-callout-bg: rgba(9, 105, 218, 0.06); }
+.cm-live-callout-tip { --live-callout-accent: #1a7f37; --live-callout-bg: rgba(26, 127, 55, 0.06); }
+.cm-live-callout-warning { --live-callout-accent: #9a6700; --live-callout-bg: rgba(154, 103, 0, 0.08); }
+.cm-live-callout-danger,
+.cm-live-callout-error { --live-callout-accent: #cf222e; --live-callout-bg: rgba(207, 34, 46, 0.06); }
+.cm-live-callout-info { --live-callout-accent: #0969da; --live-callout-bg: rgba(9, 105, 218, 0.06); }
+
+/* ── 行番号ガター ─────────────────────────────── */
+.cm-gutters {
+    background: var(--live-bg);
+    border-right: none;
+    color: var(--live-faint);
+}
+.cm-live-gutter .cm-gutterElement {
+    padding: 0 12px 0 8px;
+    font-family: var(--live-mono);
+    font-size: 0.8em;
+    min-width: 2.5em;
+    text-align: right;
+}
+
+/* セル内直接編集（Phase 4b）。編集中のセルが分かるようにする。 */
+.cm-live-table [contenteditable='true'] {
+    outline: none;
+    min-width: 2em;
+    cursor: text;
+}
+.cm-live-table [contenteditable='true']:focus {
+    background: rgba(9, 105, 218, 0.08);
+    box-shadow: inset 0 0 0 2px var(--live-link);
+}
+
+/* ── Git 差分ガター（Phase 6b） ─────────────────
+ * 見やすさ優先で、VS Code / GitHub と同じ配色の太めの縦バーにする。
+ * 追加 = 緑 / 変更 = 青 / 削除 = 赤い三角（境界に出す）
+ */
+.cm-live-diff-gutter {
+    min-width: 6px;
+    padding: 0;
+}
+.cm-live-diff-gutter .cm-gutterElement {
+    padding: 0;
+}
+.cm-live-diff {
+    position: relative;
+    width: 4px;
+    height: 100%;
+    margin-left: 2px;
+    border-radius: 2px;
+}
+.cm-live-diff-added {
+    background: #2da44e;
+}
+.cm-live-diff-modified {
+    background: #0969da;
+}
+/* 削除は「その行の手前で消えた」ことを示す小さな三角 */
+.cm-live-diff-deleted-before::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: -3px;
+    border-left: 5px solid #cf222e;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+}

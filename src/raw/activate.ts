@@ -19,6 +19,7 @@ import {
     toggleCheckbox
 } from './list';
 import * as previewModule from '../preview/activate';
+import * as liveModule from '../live/activate';
 import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
 import { registerPreviewToggleCodeLensProvider } from './providers/previewToggleCodeLens';
 import { registerPreviewToggleLineWidget } from './providers/previewToggleLineWidget';
@@ -91,6 +92,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     previewModule.setDebugLog(debugLog);
     previewModule.activatePreviewFeature(context);
+    liveModule.activateLiveFeature(context);
 
     registerCheckboxCodeLensProvider(context, () => isPreviewEnabled() && isShowCheckboxCodeLensEnabled());
     registerPreviewToggleCodeLensProvider(
