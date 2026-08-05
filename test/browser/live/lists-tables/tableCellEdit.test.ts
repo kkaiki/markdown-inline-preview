@@ -199,6 +199,75 @@ describe('Live モード: 表のセル内編集（実ブラウザ）', function 
         assert.strictEqual(await h.doc(), '| **太字**X | b |\n| --- | --- |\n| a | b |\n');
     });
 
+    describe('セルをまたぐ範囲選択（ユーザー報告: 表の複数選択ができない）', () => {
+        /** セル i からセル j までドラッグする。 */
+        async function dragCells(handle: LiveHandle, from: number, to: number): Promise<void> {
+            const box = await handle.page.evaluate<{ fx: number; fy: number; tx: number; ty: number }>(
+                `(() => {
+                    const cells = Array.from(document.querySelectorAll('.cm-live-table [contenteditable="true"]'));
+                    const a = cells[${from}].getBoundingClientRect();
+                    const b = cells[${to}].getBoundingClientRect();
+                    return { fx: a.x + a.width / 2, fy: a.y + a.height / 2, tx: b.x + b.width / 2, ty: b.y + b.height / 2 };
+                })()`
+            );
+            await handle.page.mouse.move(box.fx, box.fy);
+            await handle.page.mouse.down();
+            await handle.page.mouse.move(box.tx, box.ty, { steps: 6 });
+            await handle.page.mouse.up();
+            await handle.page.waitForTimeout(150);
+        }
+
+        it('ドラッグで複数セルが選択される', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await dragCells(h, 0, 3);
+            const n = await h.page.evaluate<number>(
+                `document.querySelectorAll('.cm-live-cell-selected').length`
+            );
+            assert.strictEqual(n, 4, '4セルが選択されるべき');
+        });
+
+        it('横方向のドラッグで同じ行のセルだけ選択される', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await dragCells(h, 0, 1);
+            const sel = await h.page.evaluate<string[]>(
+                `Array.from(document.querySelectorAll('.cm-live-cell-selected')).map(e => e.textContent)`
+            );
+            assert.deepStrictEqual(sel, ['列A', '列B']);
+        });
+
+        it('単一セルのクリックでは範囲選択にならない（通常のテキスト選択のまま）', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await dragCells(h, 1, 1);
+            const n = await h.page.evaluate<number>(
+                `document.querySelectorAll('.cm-live-cell-selected').length`
+            );
+            assert.strictEqual(n, 0);
+        });
+
+        it('選択したセルはドキュメントを変更しない', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await dragCells(h, 0, 3);
+            assert.strictEqual(await h.doc(), TABLE);
+            assert.deepStrictEqual(h.errors, []);
+        });
+
+        it('Escape で選択が解除される', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await dragCells(h, 0, 3);
+            await h.page.keyboard.press('Escape');
+            await h.page.waitForTimeout(150);
+            const n = await h.page.evaluate<number>(
+                `document.querySelectorAll('.cm-live-cell-selected').length`
+            );
+            assert.strictEqual(n, 0);
+        });
+    });
+
     it('セル編集は差分として host へ送られる（全体置換しない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);

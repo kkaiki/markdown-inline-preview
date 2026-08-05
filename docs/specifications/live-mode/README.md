@@ -41,6 +41,7 @@ VS Code 上で **Obsidian の Live Preview と同じ操作感**を実現する�
 | 6 | 行番号ガター・IME・パフォーマンス | **完了**（2026-08-05） |
 | 4b | 表のセル内直接編集（Obsidian と同じ「畳んだまま編集」） | **完了**（2026-08-05） |
 | 6b | Git 差分ガター（Obsidian 由来ではない独自機能） | **完了**（2026-08-05） |
+| 7 | ツールバー・Notion 風ショートカット（⌥⌘数字）・スラッシュコマンド・表の複数セル選択 | **完了**（2026-08-05） |
 
 ### 使い方（現時点）
 
@@ -67,6 +68,10 @@ npm run test:browser        # 実 Chromium での統合テスト
 | `src/live/webview/liveDiffGutter.ts` | Git 差分ガター（追加=緑 / 変更=青 / 削除=赤三角） |
 | `src/live/shared/tableCells.ts` | 表のセル範囲解析（セル内編集の土台） |
 | `src/live/shared/lineDiff.ts` | HEAD との行差分 |
+| `src/live/shared/blockActions.ts` | ⌥⌘数字のブロック変換（純関数） |
+| `src/live/shared/tableSelection.ts` | 表の矩形セル選択とコピー（純関数） |
+| `src/live/webview/liveToolbar.ts` | 上部ツールバー（モード切替・ブロック変換・書式） |
+| `src/live/webview/liveSlashMenu.ts` | スラッシュコマンド |
 | `src/live/shared/liveWebviewHtml.ts` | webview HTML の組み立て（純関数・スタイル読み込み漏れ防止） |
 | `media/live-preview.css` | 固定パレット（背景は常に白）・記法の装飾 |
 | `src/live/webview/liveApp.ts` | webview エントリ（CM6 EditorView + host 通信） |

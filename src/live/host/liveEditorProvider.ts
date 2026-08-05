@@ -97,7 +97,13 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                         .get<boolean>('live.showLineNumbers', true),
                     showDiffGutter: vscode.workspace
                         .getConfiguration('markdownInline')
-                        .get<boolean>('live.showDiffGutter', true)
+                        .get<boolean>('live.showDiffGutter', true),
+                    showToolbar: vscode.workspace
+                        .getConfiguration('markdownInline')
+                        .get<boolean>('live.showToolbar', true),
+                    enableSlashMenu: vscode.workspace
+                        .getConfiguration('markdownInline')
+                        .get<boolean>('live.enableSlashMenu', true)
                 }
             });
         };
@@ -112,6 +118,16 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             if (msg.type === 'ready') {
                 sendInit();
                 void sendDiffBase();
+                return;
+            }
+            if (msg.type === 'switchMode') {
+                // ツールバーからのモード切替。同じタブで開き直す。
+                const mode = (msg as { mode?: string }).mode;
+                await vscode.commands.executeCommand(
+                    'vscode.openWith',
+                    document.uri,
+                    mode === 'preview' ? 'ipreview.preview' : 'default'
+                );
                 return;
             }
             if (msg.type !== 'edit') return;

@@ -18,7 +18,9 @@ import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 import { EditorState, type Extension } from '@codemirror/state';
 import { defaultKeymap } from '@codemirror/commands';
 import { indentUnit } from '@codemirror/language';
-import { liveKeymap } from './liveKeymap';
+import { applyBlockActionToSelection, liveKeymap, wrapInlineMarker } from './liveKeymap';
+import { liveSlashMenu } from './liveSlashMenu';
+import { mountLiveToolbar } from './liveToolbar';
 import { liveLineNumbers } from './liveLineNumbers';
 import { diffBaseField, diffField, liveDiffGutter, setDiffBase } from './liveDiffGutter';
 import {
@@ -38,6 +40,8 @@ declare function acquireVsCodeApi(): VsCodeApi;
 interface LiveSettings {
     showLineNumbers?: boolean;
     showDiffGutter?: boolean;
+    showToolbar?: boolean;
+    enableSlashMenu?: boolean;
 }
 
 const vscode: VsCodeApi | null = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
@@ -92,6 +96,8 @@ function extensions(settings: LiveSettings): Extension[] {
         liveCompositionWatcher,
         sendEdits,
         theme,
+        // スラッシュコマンド（/ でメニュー）
+        ...(settings.enableSlashMenu === false ? [] : [liveSlashMenu]),
         // Live モード固有のキーは既定より先に評価させる
         keymap.of(liveKeymap),
         // history は載せない（Undo は VS Code 側へ一本化する）
@@ -103,10 +109,24 @@ function createEditor(text: string, settings: LiveSettings): void {
     const parent = document.getElementById('live-root');
     if (!parent) throw new Error('#live-root が見つかりません');
     parent.innerHTML = '';
+    const host = document.createElement('div');
+    host.className = 'cm-live-editor-host';
+    parent.appendChild(host);
     view = new EditorView({
         state: EditorState.create({ doc: text, extensions: extensions(settings) }),
-        parent
+        parent: host
     });
+    if (settings.showToolbar !== false) {
+        mountLiveToolbar(parent, view, {
+            applyBlock: (v, action) => applyBlockActionToSelection(v, action),
+            wrapInline: (v, marker) => {
+                wrapInlineMarker(v, marker);
+            },
+            switchMode: (mode) => {
+                vscode?.postMessage({ type: 'switchMode', mode });
+            }
+        });
+    }
     (window as unknown as { __liveView: EditorView }).__liveView = view;
     // テスト用シーム: 差分の計算結果を覗けるようにする（描画されない原因の切り分け用）
     (window as unknown as { __liveDiff: () => unknown }).__liveDiff = () =>

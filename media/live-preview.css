@@ -507,3 +507,94 @@ body {
     border-top: 4px solid transparent;
     border-bottom: 4px solid transparent;
 }
+
+/* ── ツールバー ─────────────────────────────────
+ * 既存 Preview と同じ並び（ブロック変換 + インライン書式 + モード切替）。
+ * 編集領域はこの下に置くので、#live-root を縦のフレックスにする。
+ */
+#live-root {
+    display: flex;
+    flex-direction: column;
+}
+.cm-live-editor-host {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+.cm-live-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--live-border);
+    background: var(--live-bg);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+.cm-live-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.cm-live-toolbar-button {
+    min-width: 28px;
+    height: 26px;
+    padding: 0 7px;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--live-muted);
+    font-family: var(--live-font);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    line-height: 1;
+}
+.cm-live-toolbar-button:hover {
+    background: rgba(129, 139, 152, 0.14);
+    color: var(--live-fg);
+}
+.cm-live-toolbar-current {
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--live-link);
+}
+
+/* ── スラッシュメニュー ───────────────────────── */
+.cm-tooltip.cm-tooltip-autocomplete {
+    border: 1px solid var(--live-border);
+    border-radius: 8px;
+    background: var(--live-bg);
+    box-shadow: 0 6px 24px rgba(31, 35, 40, 0.14);
+    overflow: hidden;
+}
+.cm-tooltip-autocomplete > ul {
+    font-family: var(--live-font);
+    font-size: 13px;
+    max-height: 320px;
+}
+.cm-tooltip-autocomplete > ul > li {
+    padding: 5px 12px;
+    color: var(--live-fg);
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+    background: rgba(9, 105, 218, 0.1);
+    color: var(--live-fg);
+}
+.cm-completionLabel {
+    font-weight: 600;
+}
+.cm-completionDetail {
+    margin-left: 10px;
+    color: var(--live-faint);
+    font-style: normal;
+    font-size: 0.9em;
+}
+
+/* セルをまたぐ範囲選択（Phase 4b の追補）。ブラウザの選択はセルを越えられないので自前で描く。 */
+.cm-live-table .cm-live-cell-selected {
+    background: rgba(9, 105, 218, 0.14);
+}
