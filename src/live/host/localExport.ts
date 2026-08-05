@@ -7,7 +7,10 @@
  *
  * エクスポートモードは `markdownInline.export.mode` 設定で切り替え可能:
  *   "local"  → このファイルの処理（Chrome ヘッドレス）
- *   "server" → 将来の Pro API（previewPanel.ts の handleExportRequest で分岐）
+ *   "server" → 将来の Pro API
+ *
+ * Live / Preview の両モードから使う。`src/shared/` は VS Code API 非依存の規約なので
+ * host 層（`src/live/host/`）に置いている。
  */
 
 import * as vscode from 'vscode';
