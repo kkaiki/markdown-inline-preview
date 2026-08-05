@@ -14,6 +14,7 @@
 import type { RevealScope } from './revealScope';
 import { parseLinePrefix, parseQuotePrefix } from './liveEditing';
 import { isTableDelimiterRow } from './tableCells';
+import { findFenceBlocks } from './fenceBlocks';
 
 export type SyntaxKind =
     | 'heading'
@@ -77,35 +78,6 @@ const PAIRED: { marker: string; kind: SyntaxKind }[] = [
     { marker: '*', kind: 'em' },
     { marker: '_', kind: 'em' }
 ];
-
-/** コードフェンスのブロック情報（行番号は 0 始まり）。 */
-interface FenceBlock {
-    openLine: number;
-    /** 終了フェンスの行。閉じられていなければ null。 */
-    closeLine: number | null;
-    info: string;
-}
-
-/**
- * コードフェンスのブロックを列挙する。
- * フェンスの内側は Markdown として解釈しない（実測: Obsidian も同じ）。
- */
-function findFenceBlocks(lines: string[]): FenceBlock[] {
-    const blocks: FenceBlock[] = [];
-    let open: { line: number; marker: string; info: string } | null = null;
-    for (let i = 0; i < lines.length; i++) {
-        const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(lines[i]);
-        if (!m) continue;
-        if (open === null) {
-            open = { line: i, marker: m[1][0], info: m[2].trim() };
-        } else if (m[1][0] === open.marker && m[2].trim() === '') {
-            blocks.push({ openLine: open.line, closeLine: i, info: open.info });
-            open = null;
-        }
-    }
-    if (open) blocks.push({ openLine: open.line, closeLine: null, info: open.info });
-    return blocks;
-}
 
 /** 表の行らしいか（パイプを含む）。 */
 function isTableRow(line: string): boolean {

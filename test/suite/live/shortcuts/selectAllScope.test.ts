@@ -40,6 +40,27 @@ describe('Live モード: 段階的な全選択（コードフェンス）', () 
         assert.deepStrictEqual(r, { from: 0, to: doc.length });
     });
 
+    it('本文が無いフェンスは1回目でブロック全体（中が存在しないため）', () => {
+        const empty = '前\n\n```\n```\n\n後\n';
+        const from = empty.indexOf('```');
+        const to = from + '```\n```'.length;
+        assert.deepStrictEqual(nextSelectAllRange(empty, { from: from + 1, to: from + 1 }), { from, to });
+    });
+
+    it('前に閉じていないフェンスがあっても、正しいブロックを選ぶ', () => {
+        // CommonMark: info string を持つ行は閉じフェンスにならないので、
+        // 1本目は最後の ``` で閉じる。その中で ⌘A したらその本文が選ばれる。
+        const d = '```\nあ\n\n```js\nx\n```\n';
+        const r = nextSelectAllRange(d, { from: d.indexOf('x'), to: d.indexOf('x') });
+        assert.strictEqual(d.slice(r.from, r.to), 'あ\n\n```js\nx');
+    });
+
+    it('4連バッククォートの中の3連は閉じフェンスにしない', () => {
+        const d = '````\n```\nx\n```\n````\n';
+        const r = nextSelectAllRange(d, { from: d.indexOf('x'), to: d.indexOf('x') });
+        assert.strictEqual(d.slice(r.from, r.to), '```\nx\n```');
+    });
+
     it('コードブロックの外では最初から文書全体', () => {
         const r = nextSelectAllRange(doc, { from: 0, to: 0 });
         assert.deepStrictEqual(r, { from: 0, to: doc.length });
