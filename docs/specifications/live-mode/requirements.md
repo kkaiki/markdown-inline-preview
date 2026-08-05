@@ -414,19 +414,36 @@ URL（`https://`）の中では発火しない。
   コマンドパレットからも `Markdown Inline Preview: Export to PDF` で実行できる
 - ボタンを押しても**エディタのフォーカスと選択を失わない**こと（`mousedown` で `preventDefault`）
 
-### 4.9 既定モードの追従 `MUST`
+### 4.9 既定モードの追従（ファイル単位）`MUST`
 
-**初回は Live**、以後は**直前に使ったモードに追従**する
-（ユーザー指示 2026-08-05:「最初のデフォルトは live、その後は raw の時は raw」）。
+**既定は Live**。ただし**ファイルごとに**「そのファイルで最後に明示的に選んだモード」を
+覚え、以降そのファイルはそのモードで開く
+（ユーザー指示 2026-08-05:「raw にどこかでしたものがあれば、それは以降は raw で開き続ける」）。
 
-- 記憶は `context.globalState`（キー `markdownInline.liveMode`）。
-  `markdownInline.live.rememberMode` を切ると記憶を使わず `live.defaultMode` に従う。
-- `workbench.editorAssociations` を現在のモードへ追従させる
-  （`markdownInline.live.controlDefaultEditor`、既定 true）。customEditor の priority だけでは
-  同じパターンを主張する他拡張と競合したときに解決先が一意にならないため、
-  ユーザー設定であるこちらを書いて「開く前から解決先が1つに確定している」状態を作る。
+- 記憶は `context.globalState`（キー `markdownInline.liveModeByFile`、URI → モード）。
+  上限 200 件で古いものから捨てる。`markdownInline.live.rememberMode` を切ると記憶を使わない。
+- **記憶するのは明示的にモードを選んだときだけ**:
+  Live エディタが開かれた / `openLive` / `toggleLive` / ツールバーの Raw ボタン。
+  「素のテキストエディタが前面に来たら Raw」と自動判定してはいけない。拡張がアクティブに
+  なる前にウィンドウ復元で開かれたファイルまで Raw と覚えてしまい、以後ずっと Raw に
+  張り付く（2026-08-05 に実際に踏んだ）。
+- `workbench.editorAssociations` は**グローバル設定なのでファイル単位にできない**。
+  ここは既定モードに合わせ、記憶が既定と違うファイルは Live エディタの
+  `resolveCustomTextEditor` で反対のモードへ開き直す（跳ね返し）。
 - 制御 OFF のときは**自分が書いた値だけ**取り除く（ユーザーが他拡張のビューアへ
   向けている設定は残す）。
+
+### 4.10 タブの重複防止 `MUST`
+
+同じファイルが **Raw タブと Live タブで二重に開かれない**ようにする
+（ユーザー指示 2026-08-05）。モードを切り替えるときに、反対のモードの同一 URI のタブを閉じる。
+未知の viewType（他拡張のビューア）は触らない。
+
+### 4.11 メニュー `SHOULD`
+
+- エクスプローラの右クリック（`explorer/context`）に **Live モードで開く**
+- エディタタブの右クリック（`editor/title/context`）にも同じ項目
+- エディタのタイトルバー（`editor/title`）に **Live / Raw を切り替え**
 
 ### 4.7 背景・配色 `MUST`
 
