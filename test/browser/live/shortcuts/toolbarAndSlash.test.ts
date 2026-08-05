@@ -3,10 +3,10 @@
  * 実 Chromium で固定する。
  *
  * ユーザー要望（2026-08-05）:
- *   「画面上部に他の preview / raw などに切り替えられるツールバーが欲しい」
+ *   「画面上部に他のモード（Raw）へ切り替えられるツールバーが欲しい」
  *   「notion のショートカットキーのように option command number で入れられるようにして欲しい。またスラッシュコマンドなども」
  *
- * ブロック変換の対応表とスラッシュ項目は Raw / Preview と共通の定義を使うので、
+ * ブロック変換の対応表とスラッシュ項目は Raw と共通の定義を使うので、
  * ここでは「Live でも同じ操作ができる」ことを担保する。
  */
 import * as assert from 'assert';
@@ -79,7 +79,6 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
                 `Array.from(document.querySelectorAll('.cm-live-toolbar-button')).map(b => b.textContent)`
             );
             assert.ok(labels.includes('H1'), `見出しボタンが無い: ${labels.join(',')}`);
-            assert.ok(labels.includes('Preview'), 'Preview へ切り替えるボタンが無い');
             assert.ok(labels.includes('Raw'), 'Raw へ切り替えるボタンが無い');
             assert.ok(labels.includes('PDF'), 'PDF 書き出しボタンが無い');
         });
@@ -111,13 +110,13 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             assert.strictEqual(await h.doc(), '**abc** def\n');
         });
 
-        it('Preview ボタンで host へモード切替を送る', async function () {
+        it('Raw ボタンで host へモード切替を送る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
-            await h.page.click('.cm-live-toolbar-button[title^="Preview"]');
+            await h.page.click('.cm-live-toolbar-button[title^="Raw"]');
             await h.page.waitForTimeout(150);
             const sent = (await h.sent()).filter((m) => m.type === 'switchMode');
-            assert.deepStrictEqual(sent, [{ type: 'switchMode', mode: 'preview' }]);
+            assert.deepStrictEqual(sent, [{ type: 'switchMode', mode: 'raw' }]);
         });
 
         it('PDF ボタンで host へ書き出しを依頼する', async function () {

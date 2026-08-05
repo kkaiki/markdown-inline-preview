@@ -16,6 +16,7 @@
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
 import { StateEffect, StateField, type EditorState, type Range } from '@codemirror/state';
 import katex from 'katex';
+import mermaid from 'mermaid';
 import { scanSyntaxRanges, type SyntaxKind, type SyntaxRange } from '../shared/syntaxRanges';
 import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
@@ -154,6 +155,46 @@ class CalloutWidget extends WidgetType {
     }
 }
 
+/**
+ * mermaid 図。コードのソースは常に見せたまま、その**下に描画結果**を出す
+ * （ユーザー指示 2026-08-05: 「mermaid だけはその下に preview で見やすくなるように」）。
+ * 数式ブロックと同じ見せ方。
+ */
+let mermaidReady = false;
+let mermaidSeq = 0;
+
+class MermaidWidget extends WidgetType {
+    constructor(private readonly source: string) {
+        super();
+    }
+    eq(other: MermaidWidget): boolean {
+        return other.source === this.source;
+    }
+    toDOM(): HTMLElement {
+        const box = document.createElement('div');
+        box.className = 'cm-live-mermaid';
+        if (!mermaidReady) {
+            mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
+            mermaidReady = true;
+        }
+        const id = `cm-live-mermaid-${++mermaidSeq}`;
+        mermaid
+            .render(id, this.source)
+            .then(({ svg }) => {
+                box.innerHTML = svg;
+            })
+            .catch((err: unknown) => {
+                // 図が壊れていてもエディタは壊さない。理由だけ出す。
+                box.classList.add('cm-live-mermaid-error');
+                box.textContent = err instanceof Error ? err.message : String(err);
+            });
+        return box;
+    }
+    ignoreEvent(): boolean {
+        return false;
+    }
+}
+
 /** 収縮時のコードフェンス開始行に出す言語ラベル。 */
 class FenceLangWidget extends WidgetType {
     constructor(private readonly info: string) {
@@ -282,6 +323,12 @@ class TableWidget extends WidgetType {
     }
 
     private onKeyDown(e: KeyboardEvent, wrap: HTMLElement, view: EditorView): void {
+        if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+            // セル → その行 → 表全体 → 文書全体、と押すたびに広げる
+            e.preventDefault();
+            selectAllStepInTable(wrap, view, this.from, this.source);
+            return;
+        }
         if (e.key === 'Enter') {
             // セル内に改行は入れない（表を壊す）
             e.preventDefault();
@@ -417,6 +464,60 @@ function renderCell(cell: HTMLElement, raw: string): void {
             cell.appendChild(span);
         }
     }
+}
+
+/**
+ * 表の中での ⌘A。押すたびに セル → その行 → 表全体 → 文書全体 と広げる。
+ * 行以上へ広がったら CodeMirror 側の選択に切り替える（セルの外へ出るため）。
+ */
+function selectAllStepInTable(
+    wrap: HTMLElement,
+    view: EditorView,
+    tableFrom: number,
+    source: string
+): void {
+    const cell = document.activeElement as HTMLElement | null;
+    const selectedRows = new Set(
+        [...wrap.querySelectorAll<HTMLElement>('.cm-live-cell-selected')].map((e) => e.dataset.row)
+    );
+    const cells = editableCells(wrap);
+
+    // 段階3 → 文書全体
+    if (selectedRows.size > 1) {
+        view.focus();
+        view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+        return;
+    }
+    // 段階2 → 表全体
+    if (selectedRows.size === 1) {
+        for (const el of cells) el.classList.add('cm-live-cell-selected');
+        return;
+    }
+    // 段階1 → セルの中身が既に全選択なら、その行へ
+    const sel = window.getSelection();
+    const cellFullySelected =
+        cell !== null &&
+        sel !== null &&
+        sel.toString().length > 0 &&
+        sel.toString() === (cell.textContent ?? '');
+    if (cell && cellFullySelected) {
+        sel?.removeAllRanges();
+        for (const el of cells) {
+            if (el.dataset.row === cell.dataset.row) el.classList.add('cm-live-cell-selected');
+        }
+        return;
+    }
+    // 最初は「そのセルを全部」
+    if (cell) {
+        const range = document.createRange();
+        range.selectNodeContents(cell);
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+        return;
+    }
+    // セルにフォーカスが無ければ表全体をソース側で選ぶ
+    view.focus();
+    view.dispatch({ selection: { anchor: tableFrom, head: tableFrom + source.length } });
 }
 
 /** ウィジェット内の編集可能セル（DOM 順）。 */
@@ -604,6 +705,13 @@ function pushRange(
             // 角丸と枠線を付けるため、ブロックの最初/最後の行だけ別クラスにする
             const edge = n === first ? ' cm-live-code-first' : n === last ? ' cm-live-code-last' : '';
             decos.push(lineDeco(`cm-live-code-line${edge}`).range(state.doc.line(n).from));
+        }
+        if (r.info === 'mermaid' && last > first + 1) {
+            // ソースはそのまま、下に図を出す
+            const body = state.doc.sliceString(state.doc.line(first + 1).from, state.doc.line(last - 1).to);
+            decos.push(
+                Decoration.widget({ widget: new MermaidWidget(body), block: true, side: 1 }).range(r.revealTo)
+            );
         }
     }
 

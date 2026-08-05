@@ -196,12 +196,7 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (msg.type === 'switchMode') {
                 // ツールバーからのモード切替。同じタブで開き直す。
-                const mode = (msg as { mode?: string }).mode;
-                await vscode.commands.executeCommand(
-                    'vscode.openWith',
-                    document.uri,
-                    mode === 'preview' ? 'ipreview.preview' : 'default'
-                );
+                await vscode.commands.executeCommand('vscode.openWith', document.uri, 'default');
                 return;
             }
             if (msg.type !== 'edit') return;

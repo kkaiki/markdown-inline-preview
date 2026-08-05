@@ -598,3 +598,24 @@ body {
 .cm-live-table .cm-live-cell-selected {
     background: rgba(9, 105, 218, 0.14);
 }
+
+/* ── mermaid ─────────────────────────────────────
+ * コードのソースは常に見せたまま、その下に図を出す（数式ブロックと同じ見せ方）。
+ */
+.cm-live-mermaid {
+    display: block;
+    padding: 12px 0 16px;
+    text-align: center;
+    overflow-x: auto;
+}
+.cm-live-mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+.cm-live-mermaid-error {
+    font-family: var(--live-mono);
+    font-size: 0.85em;
+    color: #cf222e;
+    text-align: left;
+    white-space: pre-wrap;
+}
