@@ -8,7 +8,7 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1684 件**
+**総テスト数: 1686 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 140 件
 
@@ -343,7 +343,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 461 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 463 件
 
 実行: `npm run test:browser`
 
@@ -1533,7 +1533,7 @@
     - YAML はそのまま表示され、専用の背景が付く
     - 先頭の "---" を水平線にしない
 
-### `test/browser/live/rendering/typography.test.ts`（12 件）
+### `test/browser/live/rendering/typography.test.ts`（14 件）
 
 > Live モードの「読みやすさ」を実 Chromium で固定する。
 >
@@ -1550,6 +1550,8 @@
   - **本文の組版**
     - 行間は 1.5 以上ある（詰まって見えない）
     - 読み幅に上限があり、画面幅いっぱいに広がらない
+    - 画面が狭いときは本文が画面幅に収まり、横スクロールが出ない
+    - 画面が広いときは読み幅で頭打ちになり中央に寄る
     - 本文と背景のコントラストは十分にある
   - **見出し**
     - 見出しの上に本文より広い余白が入る
