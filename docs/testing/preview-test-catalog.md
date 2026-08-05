@@ -8,7 +8,7 @@
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1672 件**
+**総テスト数: 1684 件**
 
 ## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 140 件
 
@@ -343,7 +343,7 @@
     - 8.21 /table normalize（on/off 引数なし）は警告のみで行を変更しない
     - 8.22 /table normilize on（typo エイリアス）でも normalize on と同じく設定が反映される
 
-## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 458 件
+## 2. 実 Chromium ブラウザ（Playwright + 実 webview バンドル）— すべて Preview — 461 件
 
 実行: `npm run test:browser`
 
@@ -1431,7 +1431,7 @@
   - 番号リストの数字はそのまま表示される
   - 引用の中の太字も通常どおり収縮する
 
-### `test/browser/live/lists-tables/tableCellEdit.test.ts`（11 件）
+### `test/browser/live/lists-tables/tableCellEdit.test.ts`（14 件）
 
 > Phase 4b: 表のセル内直接編集を実 Chromium で固定する。
 >
@@ -1454,6 +1454,9 @@
   - Tab で次のセルへ移動する
   - Shift+Tab で前のセルへ移動する
   - セル内で Enter しても改行が入らず表が壊れない
+  - セルの中のインライン記法は装飾されて表示される（記法文字は出ない）
+  - セルにフォーカスすると生の Markdown に戻り、外すと再び装飾される
+  - 装飾されたセルを編集してもソースの記法が壊れない
   - セル編集は差分として host へ送られる（全体置換しない）
 
 ### `test/browser/live/rendering/blockRendering.test.ts`（11 件）
@@ -2555,7 +2558,7 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
 - **webview統合: ショートカット実反応 — Cmd/Ctrl+← の行頭移動**
   - プレフィックス展開が無い段落では preventDefault せず既定に委ねる
 
-## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 864 件
+## 4. ユニット・純関数（jsdom）— preview/ raw/ shared/ に分類 — 873 件
 
 実行: `npm run test:unit`
 
@@ -2732,6 +2735,26 @@ jsdom 上で Milkdown エディタを実際に組み立てて、ドキュメン�
   - **コードフェンスの内側は走査しない**
     - フェンス内の "**" を強調として拾わない
     - フェンス内の "# " を見出しとして拾わない
+
+### `test/suite/live/lists-tables/inlineSegments.test.ts`（9 件）
+
+> 表のセルなど「1行ぶんのインライン記法をレンダリングする」ための分割（純関数）。
+>
+> 表はウィジェットとして描画するため、セルの中身は CodeMirror の decoration が
+> 効かない。そのままだと `**太字**` がセルに生のまま出てしまう（2026-08-05 の
+> ユーザー報告）。ここで「表示する文字」と「その装飾クラス」に分割して、
+> ウィジェット側が同じ見た目を再現できるようにする。
+
+- **Live モード: インライン記法の分割**
+  - 装飾が無ければ1つのセグメントになる
+  - 太字はマーカーを落として装飾クラスを付ける
+  - 前後に地の文があっても分割できる
+  - 斜体・取り消し線・インラインコードも扱える
+  - リンクは表示テキストだけ残す
+  - 複数の記法が並んでも順序どおりに分割する
+  - 閉じていない記法はそのまま文字として残す
+  - 空文字は空配列
+  - セグメントを繋ぐと記法文字を除いた表示テキストになる
 
 ### `test/suite/live/lists-tables/listSyntax.test.ts`（20 件）
 

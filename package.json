@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -36,7 +36,8 @@
   },
   "activationEvents": [
     "onLanguage:markdown",
-    "onCustomEditor:ipreview.preview"
+    "onCustomEditor:ipreview.preview",
+    "onCustomEditor:ipreview.live"
   ],
   "main": "./out/extension.js",
   "l10n": "./l10n",

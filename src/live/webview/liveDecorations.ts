@@ -19,6 +19,7 @@ import katex from 'katex';
 import { scanSyntaxRanges, type SyntaxKind, type SyntaxRange } from '../shared/syntaxRanges';
 import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
+import { inlineSegments } from '../shared/inlineSegments';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
 const HIDE = Decoration.replace({});
@@ -204,7 +205,7 @@ class TableWidget extends WidgetType {
                 td.spellcheck = false;
                 td.dataset.from = String(cell.from);
                 td.dataset.to = String(cell.to);
-                td.textContent = cell.text;
+                renderCell(td, cell.text);
                 if (cell.align) td.style.textAlign = cell.align;
                 tr.appendChild(td);
             }
@@ -216,6 +217,23 @@ class TableWidget extends WidgetType {
 
         wrap.addEventListener('input', () => this.onInput(wrap, view));
         wrap.addEventListener('keydown', (e) => this.onKeyDown(e, wrap, view));
+        /*
+         * フォーカスしたセルだけ生の Markdown に戻して編集させ、外れたら描画に戻す。
+         * 記法の展開/収縮と同じ考え方をセル単位でやっている。
+         */
+        wrap.addEventListener('focusin', (e) => {
+            const cell = (e.target as HTMLElement).closest<HTMLElement>('[contenteditable="true"]');
+            if (!cell || cell.dataset.editing === '1') return;
+            cell.dataset.editing = '1';
+            cell.textContent = rawOf(view, cell);
+            placeCaretAtEnd(cell);
+        });
+        wrap.addEventListener('focusout', (e) => {
+            const cell = (e.target as HTMLElement).closest<HTMLElement>('[contenteditable="true"]');
+            if (!cell) return;
+            cell.dataset.editing = '0';
+            renderCell(cell, rawOf(view, cell));
+        });
         return wrap;
     }
 
@@ -281,6 +299,29 @@ class TableWidget extends WidgetType {
         if (e.key === 'Escape') {
             e.preventDefault();
             view.focus();
+        }
+    }
+}
+
+/** セルのソース範囲から生テキストを取り出す。 */
+function rawOf(view: EditorView, cell: HTMLElement): string {
+    const from = Number(cell.dataset.from);
+    const to = Number(cell.dataset.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return cell.textContent ?? '';
+    return view.state.doc.sliceString(from, to);
+}
+
+/** セルにインライン記法を描画する（記法文字は隠す）。 */
+function renderCell(cell: HTMLElement, raw: string): void {
+    cell.textContent = '';
+    for (const seg of inlineSegments(raw)) {
+        if (seg.classes === '') {
+            cell.appendChild(document.createTextNode(seg.text));
+        } else {
+            const span = document.createElement('span');
+            span.className = seg.classes;
+            span.textContent = seg.text;
+            cell.appendChild(span);
         }
     }
 }

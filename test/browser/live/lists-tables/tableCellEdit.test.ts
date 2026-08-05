@@ -157,6 +157,48 @@ describe('Live モード: 表のセル内編集（実ブラウザ）', function 
         assert.strictEqual(await h.doc(), TABLE, '表のソースが変わってしまった');
     });
 
+    it('セルの中のインライン記法は装飾されて表示される（記法文字は出ない）', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, '| **太字** | `code` |\n| --- | --- |\n| a | b |\n');
+        const info = await h.page.evaluate<{ text: string; strong: number; code: number }>(`(() => {
+            const th = document.querySelectorAll('.cm-live-table th');
+            return {
+                text: th[0].textContent,
+                strong: document.querySelectorAll('.cm-live-table .cm-live-strong').length,
+                code: document.querySelectorAll('.cm-live-table .cm-live-code').length
+            };
+        })()`);
+        assert.strictEqual(info.text, '太字', '記法文字がセルに出ている');
+        assert.strictEqual(info.strong, 1);
+        assert.strictEqual(info.code, 1);
+    });
+
+    it('セルにフォーカスすると生の Markdown に戻り、外すと再び装飾される', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, '| **太字** | b |\n| --- | --- |\n| a | b |\n');
+        await focusCell(h, 0);
+        assert.strictEqual(
+            await h.page.evaluate<string>(`document.querySelectorAll('.cm-live-table th')[0].textContent`),
+            '**太字**',
+            'フォーカスしても生テキストに戻っていない'
+        );
+        await focusCell(h, 1);
+        assert.strictEqual(
+            await h.page.evaluate<string>(`document.querySelectorAll('.cm-live-table th')[0].textContent`),
+            '太字',
+            'フォーカスを外しても装飾に戻っていない'
+        );
+    });
+
+    it('装飾されたセルを編集してもソースの記法が壊れない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, '| **太字** | b |\n| --- | --- |\n| a | b |\n');
+        await focusCell(h, 0);
+        await h.page.keyboard.type('X');
+        await h.page.waitForTimeout(200);
+        assert.strictEqual(await h.doc(), '| **太字**X | b |\n| --- | --- |\n| a | b |\n');
+    });
+
     it('セル編集は差分として host へ送られる（全体置換しない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);

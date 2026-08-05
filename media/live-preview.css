@@ -33,23 +33,19 @@
     --live-selection: #b6dcfe;
 
     /*
-     * 既存 Preview と同じく **VS Code のエディタフォント**を本文に使う。
-     * 日本語はフォールバックで Hiragino / Noto へ落ちる。サンセリフの
-     * システムフォントより「エディタらしい」見た目になる（ユーザー指示 2026-08-05）。
+     * 本文は**プロポーショナルのサンセリフ**。等幅にすると日本語が間延びして
+     * 読みにくい（2026-08-05 にユーザーが参照画像で指定）。等幅はコード・数式だけ。
+     *
+     * 注意: 総称ファミリ（sans-serif / monospace）はリストの**最後**にしか置けない。
+     * 途中に混ぜると宣言ごと無効になる（実際に踏んだ）。
      */
+    --live-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans',
+        'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', Meiryo, sans-serif;
     --live-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
         'Liberation Mono', monospace;
-    /*
-     * 総称ファミリ（monospace 等）はリストの**最後**にしか置けない。途中に混ぜると
-     * 宣言ごと無効になり sans-serif へ落ちる（2026-08-05 に実際に踏んだ）。
-     * そのため --live-mono をそのまま埋め込まず、個別に並べている。
-     */
-    --live-font: var(--vscode-editor-font-family, 'SF Mono'), ui-monospace, SFMono-Regular,
-        Menlo, Consolas, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
-        Meiryo, monospace;
 
-    /* 読み幅。Obsidian の readable line length 相当 */
-    --live-measure: 720px;
+    /* 読み幅。既存 Preview と同じ 800px（表が折り返さない幅） */
+    --live-measure: 800px;
     /* ブロック要素の上下の間隔。ここを起点に余白のリズムを揃える */
     --live-block-gap: 0.8em;
     /* リストのネスト1段ぶんの追加インデント */
@@ -87,8 +83,14 @@ body {
     line-height: 1.6;
 }
 
-/* 読み幅を中央に置き、上下にゆとりを持たせる */
-.cm-content {
+/*
+ * 読み幅を中央に置き、上下にゆとりを持たせる。
+ *
+ * `.cm-content` は CodeMirror の基底テーマも `margin: 0` を当てているため、
+ * `.cm-editor` を前置してセレクタの特異度を上げないと中央寄せが効かない
+ * （2026-08-05 に実際に踏んだ）。
+ */
+.cm-editor .cm-content {
     font-family: var(--live-font);
     font-size: 15px;
     line-height: 1.6;
@@ -412,6 +414,13 @@ body {
     padding: var(--live-block-gap) 0;
 }
 .cm-live-table {
+    /*
+     * CodeMirror は `.cm-content` に word-break: break-word を当てるため、
+     * そのままだと表のセル内で "0.340" のような語の途中で折り返してしまう。
+     * 表の中だけ通常の改行規則に戻す。
+     */
+    word-break: normal;
+    overflow-wrap: normal;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 0.95em;
