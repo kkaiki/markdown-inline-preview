@@ -97,31 +97,53 @@ async function closeOppositeTabs(uri: vscode.Uri, mode: LiveMode): Promise<void>
 }
 
 /**
- * `workbench.editorAssociations` を現在のモードへ合わせる。
+ * `.md` の既定エディタ（`workbench.editorAssociations`）から、この拡張が書いた値を取り除く。
  *
- * customEditor の priority だけでは、同じパターンを主張する他拡張と競合したときに
- * 解決先が一意にならない。ユーザー設定であるこちらを書くことで、開く前から
- * 解決先を1つに確定させる。
+ * この設定は**グローバルな glob 指定**なので「ファイルごとに Live / Raw を覚える」という
+ * 要件と根本的に噛み合わない。Live に固定すると Raw と覚えたファイルまで Live で開こうとし、
+ * さらに入口（CLI / エクスプローラ）によって適用され方が変わって挙動が割れる
+ * （ユーザー報告 2026-08-05:「cli から開いたものは raw、左サイドバーから開いたものは live」）。
+ *
+ * そのため関連付けは**使わない**。素のテキストエディタで開かれたあと、拡張が
+ * ファイルごとの記憶を見て Live へ切り替える（applyRememberedMode）。
+ * ユーザーが自分で他拡張のビューアへ向けている設定は残す。
  */
-async function applyDefaultEditorAssociation(): Promise<void> {
-    const config = vscode.workspace.getConfiguration('markdownInline');
-    const controlled = config.get<boolean>('live.controlDefaultEditor', true);
-    /*
-     * `workbench.editorAssociations` はグローバル設定なのでファイル単位にはできない。
-     * ここでは**既定モード**に合わせ、記憶が既定と違うファイルは開いた直後に
-     * 反対のモードへ開き直す（resolveCustomTextEditor の跳ね返し）。
-     */
-    const desired = controlled
-        ? (config.get<string>('live.defaultMode', 'live') === 'raw' ? 'raw' : 'live')
-        : null;
+async function clearManagedEditorAssociation(): Promise<void> {
     const workbench = vscode.workspace.getConfiguration('workbench');
     const current = workbench.get<Record<string, string>>('editorAssociations');
-    const next = computeEditorAssociations(current, desired);
+    const next = computeEditorAssociations(current, null);
     if (editorAssociationsEqual(current, next)) return;
     try {
         await workbench.update('editorAssociations', next, vscode.ConfigurationTarget.Global);
     } catch {
-        // 設定を書けない環境（制限モード等）では黙って諦める
+        // 設定を書けない環境では黙って諦める
+    }
+}
+
+/** 今 Live へ切り替え中の URI（再入して無限ループになるのを防ぐ）。 */
+const switching = new Set<string>();
+
+/**
+ * 素のテキストエディタで開かれた Markdown を、記憶しているモードへ合わせる。
+ *
+ * 入口（CLI / エクスプローラ / クイックオープン）によらず**同じ経路**を通るので、
+ * 「cli は raw、サイドバーは live」のような割れ方をしない。
+ */
+async function applyRememberedMode(
+    context: vscode.ExtensionContext,
+    document: vscode.TextDocument
+): Promise<void> {
+    if (document.languageId !== 'markdown') return;
+    if (document.uri.scheme !== 'file') return;
+    const key = document.uri.toString();
+    if (switching.has(key)) return;
+    if (openModeFor(context, document.uri) !== 'live') return;
+
+    switching.add(key);
+    try {
+        await vscode.commands.executeCommand('vscode.openWith', document.uri, LIVE_VIEW_TYPE);
+    } finally {
+        setTimeout(() => switching.delete(key), 1000);
     }
 }
 
@@ -189,11 +211,7 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
         const echo = createEchoGuard();
         const extensionPath = this.extensionUri.fsPath;
 
-        if (openModeFor(this.context, document.uri) === 'raw') {
-            // このファイルは Raw で使うと覚えているので、素のエディタへ開き直す
-            void vscode.commands.executeCommand('vscode.openWith', document.uri, 'default');
-            return;
-        }
+        // Live で開かれた＝このファイルは Live で使う、と覚える
         void rememberMode(this.context, document.uri, 'live');
         void closeOppositeTabs(document.uri, 'live');
         panel.webview.options = {
@@ -323,8 +341,21 @@ async function activeMarkdownDocument(): Promise<vscode.TextDocument | undefined
 }
 
 export function activateLiveFeature(context: vscode.ExtensionContext): void {
-    // 起動時に、記憶しているモード（初回は Live）へ既定エディタを合わせる
-    void applyDefaultEditorAssociation();
+    // 関連付けはファイル単位の記憶と噛み合わないので使わない（書いた値は掃除する）
+    void clearManagedEditorAssociation();
+
+    /*
+     * 素のテキストエディタで Markdown が開かれたら、記憶しているモードへ合わせる。
+     * 入口（CLI / エクスプローラ / クイックオープン）によらずここを通るので挙動が揃う。
+     */
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (editor) void applyRememberedMode(context, editor.document);
+        })
+    );
+    if (vscode.window.activeTextEditor) {
+        void applyRememberedMode(context, vscode.window.activeTextEditor.document);
+    }
 
     /*
      * モードの記憶は**明示的にモードを選んだときだけ**行う。

@@ -5,7 +5,7 @@
  * 差し替えるだけ」で済む。対応表（どの数字がどのブロックか）は Raw / Preview と
  * 共通の `NOTION_BLOCK_KEYMAP` を使う。
  */
-import type { NotionBlockAction } from '../../shared/preview/previewShortcuts';
+import type { NotionBlockAction } from '../../shared/notionBlockKeymap';
 
 export interface BlockActionResult {
     /** 置き換え後の行テキスト。 */

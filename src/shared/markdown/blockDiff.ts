@@ -3,7 +3,7 @@
  * 比較し、現在の各ブロックの状態（追加 / 変更 / 変化なし）と、削除がどの位置で
  * 起きたか（その位置の直前に削除ブロックがいくつあったか）を返す。
  *
- * Preview（Milkdown）はブロック単位なので、行ではなくブロックで差分する。
+ * Live モードは行単位（lineDiff.ts が行の配列を渡す）。アルゴリズムは LCS。
  */
 
 export type BlockDiffStatus = 'added' | 'modified' | 'unchanged';

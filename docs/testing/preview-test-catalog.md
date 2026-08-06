@@ -2,21 +2,21 @@
 
 <!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->
 
-最終生成: 2026-08-05
+最終生成: 2026-08-06
 
 テストのタイトルは「この操作をしたら、こう動く」という仕様文として書かれている。
 このカタログは全テストファイルからタイトルを抽出したもので、拡張機能が保証する
 ユースケースの一覧（生きた仕様書）として読める。
 
-**総テスト数: 1000 件**
+**総テスト数: 968 件**
 
-## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 88 件
+## 1. 実 VS Code 拡張ホスト（`@vscode/test-electron`） — 91 件
 
 実行: `npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js`
 
 実際の VS Code を **1 回だけ起動し、その同じインスタンス内で** raw/live 両方・全カテゴリのテストを連続実行する。コマンド・タブ・フォーカス・設定連携を検証する、最も実践に近い層。`raw/`＝Raw、`live/`＝Live、それぞれ配下を `lists-tables`/`navigation`/`tabs-editors` 等の症状カテゴリで分類。`MOCHA_GREP` で絞り込み可。
 
-### `test/extension/live/tabs-editors.test.ts`（4 件）
+### `test/extension/live/tabs-editors.test.ts`（7 件）
 
 > 実 VS Code でのモード記憶とタブ制御。
 >
@@ -29,9 +29,12 @@
 > であることまで確認する。ここは実 VS Code でしか検証できない層。
 
 - **Live モード: モード記憶とタブ制御（実 VS Code）**
+  - 素のテキストエディタで開いても、既定（Live）へ切り替わる
+  - Raw と覚えたファイルは、素のエディタで開いても Live へ変えない
   - openLive で Live のカスタムエディタが開く
   - 同じファイルの Raw タブと Live タブが同時に開かない
-  - toggleLive で Raw にすると、次に開いても Raw のまま
+  - toggleLive で Raw に切り替わる
+  - 明示的に Live を指定したときは記憶より優先される（逃げ道）
   - Raw にしたのは そのファイルだけで、他のファイルは Live のまま
 
 ### `test/extension/raw/editing-core.test.ts`（5 件）
@@ -577,7 +580,7 @@
   - 1万行でもカーソル移動が 60ms 以内に終わる（毎回フルスキャンしていない）
   - 1万行でも1文字の入力が 80ms 以内に終わる
 
-## 3. ユニット・純関数（jsdom）— live/ raw/ shared/ に分類 — 766 件
+## 3. ユニット・純関数（jsdom）— live/ raw/ shared/ に分類 — 731 件
 
 実行: `npm run test:unit`
 
@@ -1458,50 +1461,6 @@
   - ignores a single unpaired asterisk used as multiplication
   - does not double-count the outer ** as italic when bold already matched
   - returns matches sorted by position
-
-### `test/suite/shared/lineBreaks.test.ts`（35 件）
-
-- **collapseBlankLineChains（空 paragraph の連鎖 → 空行の本数）**
-  - 空 paragraph 1 個は空行 1 行に戻る
-  - 空 paragraph 2 個は空行 2 行に戻る
-  - 空 paragraph が無ければそのまま（変換対象にしない）
-- **stripPlaceholderLineBreaks**
-  - turns a standalone <br /> line into an empty line
-  - handles <br>, <br/>, <br /> variants
-  - empties placeholder cells in a table row
-  - keeps intentional inline <br /> inside text
-  - keeps inline <br /> inside a non-empty cell
-  - leaves normal markdown untouched
-- **convertTableCellBreaksToEntities**
-  - converts <br> inside a table row to &#10;
-  - handles <br>, <br/>, <br /> variants in cells
-  - leaves <br> in normal paragraphs untouched
-  - does not touch table-like lines inside fenced code
-- **tightenListSpacing**
-  - removes blank lines between checkbox items
-  - removes blank lines between bullets and numbered items
-  - keeps blank lines around non-list paragraphs
-  - tightens nested items too
-  - does not touch blank lines inside a fenced code block
-  - leaves an already-tight list unchanged
-  - tightens around empty marker-only items
-  - does not collapse around a thematic break (***)
-  - does not treat emphasis as a list item
-- **tightenParagraphSpacing**
-  - collapses a blank line between two plain paragraphs
-  - collapses multiple blank lines between paragraphs
-  - keeps the blank line next to a heading
-  - keeps the blank line next to a list
-  - keeps the blank line next to a table
-  - does not touch blank lines inside a fenced code block
-  - keeps blank line next to a blockquote
-- **normalizePreviewMarkdown（段落間の空行を保持する）**
-  - 段落どうしの空行を保持する（詰めない）
-  - 複数の空行も保持する
-  - 単一改行（ソフトブレイク）はそのまま
-  - リストの余分な空行は引き続き詰める（tight リスト）
-  - テーブルセル内の <br> は &#10; に変換する
-  - <br /> プレースホルダは除去する
 
 ### `test/suite/shared/listCoverage.test.ts`（70 件）
 

@@ -50,6 +50,35 @@ suite('Live モード: モード記憶とタブ制御（実 VS Code）', () => {
         await wait(200);
     });
 
+    test('素のテキストエディタで開いても、既定（Live）へ切り替わる', async () => {
+        const uri = makeFile('live0.md', '# Z\n');
+        // CLI やクイックオープンと同じ経路（vscode.open = 既定のエディタ）
+        await vscode.commands.executeCommand('vscode.open', uri);
+        await wait(2000);
+        const tabs = openTabs().filter((t) => t.uri === uri.toString());
+        assert.ok(
+            tabs.some((t) => t.viewType === LIVE_VIEW_TYPE),
+            `既定の Live へ切り替わっていない: ${JSON.stringify(openTabs())}`
+        );
+    });
+
+    test('Raw と覚えたファイルは、素のエディタで開いても Live へ変えない', async () => {
+        const uri = makeFile('live5.md', '# Y\n');
+        await vscode.commands.executeCommand('markdownInline.openLive', uri);
+        await wait(1200);
+        await vscode.commands.executeCommand('markdownInline.toggleLive', uri);
+        await wait(1500);
+        await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+        await wait(400);
+        await vscode.commands.executeCommand('vscode.open', uri);
+        await wait(2000);
+        const tabs = openTabs().filter((t) => t.uri === uri.toString());
+        assert.ok(
+            tabs.every((t) => t.viewType !== LIVE_VIEW_TYPE),
+            `Raw の記憶を無視して Live になっている: ${JSON.stringify(tabs)}`
+        );
+    });
+
     test('openLive で Live のカスタムエディタが開く', async () => {
         const uri = makeFile('live1.md', '# A\n');
         await vscode.commands.executeCommand('markdownInline.openLive', uri);
@@ -72,28 +101,37 @@ suite('Live モード: モード記憶とタブ制御（実 VS Code）', () => {
         assert.strictEqual(tabs[0].viewType, LIVE_VIEW_TYPE);
     });
 
-    test('toggleLive で Raw にすると、次に開いても Raw のまま', async () => {
+    test('toggleLive で Raw に切り替わる', async () => {
         const uri = makeFile('live3.md', '# C\n');
         await vscode.commands.executeCommand('markdownInline.openLive', uri);
         await wait(1200);
-        // Live → Raw へ明示的に切り替える
         await vscode.commands.executeCommand('markdownInline.toggleLive', uri);
-        await wait(1200);
-        let tabs = openTabs().filter((t) => t.uri === uri.toString());
+        await wait(1500);
+        const tabs = openTabs().filter((t) => t.uri === uri.toString());
         assert.ok(
             tabs.every((t) => t.viewType !== LIVE_VIEW_TYPE),
             `Raw に切り替わっていない: ${JSON.stringify(tabs)}`
         );
+    });
 
-        // 閉じて開き直しても Raw のまま（ファイル単位の記憶）
+    test('明示的に Live を指定したときは記憶より優先される（逃げ道）', async () => {
+        // 通常の open は記憶に従う（別テストで担保）。
+        // 一方 `openWith(Live)` は「今 Live で見たい」という明示指定なので、
+        // Raw と覚えていても Live で開き、以降は Live として覚え直す。
+        const uri = makeFile('live6.md', '# F\n');
+        await vscode.commands.executeCommand('markdownInline.openLive', uri);
+        await wait(1000);
+        await vscode.commands.executeCommand('markdownInline.toggleLive', uri);
+        await wait(1200);
         await vscode.commands.executeCommand('workbench.action.closeAllEditors');
         await wait(400);
+
         await vscode.commands.executeCommand('vscode.openWith', uri, LIVE_VIEW_TYPE);
         await wait(1500);
-        tabs = openTabs().filter((t) => t.uri === uri.toString());
+        const tabs = openTabs().filter((t) => t.uri === uri.toString());
         assert.ok(
-            tabs.every((t) => t.viewType !== LIVE_VIEW_TYPE),
-            `Raw の記憶が効いていない: ${JSON.stringify(tabs)}`
+            tabs.some((t) => t.viewType === LIVE_VIEW_TYPE),
+            `明示指定が効いていない: ${JSON.stringify(tabs)}`
         );
     });
 

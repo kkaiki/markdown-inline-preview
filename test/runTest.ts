@@ -14,6 +14,12 @@ async function main() {
 
         // Download VS Code, unzip it and run the integration test
         await runTests({
+            /*
+             * VS Code 1.132 以降は macOS の実行ファイル名が `Electron` → `Code` に変わり、
+             * @vscode/test-electron 2.5.2 は起動できない（spawn ENOENT / SIGKILL）。
+             * ランナーを上げるまでは、起動できる版を明示する。
+             */
+            version: process.env.VSCODE_TEST_VERSION ?? '1.96.0',
             extensionDevelopmentPath,
             extensionTestsPath,
             launchArgs: ['--disable-extensions'], // 他の拡張機能を無効化

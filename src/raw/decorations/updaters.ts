@@ -55,7 +55,7 @@ export function updateAllDecorations(editor: vscode.TextEditor): void {
             getRawDecorationDeps().getTableWrapMaxWidth()
         );
     }
-    // 記法マーカー（##, ** 等）の隠蔽は Preview（Milkdown）モードのみ。Raw では常にソースをそのまま表示する。
+    // 記法マーカー（##, ** 等）の隠蔽は Live モードの仕事。Raw では常にソースをそのまま表示する。
     clearInlineEmphasisDecorations(editor);
 }
 
