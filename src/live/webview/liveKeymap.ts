@@ -19,7 +19,7 @@ import {
 } from '../shared/liveEditing';
 import { applyBlockAction } from '../shared/blockActions';
 import { nextSelectAllRange } from '../shared/selectAllScope';
-import { getNotionBlockAction, type NotionBlockAction } from '../../shared/preview/previewShortcuts';
+import { getNotionBlockAction, type NotionBlockAction } from '../../shared/notionBlockKeymap';
 
 /** Enter: リスト・チェックボックス・引用の継続と、空マーカー行のマーカー削除。 */
 function liveEnter(view: EditorView): boolean {

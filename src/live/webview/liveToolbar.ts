@@ -5,7 +5,7 @@
  * 3モードで操作を揃える。モード切替は host へメッセージを投げて `vscode.openWith` させる。
  */
 import type { EditorView } from '@codemirror/view';
-import type { NotionBlockAction } from '../../shared/preview/previewShortcuts';
+import type { NotionBlockAction } from '../../shared/notionBlockKeymap';
 
 /** ツールバーのボタン定義。 */
 interface ToolbarButton {
