@@ -6,7 +6,7 @@
 新テスト追加チェックリスト）は [docs/testing/testing-rules.md](../docs/testing/testing-rules.md) が正。
 
 全テストのタイトル一覧（ユースケースカタログ）は
-[docs/testing/preview-test-catalog.md](../docs/testing/preview-test-catalog.md)
+[docs/testing/test-catalog.md](../docs/testing/test-catalog.md)
 （`npm run docs:test-catalog` で自動生成）、仕様との対応は
 [docs/testing/spec-test-coverage.md](../docs/testing/spec-test-coverage.md) を参照。
 
@@ -15,31 +15,29 @@
 
 ## 構成（レイヤー × 症状カテゴリで分類）
 
-置き場所は2つの質問で決まる: **(1) どの実行環境が必要か**（レイヤー = 下記4層。実行コマンド・速度が違うので混ぜられない）、
+置き場所は2つの質問で決まる: **(1) どの実行環境が必要か**（レイヤー = 下記3層。実行コマンド・速度が違うので混ぜられない）、
 **(2) どの症状/機能を守っているか**（カテゴリ = `cursor-focus` / `focus-expand` / `shortcuts` / `editing-core` /
 `lists-tables` / `external-sync` / `rendering` / `ime` / `navigation` / `tabs-editors` / `settings` / `usage-flows`）。
 カテゴリの語彙は全レイヤーで共通だが、中身が無いカテゴリはそのレイヤーに作らない
-（例: `browser/navigation/` は Raw 固有カテゴリなので存在しない）。
+（例: `browser/live/navigation/` は Raw 固有カテゴリなので存在しない）。
 
 ```
 test/
-├── extension/                    # 実 VS Code（@vscode/test-electron）。raw/preview を分割
-│   ├── raw/                      #   lists-tables / navigation / editing-core / shortcuts / settings / external-sync
-│   ├── preview/                  #   tabs-editors / settings / external-sync
+├── extension/                    # 実 VS Code（@vscode/test-electron）。raw/live を分割
+│   ├── raw/                      #   editing-core / external-sync / lists-tables / navigation / settings / shortcuts
+│   ├── live/                     #   tabs-editors
 │   └── helpers.ts                #   共通ヘルパー
-├── browser/                      # 実 Chromium（Playwright）— すべて Preview
-│   ├── previewBrowserHarness.ts  #   共通ハーネス
-│   ├── cursor-focus/ focus-expand/ shortcuts/ editing-core/
-│   ├── lists-tables/ external-sync/ rendering/ ime/ usage-flows/
-├── webview/                      # jsdom + Milkdown 実エディタ — すべて Preview
-│   ├── jsdomSetup.ts / milkdownHarness.ts  # 共通ハーネス
-│   ├── cursor-focus/ focus-expand/ shortcuts/ editing-core/
-│   ├── lists-tables/ external-sync/ rendering/
-└── suite/                        # jsdom 純関数ユニットテスト
-    ├── preview/                  #   cursor-focus / shortcuts / tabs-editors / external-sync / rendering
-    ├── raw/                      #   navigation / lists-tables / rendering
-    ├── shared/                   #   両モード共通ロジック（カテゴリ分割しない）
-    └── index.ts                  #   実 VS Code テストの Mocha エントリ（テストではない）
+├── browser/                      # 実 Chromium（Playwright）— すべて Live
+│   ├── liveBrowserHarness.ts     #   共通ハーネス
+│   └── live/                     #   editing-core / external-sync / focus-expand / ime /
+│                                 #   lists-tables / rendering / shortcuts / usage-flows
+├── suite/                        # jsdom 純関数ユニットテスト
+│   ├── live/                     #   editing-core / external-sync / focus-expand /
+│   │                             #   lists-tables / rendering / shortcuts / tabs-editors
+│   ├── raw/                      #   lists-tables / navigation / rendering
+│   ├── shared/                   #   両モード共通ロジック（カテゴリ分割しない）
+│   └── index.ts                  #   実 VS Code テストの Mocha エントリ（テストではない）
+└── runTest.ts                    # 実 VS Code のランナー
 ```
 
 カテゴリの判定基準（このテストが失敗したときユーザーが体感する症状）:
@@ -47,11 +45,11 @@ test/
 | カテゴリ | 症状 |
 | --- | --- |
 | `cursor-focus` | カーソル・DOM フォーカスが意図しない場所へ移動する／選択が壊れる |
-| `focus-expand` | Typora 風のプレフィックス展開/収縮（`## `, `- `, `> `）が壊れる |
+| `focus-expand` | カーソル位置に応じた記法の展開/収縮（`## `, `**`, `- `）が壊れる |
 | `shortcuts` | キーボードショートカット・スラッシュメニュー・ツールバーが効かない |
 | `editing-core` | Enter・Backspace・分割/結合・Undo/Redo・インライン書式・直列化が壊れる |
 | `lists-tables` | リスト・チェックボックス・テーブル固有の操作が壊れる |
-| `external-sync` | 外部（Raw/AI/Git）との内容同期が壊れる（反映されない・diff 誤判定・スクロール同期） |
+| `external-sync` | 外部（Raw/AI/Git）との内容同期が壊れる（反映されない・diff 誤判定） |
 | `rendering` | 表示だけの問題（数式・Mermaid・画像・ハイライト・行番号・frontmatter・i18n） |
 | `ime` | 日本語 IME（composition）が絡むと壊れる |
 | `navigation`（Raw のみ） | カーソル移動・スマート選択・行移動が壊れる |
@@ -65,14 +63,14 @@ test/
 npm install
 npm run compile          # out/ + out-test/ を生成
 
-# ユニットテスト（suite/ + webview/。高速・CI 向け）
+# ユニットテスト（suite/。高速・CI 向け）
 npm run test:unit
 
 # 実 Chromium テスト（browser/）
 npm run test:browser
 
 # 実 VS Code 統合テスト（extension/）
-# VS Code を 1 回だけ起動し、その同じインスタンス内で raw/preview の全テストを連続実行する
+# VS Code を 1 回だけ起動し、その同じインスタンス内で raw/live の全テストを連続実行する
 npm test
 # または（compile 済みなら）
 npx tsc -p tsconfig.test.json && node ./out-test/test/runTest.js

@@ -6,7 +6,7 @@
  * レイヤー配下に cursor-focus / shortcuts / lists-tables 等の症状カテゴリで分類されている。
  * 詳細は docs/testing/test-directory-design.md）から describe/suite/it/test の
  * タイトルとファイル冒頭のドキュメントコメントを抽出し、
- * docs/testing/preview-test-catalog.md に「ユースケース一覧」として書き出す。
+ * docs/testing/test-catalog.md に「ユースケース一覧」として書き出す。
  *
  * テストのタイトル＝「この操作をしたらこう動く」という仕様文になっているため、
  * このカタログがそのまま実利用ユースケースの一覧になる。
@@ -19,7 +19,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'docs', 'testing', 'preview-test-catalog.md');
+const OUT = path.join(ROOT, 'docs', 'testing', 'test-catalog.md');
 
 /** カタログのセクション定義（表示順）。 */
 const SECTIONS = [
@@ -111,7 +111,7 @@ function renderFile(file) {
 
 function main() {
     const out = [];
-    out.push('# Preview テストカタログ（ユースケース一覧）');
+    out.push('# テストカタログ（ユースケース一覧）');
     out.push('');
     out.push('<!-- このファイルは自動生成。手で編集しない。`npm run docs:test-catalog` で再生成する。 -->');
     out.push('');

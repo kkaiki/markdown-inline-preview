@@ -4,14 +4,19 @@
 
 Markdown Inline Preview（`ipreview`）は、同じ `.md` ファイルを **2 モード** で編集する拡張機能です。
 
-| | **Raw** | **Preview** |
-|---|---------|-------------|
-| 別名 | インライン / ソースモード | WYSIWYG モード |
-| エンジン | VS Code テキストエディタ + 装飾 | Milkdown WebView |
-| 見た目 | Markdown ソース（`##`, `**`, `\|`） | レンダリング結果を直接編集 |
+| | **Raw** | **Live** |
+|---|---------|----------|
+| 別名 | インライン / ソースモード | ライブプレビュー（Obsidian 風） |
+| エンジン | VS Code テキストエディタ + 装飾 | CodeMirror 6 の WebView |
+| 見た目 | Markdown ソース（`##`, `**`, `\|`） | **カーソルのある所だけ記法が開き**、他は見た目どおり |
 | 向いている作業 | 記法の精密編集、Git diff、一括置換 | 読みやすさ重視の執筆・推敲 |
 
-タイトルバーのボタン、または **`Cmd+Shift+.`** / **`Ctrl+Shift+.`** で切り替えます。
+どちらのモードも**編集しているのは生の Markdown そのもの**です。
+Live モードは Markdown を別のモデルへ変換しないため、記法の展開・収縮で
+ファイルの中身が動くことがありません。
+
+タブの右クリックメニューまたはコマンドパレットの
+**`Markdown Inline Preview: Live / Raw を切り替え`** で切り替えます。
 
 **English:** [README.md](./README.md)
 
@@ -21,7 +26,7 @@ Markdown Inline Preview（`ipreview`）は、同じ `.md` ファイルを **2 �
 
 ```bash
 # VSIX から（npm run package 後）
-code --install-extension ipreview-1.8.5.vsix
+code --install-extension ipreview-3.1.1.vsix
 
 # ソースからビルド
 git clone https://github.com/kkaiki/markdown-inline-preview.git
@@ -41,7 +46,7 @@ Markdown ソースをそのまま表示しつつ、編集支援と装飾を重�
 
 ### リスト・チェックボックス
 
-- **スマート Enter** — リスト継続。空行で終了
+- **スマート Enter** — リスト継続。空項目で終了
 - **リスト種別の変換** — `Alt+Cmd+4/5/6/0`（Mac）/ `Alt+Ctrl+4/5/6/0`（Win/Linux）
 - **チェックボックストグル** — クリックまたは `Cmd+Enter` / `Ctrl+Enter`
 - **インデント** — `Tab` / `Shift+Tab`
@@ -50,8 +55,8 @@ Markdown ソースをそのまま表示しつつ、編集支援と装飾を重�
 
 ### テーブル
 
-- **自動整形** — 列幅を揃える（日本語幅計算対応）
-- **セルナビ** — `Cmd+←/→`、`Tab`、矢印キー
+- **整形** — 列幅を揃える（日本語幅計算対応）
+- **セルナビ** — `Cmd+←/→`、矢印キー
 - **段階的全選択** — 行 → 全文。表内は セル → 行 → 表 → 全文（`Cmd+A`）
 - **折り返しプレビュー** — 行末 `↳` + ホバーで全体表示
 
@@ -60,64 +65,64 @@ Markdown ソースをそのまま表示しつつ、編集支援と装飾を重�
 - **見出しカラー** — H1–H6（`default` / `monochrome` / `vibrant`）
 - **コードブロック** — 背景 + 簡易シンタックス色
 - **水平線** — 区切り線スタイル
-- **画像** — 非編集行に 48px サムネイル + ホバープレビュー
+- **画像** — 非編集行にサムネイル + ホバープレビュー（既定オフ）
 
-### 目次・スラッシュコマンド
+### スラッシュコマンド・スマート編集
 
-- **`/toc`** / **`/目次`** — 目次の挿入・自動更新
-- **スラッシュメニュー** — `/table`, `/h1`–`/h6`, `/code`, `/quote`, `/callout`, `/bullet`, `/numbered`, `/todo` 等
-
-### スマート編集
-
+- **スラッシュメニュー** — `/table`, `/h1`–`/h6`, `/code`, `/quote`, `/callout`, `/divider`,
+  `/bullet`, `/numbered`, `/todo`
 - **スマートカーソル**（リスト・テーブル内）
 - **段階的選択**（`Shift+Cmd+←`）
 - **コードフェンス自動補完**（` ``` ` 入力時）
 
 ---
 
-## Preview モード（WYSIWYG）
+## Live モード（Obsidian 風ライブ編集）
 
-Milkdown ベースのカスタムエディタで開きます。編集は約 200ms でファイルに反映され、Raw 側の外部変更も約 100ms で同期されます。
+CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown を直接編集し、
+**カーソルが乗っている記法だけ**をソース表示に開きます。
 
 ### 編集・レンダリング
 
 - **CommonMark + GFM** — 見出し、表、タスクリスト、取り消し線、リンク
-- **WYSIWYG 直接編集** — 表示内容がそのまま Markdown として保存
-- **フォーカス時記法表示** — **フォーカス中のブロックだけ** `##`・`**`・`[text](url)` 等を表示（Obsidian 風）
-- **見出し Backspace** — 見出し先頭で `# タイトル` → 通常行 `#タイトル` → `#` を1文字ずつ削除可能
-- **スラッシュメニュー** — Raw と同じコマンド（`preview.enableSlashMenu`）
+- **記法の展開/収縮** — カーソルのあるトークン / 行 / ブロックだけ記法が見える
+- **表の直接編集** — 畳んだ表示のままセルの中を編集
+- **コードフェンス** — 言語ラベル付きのブロック表示。フェンス行にカーソルを置けば編集可
+- **スラッシュメニュー** — Raw と同じコマンド（`live.enableSlashMenu`）
 - **チェックボックス** — クリックでトグル → ファイルに `- [x]` として保存
 
 ### リッチコンテンツ
 
-- **シンタックスハイライト** — highlight.js（主要言語）
-- **KaTeX** — `$...$` / `$$...$$`（`preview.enableMath`）
-- **Mermaid** — ` ```mermaid ` ブロック（`preview.enableMermaid`）
+- **KaTeX** — `$...$` / `$$...$$`
+- **Mermaid** — ` ```mermaid ` ブロックのプレビュー
 - **画像** — ワークスペース相対パス `![alt](./path)` を本文に表示
-- **Frontmatter パネル** — YAML を本文上に表示（`preview.showFrontmatter`）
+- **Frontmatter** — YAML ブロックの表示
+- **コールアウト・水平線**などのブロックウィジェット
 
 ### UI・ナビゲーション
 
-- **テーマ** — VS Code 追従または light/dark 固定（`preview.theme`）
-- **タイポグラフィ** — `preview.fontSize`（既定 **12**）、`fontFamily`、`maxWidth`
-- **リンク** — ワークスペース内ファイルを開く / 外部 URL はブラウザ
-- **スクロール同期** — Raw に戻るとき見出しアンカーで位置復元（`preview.syncScroll`）
-- **モード記憶** — 最後のモードを全 Markdown ファイル横断で記憶。Preview にすると新規ファイルも Preview で開く（`preview.rememberMode`）
-
-> v1.8.3 でフローティングツールバー（B / I / H1 等）は削除しました。書式は **`/`** スラッシュメニューを使います。
+- **上部ツールバー** — H1/H2/H3・☑・箇条書き・番号・引用・太字・斜体・コード・PDF・Raw 切替
+- **行番号ガター**（`live.showLineNumbers`）
+- **Git 差分ガター** — HEAD との差分（追加=緑 / 変更=青 / 削除=赤三角、`live.showDiffGutter`）
+- **モード記憶** — ファイルごとに最後のモードを覚えて次回もそのモードで開く（`live.rememberMode`）
+- **PDF 書き出し** — `Markdown Inline Preview: Export to PDF`
 
 ---
 
 ## キーボードショートカット
 
-| 操作 | Mac | Windows/Linux |
-|------|-----|---------------|
-| **Raw ↔ Preview** | `Cmd+Shift+.` | `Ctrl+Shift+.` |
-| チェックボックストグル | `Cmd+Enter` | `Ctrl+Enter` |
-| リストインデント | `Tab` / `Shift+Tab` | 同左 |
-| 箇条書き / 番号 / チェック / 通常テキストへ変換 | `Alt+Cmd+5/6/4/0` | `Alt+Ctrl+5/6/4/0` |
-| テーブル・リスト内スマート移動 | `Cmd+←/→` | `Home` / `End` |
-| 段階的全選択 | `Cmd+A` | `Ctrl+A` |
+| 操作 | Mac | Windows/Linux | Raw | Live |
+|------|-----|---------------|:---:|:---:|
+| チェックボックストグル | `Cmd+Enter` | `Ctrl+Enter` | ✅ | — |
+| リストインデント | `Tab` / `Shift+Tab` | 同左 | ✅ | ✅ |
+| 箇条書き / 番号 / チェック / 通常テキストへ変換 | `Alt+Cmd+5/6/4/0` | `Alt+Ctrl+5/6/4/0` | ✅ | ✅ |
+| 見出し 1/2/3 へ変換 | `Alt+Cmd+1/2/3` | `Alt+Ctrl+1/2/3` | ✅ | ✅ |
+| コードブロック / 引用へ変換 | `Alt+Cmd+8/9` | `Alt+Ctrl+8/9` | — | ✅ |
+| 太字 / 斜体 | `Cmd+B` / `Cmd+I` | `Ctrl+B` / `Ctrl+I` | — | ✅ |
+| テーブル・リスト内スマート移動 | `Cmd+←/→` | `Home` / `End` | ✅ | ✅（`Home`） |
+| 段階的全選択 | `Cmd+A` | `Ctrl+A` | ✅ | ✅ |
+
+モード切替には現在キーバインドが割り当てられていません（コマンドパレット／タブの右クリック）。
 
 詳細: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md)
 
@@ -131,25 +136,23 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 |------|--------|------|
 | `markdownInline.enablePreview` | `true` | Raw 装飾のマスタースイッチ |
 | `markdownInline.headingColorScheme` | `default` | 見出しカラースキーム |
-| `markdownInline.imagePreview.showThumbnail` | `true` | 画像サムネイル |
+| `markdownInline.imagePreview.showThumbnail` | `false` | 画像サムネイル |
 | `markdownInline.table.inlineWrap.enabled` | `true` | テーブル折り返しプレビュー |
 | `markdownInline.advanced.autoFormatTables` | `false` | 行移動時の自動整形 |
-| `markdownInline.toc.autoUpdate` | `true` | `/toc` の自動更新 |
+| `markdownInline.autoMoveCompletedTasks` | `false` | 完了タスクをリスト末尾へ移動 |
 
-### Preview（主要項目）
+### Live（主要項目）
 
 | 設定 | 既定値 | 説明 |
 |------|--------|------|
-| `markdownInline.preview.defaultMode` | `raw` | 初回オープン時 `raw` / `preview` |
-| `markdownInline.preview.showFocusSyntax` | `true` | フォーカスブロックで記法表示 |
-| `markdownInline.preview.enableSlashMenu` | `true` | `/` メニュー |
-| `markdownInline.preview.fontSize` | `12` | 本文フォントサイズ（px） |
-| `markdownInline.preview.enableMath` | `true` | KaTeX |
-| `markdownInline.preview.enableMermaid` | `true` | Mermaid |
+| `markdownInline.live.defaultMode` | `live` | 初回オープン時 `raw` / `live` |
+| `markdownInline.live.rememberMode` | `true` | 直前のモードを覚えて次も同じモードで開く |
+| `markdownInline.live.showToolbar` | `true` | 上部ツールバー |
+| `markdownInline.live.showLineNumbers` | `true` | 行番号ガター |
+| `markdownInline.live.showDiffGutter` | `true` | Git 差分ガター |
+| `markdownInline.live.enableSlashMenu` | `true` | `/` メニュー |
 
-`markdownInline.advanced.*` を明示設定するとレガシー設定より優先されます。自動機能をオフにしても、テーブル整形・目次更新などの手動コマンドは使えます。
-
-一覧: [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) · [docs/specifications/preview-features.md](./docs/specifications/preview-features.md)
+`markdownInline.advanced.*` を明示設定するとレガシー設定より優先されます。自動機能をオフにしても、テーブル整形などの手動コマンドは使えます。
 
 ---
 
@@ -161,7 +164,9 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 
 - Raw 装飾ではフォントサイズ変更不可（Decoration API の制限）。見出しは色・背景で区別します。
 - 1 万行超のファイルでは装飾更新に遅延が出る場合があります。
-- Preview は CommonMark/GFM 中心。ウィキリンク等の Obsidian 拡張は未対応です。
+- Live は CommonMark/GFM 中心。ウィキリンク等の Obsidian 拡張は未対応です。
+- Live モードのキー操作は WebView 内に持っているため、VS Code のキーバインド設定からは
+  変更できません（背景と改善計画: [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)）。
 - 統合テスト（`npm test`）は Electron ランナーが必要です。CI では `npm run test:unit` を推奨します。
 
 ### 他拡張との競合
@@ -183,9 +188,9 @@ Milkdown ベースのカスタムエディタで開きます。編集は約 200m
 | ファイル | 内容 |
 |----------|------|
 | [docs/README.md](./docs/README.md) | ドキュメント索引 |
-| [docs/specifications/inline-preview-features.md](./docs/specifications/inline-preview-features.md) | Raw モード仕様 |
-| [docs/specifications/preview-features.md](./docs/specifications/preview-features.md) | Preview モード仕様 |
+| [docs/specifications/live-mode/README.md](./docs/specifications/live-mode/README.md) | Live モード仕様（実測仕様・要件・アーキテクチャ） |
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | ショートカット早見表 |
+| [docs/developer/architecture.md](./docs/developer/architecture.md) | アーキテクチャ概要 |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 
 ---
