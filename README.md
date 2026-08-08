@@ -86,6 +86,8 @@ and **only the syntax under the cursor** expands into source form.
 - **CommonMark + GFM** — headings, tables, task lists, strikethrough, links
 - **Reveal / collapse syntax** by token, line, or block, depending on the element
 - **Edit inside tables** while they stay rendered
+- **Row / column operations** — right-click a cell to select, insert, or delete rows and
+  columns, or delete the whole table
 - **Code fences** rendered as blocks with a language label; put the cursor on the fence to edit it
 - **Slash menu** — same commands as Raw (`live.enableSlashMenu`)
 - **Checkboxes** — click to toggle; saved as `- [x]` in the file
@@ -112,19 +114,24 @@ and **only the syntax under the cursor** expands into source form.
 
 ## Keyboard shortcuts
 
-| Action | Mac | Windows/Linux | Raw | Live |
-|--------|-----|---------------|:---:|:---:|
-| Toggle checkbox | `Cmd+Enter` | `Ctrl+Enter` | ✅ | — |
-| List indent | `Tab` / `Shift+Tab` | same | ✅ | ✅ |
-| Convert to bullet / numbered / checkbox / plain | `Alt+Cmd+5/6/4/0` | `Alt+Ctrl+5/6/4/0` | ✅ | ✅ |
-| Convert to heading 1/2/3 | `Alt+Cmd+1/2/3` | `Alt+Ctrl+1/2/3` | ✅ | ✅ |
-| Convert to code block / quote | `Alt+Cmd+8/9` | `Alt+Ctrl+8/9` | — | ✅ |
-| Bold / italic | `Cmd+B` / `Cmd+I` | `Ctrl+B` / `Ctrl+I` | — | ✅ |
-| Smart move in table/list | `Cmd+←/→` | `Home` / `End` | ✅ | ✅ (`Home`) |
-| Smart select all | `Cmd+A` | `Ctrl+A` | ✅ | ✅ |
+**Notion's key assignments, adopted as-is** — the same keys work in both modes.
 
-Switching modes currently has no default keybinding (use the command palette or the tab's
-context menu).
+| Action | Mac | Windows/Linux |
+|--------|-----|---------------|
+| Bold / italic / underline | `Cmd+B` / `Cmd+I` / `Cmd+U` | `Ctrl+B` / `Ctrl+I` / `Ctrl+U` |
+| Inline code / strikethrough | `Cmd+E` / `Cmd+Shift+S` | `Ctrl+E` / `Ctrl+Shift+S` |
+| Link / highlight / comment | `Cmd+K` / `Cmd+Shift+H` / `Cmd+Shift+M` | `Ctrl+K` / `Ctrl+Shift+H` / `Ctrl+Shift+M` |
+| Block conversion (text/heading/to-do/bullet/numbered/toggle/code/quote) | `Alt+Cmd+0–9` | `Ctrl+Shift+0–9` (or `Alt+Ctrl+0–9`) |
+| Toggle checkbox | `Cmd+Enter` | `Ctrl+Enter` |
+| Duplicate block | `Cmd+D` | `Ctrl+D` |
+| Move block up / down | `Cmd+Shift+↑/↓` | `Ctrl+Shift+↑/↓` |
+| Line break inside a block | `Shift+Enter` | `Shift+Enter` |
+| List indent | `Tab` / `Shift+Tab` | same |
+| Smart select all | `Cmd+A` | `Ctrl+A` |
+| Toggle Live / Raw | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+
+Set `markdownInline.notionKeymap.enabled` to `false` to fall back to VS Code defaults
+(`Cmd+B` = sidebar, etc.) in Raw mode.
 
 More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md)
 
@@ -168,8 +175,9 @@ More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcu
 - Raw decorations cannot change font size (VS Code Decoration API limit); headings use color and background instead.
 - Very large files (10k+ lines) may slow decoration updates.
 - Live targets CommonMark/GFM; wiki links and some Obsidian extensions are not supported.
-- Live-mode keys live inside the WebView, so they cannot be remapped from VS Code's
-  keyboard-shortcuts UI (background and plan: [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)).
+- Live-mode keys live inside the WebView (CodeMirror), so they cannot be remapped from
+  VS Code's keyboard-shortcuts UI. Raw-mode keys can
+  (background: [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)).
 - Integration tests (`npm test`) need the VS Code Electron runner; prefer `npm run test:unit` in CI.
 
 ### Conflicts with other extensions
@@ -193,6 +201,7 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 | [docs/README.md](./docs/README.md) | Documentation index |
 | [docs/specifications/live-mode/README.md](./docs/specifications/live-mode/README.md) | Live mode specification (observed spec, requirements, architecture) |
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | Keyboard shortcuts |
+| [docs/specifications/notion-shortcuts.md](./docs/specifications/notion-shortcuts.md) | Notion-compatible shortcut spec |
 | [docs/developer/architecture.md](./docs/developer/architecture.md) | Architecture overview |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 

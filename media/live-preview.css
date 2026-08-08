@@ -599,6 +599,44 @@ body {
     background: rgba(9, 105, 218, 0.14);
 }
 
+/* 表の右クリックメニュー（requirements.md §2.7.2）。body 直下に固定配置する。 */
+.cm-live-table-menu {
+    position: fixed;
+    z-index: 40;
+    min-width: 160px;
+    padding: 4px;
+    background: var(--vscode-menu-background, var(--live-surface));
+    color: var(--vscode-menu-foreground, var(--live-fg));
+    border: 1px solid var(--vscode-menu-border, var(--live-border));
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+    user-select: none;
+}
+.cm-live-table-menu-item {
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.cm-live-table-menu-item:hover {
+    background: var(--vscode-menu-selectionBackground, rgba(9, 105, 218, 0.16));
+    color: var(--vscode-menu-selectionForeground, inherit);
+}
+.cm-live-table-menu-item[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
+}
+.cm-live-table-menu-item[aria-disabled='true']:hover {
+    background: transparent;
+    color: inherit;
+}
+.cm-live-table-menu-sep {
+    margin: 4px 6px;
+    border-top: 1px solid var(--vscode-menu-separatorBackground, var(--live-border));
+}
+
 /* ── mermaid ─────────────────────────────────────
  * コードのソースは常に見せたまま、その下に図を出す（数式ブロックと同じ見せ方）。
  */

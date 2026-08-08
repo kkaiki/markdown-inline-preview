@@ -87,6 +87,7 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 - **CommonMark + GFM** — 見出し、表、タスクリスト、取り消し線、リンク
 - **記法の展開/収縮** — カーソルのあるトークン / 行 / ブロックだけ記法が見える
 - **表の直接編集** — 畳んだ表示のままセルの中を編集
+- **表の行・列操作** — セルを右クリック → 行/列の選択・上下左右に挿入・行/列削除・表削除
 - **コードフェンス** — 言語ラベル付きのブロック表示。フェンス行にカーソルを置けば編集可
 - **スラッシュメニュー** — Raw と同じコマンド（`live.enableSlashMenu`）
 - **チェックボックス** — クリックでトグル → ファイルに `- [x]` として保存
@@ -111,18 +112,24 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 
 ## キーボードショートカット
 
-| 操作 | Mac | Windows/Linux | Raw | Live |
-|------|-----|---------------|:---:|:---:|
-| チェックボックストグル | `Cmd+Enter` | `Ctrl+Enter` | ✅ | — |
-| リストインデント | `Tab` / `Shift+Tab` | 同左 | ✅ | ✅ |
-| 箇条書き / 番号 / チェック / 通常テキストへ変換 | `Alt+Cmd+5/6/4/0` | `Alt+Ctrl+5/6/4/0` | ✅ | ✅ |
-| 見出し 1/2/3 へ変換 | `Alt+Cmd+1/2/3` | `Alt+Ctrl+1/2/3` | ✅ | ✅ |
-| コードブロック / 引用へ変換 | `Alt+Cmd+8/9` | `Alt+Ctrl+8/9` | — | ✅ |
-| 太字 / 斜体 | `Cmd+B` / `Cmd+I` | `Ctrl+B` / `Ctrl+I` | — | ✅ |
-| テーブル・リスト内スマート移動 | `Cmd+←/→` | `Home` / `End` | ✅ | ✅（`Home`） |
-| 段階的全選択 | `Cmd+A` | `Ctrl+A` | ✅ | ✅ |
+**Notion と同じキー割り当て**をそのまま採用しています（Raw / Live 共通）。
 
-モード切替には現在キーバインドが割り当てられていません（コマンドパレット／タブの右クリック）。
+| 操作 | Mac | Windows/Linux |
+|------|-----|---------------|
+| 太字 / 斜体 / 下線 | `Cmd+B` / `Cmd+I` / `Cmd+U` | `Ctrl+B` / `Ctrl+I` / `Ctrl+U` |
+| インラインコード / 取り消し線 | `Cmd+E` / `Cmd+Shift+S` | `Ctrl+E` / `Ctrl+Shift+S` |
+| リンク / ハイライト / コメント | `Cmd+K` / `Cmd+Shift+H` / `Cmd+Shift+M` | `Ctrl+K` / `Ctrl+Shift+H` / `Ctrl+Shift+M` |
+| ブロック変換（段落/見出し/ToDo/箇条書き/番号/トグル/コード/引用） | `Alt+Cmd+0〜9` | `Ctrl+Shift+0〜9`（`Alt+Ctrl+0〜9` も可） |
+| チェックボックストグル | `Cmd+Enter` | `Ctrl+Enter` |
+| ブロックを複製 | `Cmd+D` | `Ctrl+D` |
+| ブロックを上下へ移動 | `Cmd+Shift+↑/↓` | `Ctrl+Shift+↑/↓` |
+| ブロック内改行（リストを継続しない） | `Shift+Enter` | `Shift+Enter` |
+| リストインデント | `Tab` / `Shift+Tab` | 同左 |
+| 段階的全選択 | `Cmd+A` | `Ctrl+A` |
+| Live / Raw を切り替え | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+
+`markdownInline.notionKeymap.enabled` を `false` にすると、Raw モードでは VS Code 既定
+（`Cmd+B` = サイドバー等）に戻ります。
 
 詳細: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md)
 
@@ -165,8 +172,9 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 - Raw 装飾ではフォントサイズ変更不可（Decoration API の制限）。見出しは色・背景で区別します。
 - 1 万行超のファイルでは装飾更新に遅延が出る場合があります。
 - Live は CommonMark/GFM 中心。ウィキリンク等の Obsidian 拡張は未対応です。
-- Live モードのキー操作は WebView 内に持っているため、VS Code のキーバインド設定からは
-  変更できません（背景と改善計画: [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)）。
+- Live モードのキー操作は WebView 内（CodeMirror）に持っているため、VS Code のキーバインド
+  設定からは個別に変更できません（Raw モードのキーは変更できます。背景:
+  [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)）。
 - 統合テスト（`npm test`）は Electron ランナーが必要です。CI では `npm run test:unit` を推奨します。
 
 ### 他拡張との競合
@@ -190,6 +198,7 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 | [docs/README.md](./docs/README.md) | ドキュメント索引 |
 | [docs/specifications/live-mode/README.md](./docs/specifications/live-mode/README.md) | Live モード仕様（実測仕様・要件・アーキテクチャ） |
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | ショートカット早見表 |
+| [docs/specifications/notion-shortcuts.md](./docs/specifications/notion-shortcuts.md) | Notion 準拠のショートカット仕様 |
 | [docs/developer/architecture.md](./docs/developer/architecture.md) | アーキテクチャ概要 |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 

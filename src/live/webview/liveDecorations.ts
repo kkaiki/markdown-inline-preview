@@ -22,6 +22,7 @@ import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
 import { inlineSegments } from '../shared/inlineSegments';
 import { cellsInRect, selectionToMarkdown, type CellPos } from '../shared/tableSelection';
+import { closeTableMenu, openTableMenu } from './liveTableMenu';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
 const HIDE = Decoration.replace({});
@@ -262,6 +263,7 @@ class TableWidget extends WidgetType {
         attachRangeSelection(wrap);
         wrap.addEventListener('input', () => this.onInput(wrap, view));
         wrap.addEventListener('keydown', (e) => this.onKeyDown(e, wrap, view));
+        wrap.addEventListener('contextmenu', (e) => this.onContextMenu(e, wrap, view));
         /*
          * フォーカスしたセルだけ生の Markdown に戻して編集させ、外れたら描画に戻す。
          * 記法の展開/収縮と同じ考え方をセル単位でやっている。
@@ -302,6 +304,30 @@ class TableWidget extends WidgetType {
     /** セルの中のイベントは CodeMirror に渡さず、ウィジェット側で処理する。 */
     ignoreEvent(): boolean {
         return true;
+    }
+
+    /** ウィジェットが捨てられたら、開きっぱなしのメニューも閉じる（body に出しているため）。 */
+    destroy(): void {
+        closeTableMenu();
+    }
+
+    /**
+     * セルの右クリックで行・列の操作メニューを出す（requirements.md §2.7.2）。
+     * 表は畳んだまま編集するので、行や列の増減はここが唯一の入口になる。
+     */
+    private onContextMenu(e: MouseEvent, wrap: HTMLElement, view: EditorView): void {
+        const cell = (e.target as HTMLElement | null)?.closest<HTMLElement>(
+            '[contenteditable="true"]'
+        );
+        if (!cell) return;
+        e.preventDefault();
+        openTableMenu(e, {
+            source: this.source,
+            from: this.from,
+            target: { row: Number(cell.dataset.row), col: Number(cell.dataset.col) },
+            view,
+            wrap
+        });
     }
 
     private onInput(wrap: HTMLElement, view: EditorView): void {
@@ -392,6 +418,7 @@ function attachRangeSelection(wrap: HTMLElement): void {
     };
 
     wrap.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // 右クリックはメニュー用。選択は動かさない
         const cell = cellAt(e.target);
         if (!cell) return;
         if (e.shiftKey && anchor) {
