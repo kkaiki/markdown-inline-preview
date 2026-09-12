@@ -12,3 +12,14 @@ paths = [
 regexes = [
   '''"key"\s*:\s*"(?:(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown)(?:\+(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown|[a-z0-9]))*|[a-z0-9](?:\+(?:cmd|ctrl|shift|alt|option|home|end|up|down|left|right|enter|tab|escape|backspace|delete|pageup|pagedown|[a-z0-9]))*)"''',
 ]
+
+[[allowlists]]
+description = "Allow the dummy license keys used in tests (format IPVW-XXXX-XXXX-XXXX, never a real key)"
+regexTarget = "line"
+paths = [
+  '''test/.*\.ts''',
+  '''src/license/licenseCommands\.ts''',
+]
+regexes = [
+  '''IPVW-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}''',
+]

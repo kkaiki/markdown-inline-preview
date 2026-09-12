@@ -70,3 +70,14 @@ terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/*.tfplan
 terraform/.terraform.tfstate.lock.info
+
+# --- 社内向けドキュメント（2026-09-12 に公開リポジトリから外した） ---
+# ローカルには残す（TDD ワークフローがこれらを参照するため）。
+# 公開するのは README / CHANGELOG / SECURITY / docs/user-guide / docs/examples だけ。
+/CLAUDE.md
+/.claude/
+/docs/README.md
+/docs/developer/
+/docs/research/
+/docs/specifications/
+/docs/testing/
