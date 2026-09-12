@@ -31,5 +31,12 @@
   "Could not copy this image: its source is not a local file in this document.": "この画像はコピーできません（参照先がこのドキュメント内のローカルファイルではありません）。",
   "Open a Markdown file first.": "先に Markdown ファイルを開いてください。",
   "No double-fenced code blocks found in this file.": "このファイルに二重フェンスのコードブロックはありませんでした。",
-  "Repaired {0} double-fenced code block(s).": "二重フェンスのコードブロックを {0} 件修復しました。"
+  "Repaired {0} double-fenced code block(s).": "二重フェンスのコードブロックを {0} 件修復しました。",
+  "Invalid heading slash command.": "無効な heading スラッシュコマンドです",
+  "Invalid table normalize slash command.": "無効な table normalize スラッシュコマンドです",
+  "workspace settings": "ワークスペース設定",
+  "user settings": "ユーザー設定",
+  "Table auto-format enabled (saved to {0}).": "テーブル自動整形を有効にしました（{0}に保存）",
+  "Table auto-format disabled (saved to {0}).": "テーブル自動整形を無効にしました（{0}に保存）",
+  "Markdown Inline Preview: repaired {0} double-fenced code block(s).": "Markdown Inline Preview: 二重フェンスのコードブロックを {0} 件修復しました"
 }

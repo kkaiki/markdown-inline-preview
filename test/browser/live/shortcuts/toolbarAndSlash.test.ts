@@ -23,7 +23,9 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
         browser = await launchBrowser();
     });
     after(async function () {
-        this.timeout(20000);
+        // 全スイート連続実行では後始末（browser.close）が 20 秒に収まらず
+        // "after all" hook がタイムアウトすることがある（2026-09-12）。
+        this.timeout(60000);
         await browser?.close();
     });
     afterEach(async () => {
@@ -96,7 +98,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
             await h.setCursor(2);
-            await h.page.click('.cm-live-toolbar-button[title^="見出し1"]');
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Heading 1"]');
             await h.page.waitForTimeout(150);
             assert.strictEqual(await h.doc(), '# 本文\n');
         });
@@ -105,7 +107,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, 'abc def\n');
             await h.select(0, 3);
-            await h.page.click('.cm-live-toolbar-button[title^="太字"]');
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Bold"]');
             await h.page.waitForTimeout(150);
             assert.strictEqual(await h.doc(), '**abc** def\n');
         });
@@ -113,7 +115,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
         it('Raw ボタンで host へモード切替を送る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
-            await h.page.click('.cm-live-toolbar-button[title^="Raw"]');
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Open in Raw"]');
             await h.page.waitForTimeout(150);
             const sent = (await h.sent()).filter((m) => m.type === 'switchMode');
             assert.deepStrictEqual(sent, [{ type: 'switchMode', mode: 'raw' }]);
@@ -122,7 +124,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
         it('PDF ボタンで host へ書き出しを依頼する', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
-            await h.page.click('.cm-live-toolbar-button[title^="PDF"]');
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Export to PDF"]');
             await h.page.waitForTimeout(150);
             const sent = (await h.sent()).filter((m) => m.type === 'exportPdf');
             assert.deepStrictEqual(sent, [{ type: 'exportPdf' }]);
@@ -132,7 +134,7 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
             await h.setCursor(2);
-            await h.page.click('.cm-live-toolbar-button[title^="箇条書き"]');
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Bulleted list"]');
             await h.page.waitForTimeout(150);
             const focused = await h.page.evaluate<boolean>(`window.__liveView.hasFocus`);
             assert.strictEqual(focused, true);

@@ -1,1 +1,1 @@
-export { activateLiveFeature } from './host/liveEditorProvider';
+export { activateLiveFeature, setLicenseStore } from './host/liveEditorProvider';

@@ -231,7 +231,7 @@ function scanInline(text: string, base: number, out: SyntaxRange[]): void {
 
         // 対になるインライン記法
         const paired = matchPaired(text, i);
-        if (paired) {
+        if (paired && canOpen(text, paired.marker, i)) {
             const { marker, kind } = paired;
             const contentFrom = i + marker.length;
             const close = findClosing(text, marker, contentFrom);
@@ -265,6 +265,26 @@ function matchPaired(text: string, i: number): { marker: string; kind: SyntaxKin
     return null;
 }
 
+/** 英数字・アンダースコア（単語を構成する文字）か。 */
+function isWordChar(ch: string | undefined): boolean {
+    return ch !== undefined && /[\w]/.test(ch);
+}
+
+/**
+ * `_` 系マーカーは単語の途中では強調を開始・終了できない（CommonMark の intraword 規則）。
+ * これが無いと `core_api_app` のような識別子が斜体になり、記号が隠れて原文が読めなくなる。
+ * `*` 系は従来どおり単語の途中でも成立する。
+ */
+function canOpen(text: string, marker: string, i: number): boolean {
+    if (marker[0] !== '_') return true;
+    return !isWordChar(text[i - 1]);
+}
+
+function canClose(text: string, marker: string, j: number): boolean {
+    if (marker[0] !== '_') return true;
+    return !isWordChar(text[j + marker.length]);
+}
+
 /** `marker` の閉じ位置を探す（エスケープを尊重し、中身が空のものは認めない）。 */
 function findClosing(text: string, marker: string, from: number): number {
     for (let j = from; j <= text.length - marker.length; j++) {
@@ -272,7 +292,7 @@ function findClosing(text: string, marker: string, from: number): number {
             j += 1;
             continue;
         }
-        if (text.startsWith(marker, j) && j > from) return j;
+        if (text.startsWith(marker, j) && j > from && canClose(text, marker, j)) return j;
     }
     return -1;
 }

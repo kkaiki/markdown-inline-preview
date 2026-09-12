@@ -45,7 +45,7 @@ export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<
     if (command === 'heading') {
         const heading = parseHeadingSlashCommand(parsed.argsText);
         if (!heading) {
-            vscode.window.showWarningMessage('無効な heading スラッシュコマンドです');
+            vscode.window.showWarningMessage(vscode.l10n.t('Invalid heading slash command.'));
             return true;
         }
         const headingLine = buildHeadingLine(heading.level, heading.title);
@@ -60,7 +60,7 @@ export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<
     if (command === 'table') {
         const normalizeMode = parseTableNormalizeSlashCommand(parsed.argsText);
         if (normalizeMode === null && /^(?:normalize|normilize)\b/i.test(parsed.argsText)) {
-            vscode.window.showWarningMessage('無効な table normalize スラッシュコマンドです');
+            vscode.window.showWarningMessage(vscode.l10n.t('Invalid table normalize slash command.'));
             return true;
         }
         if (normalizeMode !== null) {
@@ -83,9 +83,14 @@ export async function applySlashCommandLine(editor: vscode.TextEditor): Promise<
             });
             const targetPos = new vscode.Position(Math.min(lineIdx, document.lineCount - 1), 0);
             editor.selection = new vscode.Selection(targetPos, targetPos);
-            const savedTo = target === vscode.ConfigurationTarget.Workspace ? 'ワークスペース設定' : 'ユーザー設定';
+            const savedTo =
+                target === vscode.ConfigurationTarget.Workspace
+                    ? vscode.l10n.t('workspace settings')
+                    : vscode.l10n.t('user settings');
             vscode.window.showInformationMessage(
-                `テーブル自動整形を ${normalizeMode ? '有効' : '無効'} にしました（${savedTo}に保存）`
+                normalizeMode
+                    ? vscode.l10n.t('Table auto-format enabled (saved to {0}).', savedTo)
+                    : vscode.l10n.t('Table auto-format disabled (saved to {0}).', savedTo)
             );
             return true;
         }

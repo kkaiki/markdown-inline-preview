@@ -173,21 +173,24 @@ export function tableDeletionRange(doc: string, from: number, to: number): { fro
     return { from, to: end };
 }
 
-/** 右クリックメニューの項目（表示順）。無効な条件は §2.7.2 のとおり。 */
+/**
+ * 右クリックメニューの項目（表示順）。無効な条件は §2.7.2 のとおり。
+ * `label` は**英語ソース**（表示時に webview 側で `t()` で訳す）。
+ */
 export function tableMenuItems(source: string, target: CellPos): TableMenuItem[] {
     const lines = source.split('\n');
     const isHeader = target.row === 0;
     const canDeleteColumn = columnCount(lines) > 1;
     return [
-        { id: 'selectRow', label: '行を選択', enabled: true },
-        { id: 'selectColumn', label: '列を選択', enabled: true },
-        { id: 'insertRowAbove', label: '上に行を挿入', enabled: !isHeader, separatorBefore: true },
-        { id: 'insertRowBelow', label: '下に行を挿入', enabled: true },
-        { id: 'insertColumnLeft', label: '左に列を挿入', enabled: true },
-        { id: 'insertColumnRight', label: '右に列を挿入', enabled: true },
-        { id: 'deleteRow', label: '行を削除', enabled: !isHeader, separatorBefore: true },
-        { id: 'deleteColumn', label: '列を削除', enabled: canDeleteColumn },
-        { id: 'deleteTable', label: '表を削除', enabled: true }
+        { id: 'selectRow', label: 'Select row', enabled: true },
+        { id: 'selectColumn', label: 'Select column', enabled: true },
+        { id: 'insertRowAbove', label: 'Insert row above', enabled: !isHeader, separatorBefore: true },
+        { id: 'insertRowBelow', label: 'Insert row below', enabled: true },
+        { id: 'insertColumnLeft', label: 'Insert column left', enabled: true },
+        { id: 'insertColumnRight', label: 'Insert column right', enabled: true },
+        { id: 'deleteRow', label: 'Delete row', enabled: !isHeader, separatorBefore: true },
+        { id: 'deleteColumn', label: 'Delete column', enabled: canDeleteColumn },
+        { id: 'deleteTable', label: 'Delete table', enabled: true }
     ];
 }
 

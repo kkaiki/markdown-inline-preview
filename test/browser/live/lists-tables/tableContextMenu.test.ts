@@ -51,7 +51,9 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         browser = await launchBrowser();
     });
     after(async function () {
-        this.timeout(20000);
+        // 全スイート連続実行では後始末（browser.close）が 20 秒に収まらず
+        // "after all" hook がタイムアウトすることがある（2026-09-12）。
+        this.timeout(60000);
         await browser?.close();
     });
     afterEach(async () => {
@@ -91,7 +93,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 2); // 本文 a1
-        await clickMenuItem(h, '下に行を挿入');
+        await clickMenuItem(h, 'Insert row below');
         assert.strictEqual(
             await h.doc(),
             '前の段落\n\n| 列A | 列B |\n| --- | --- |\n| a1 | b1 |\n|     |     |\n\n後の段落\n'
@@ -103,7 +105,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 0); // ヘッダ 列A
-        await clickMenuItem(h, '右に列を挿入');
+        await clickMenuItem(h, 'Insert column right');
         assert.strictEqual(
             await h.doc(),
             '前の段落\n\n| 列A |     | 列B |\n| --- | --- | --- |\n| a1 |     | b1 |\n\n後の段落\n'
@@ -114,7 +116,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 2); // 本文 a1
-        await clickMenuItem(h, '行を削除');
+        await clickMenuItem(h, 'Delete row');
         assert.strictEqual(await h.doc(), '前の段落\n\n| 列A | 列B |\n| --- | --- |\n\n後の段落\n');
     });
 
@@ -122,7 +124,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 1); // ヘッダ 列B
-        await clickMenuItem(h, '列を削除');
+        await clickMenuItem(h, 'Delete column');
         assert.strictEqual(await h.doc(), '前の段落\n\n| 列A |\n| --- |\n| a1 |\n\n後の段落\n');
     });
 
@@ -130,7 +132,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 0);
-        await clickMenuItem(h, '表を削除');
+        await clickMenuItem(h, 'Delete table');
         assert.strictEqual(await h.doc(), '前の段落\n\n後の段落\n');
     });
 
@@ -138,7 +140,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 2); // 本文行
-        await clickMenuItem(h, '行を選択');
+        await clickMenuItem(h, 'Select row');
         assert.deepStrictEqual(await selectedCells(h), ['1,0', '1,1']);
     });
 
@@ -146,7 +148,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 1); // ヘッダの2列目
-        await clickMenuItem(h, '列を選択');
+        await clickMenuItem(h, 'Select column');
         assert.deepStrictEqual(await selectedCells(h), ['0,1', '1,1']);
     });
 
@@ -161,7 +163,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
             });
         });
         await rightClickCell(h, 2);
-        await clickMenuItem(h, '行を選択');
+        await clickMenuItem(h, 'Select row');
         await h.page.keyboard.press('ControlOrMeta+c');
         await h.page.waitForTimeout(120);
         assert.strictEqual(
@@ -174,7 +176,7 @@ describe('Live モード: 表の右クリックメニュー（実ブラウザ）
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);
         await rightClickCell(h, 0);
-        const item = h.page.locator('.cm-live-table-menu-item', { hasText: '行を削除' }).first();
+        const item = h.page.locator('.cm-live-table-menu-item', { hasText: 'Delete row' }).first();
         assert.strictEqual(await item.getAttribute('aria-disabled'), 'true');
         await item.click({ force: true });
         await h.page.waitForTimeout(80);

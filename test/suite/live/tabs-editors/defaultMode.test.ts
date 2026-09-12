@@ -56,6 +56,13 @@ describe('Live モード: 既定エディタの関連付け', () => {
         assert.strictEqual(next['*.txt'], 'other', '他拡張向けの設定は残す');
     });
 
+    it('旧 Preview モードの関連付けが残っていても掃除する', () => {
+        // `ipreview.preview` は 2026-08-05 に削除した viewType。設定に残っていると
+        // 解決先が見つからず素のテキストエディタへ落ちる（＝Live が直接開かない）。
+        const next = computeEditorAssociations({ '*.md': 'ipreview.preview' }, null);
+        assert.strictEqual(next['*.md'], undefined);
+    });
+
     it('ユーザーが他拡張のビューアへ向けている設定は上書きしない', () => {
         const next = computeEditorAssociations({ '*.md': 'cweijan.markdownViewer' }, null);
         assert.strictEqual(next['*.md'], 'cweijan.markdownViewer');

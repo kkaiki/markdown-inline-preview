@@ -36,7 +36,9 @@ describe('Live モード: 大きなファイルでの応答性（実ブラウザ
         browser = await launchBrowser();
     });
     after(async function () {
-        this.timeout(20000);
+        // 全スイート連続実行では後始末（browser.close）が 20 秒に収まらず
+        // "after all" hook がタイムアウトすることがある（2026-09-12）。
+        this.timeout(60000);
         await browser?.close();
     });
     afterEach(async () => {

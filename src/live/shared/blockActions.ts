@@ -28,7 +28,7 @@ function stripPrefix(line: string): { indent: string; body: string } {
     return { indent, body };
 }
 
-/** 種別ごとの行頭プレフィックス。codeBlock は行の置換では表せないので持たない。 */
+/** 種別ごとの行頭プレフィックス。codeBlock / toggleList は行の置換では表せないので持たない。 */
 const PREFIX: Partial<Record<NotionBlockAction, string>> = {
     paragraph: '',
     heading1: '# ',
@@ -42,11 +42,30 @@ const PREFIX: Partial<Record<NotionBlockAction, string>> = {
 
 /**
  * 1行にブロック変換を当てる。`null` を返したら行の置換では表せない
- * （codeBlock。呼び出し側でフェンスを挿入する）。
+ * （codeBlock / toggleList。呼び出し側が `wrapBlockAction` で包む）。
  */
 export function applyBlockAction(line: string, action: NotionBlockAction): BlockActionResult | null {
     const prefix = PREFIX[action];
     if (prefix === undefined) return null;
     const { indent, body } = stripPrefix(line);
     return { text: `${indent}${prefix}${body}`, contentStart: indent.length + prefix.length };
+}
+
+/** 複数行をまとめて包む変換（`applyBlockAction` が null を返す種別）。 */
+export type WrappingBlockAction = 'codeBlock' | 'toggleList';
+
+/**
+ * 選択範囲（複数行可）をブロックで包む。
+ *
+ * - `codeBlock`: コードフェンスで囲む
+ * - `toggleList`: Markdown にトグルが無いため `<details>` にする。
+ *   1 行目を `<summary>`（＝畳んだときに見える見出し）、2 行目以降を中身にする。
+ */
+export function wrapBlockAction(body: string, action: WrappingBlockAction): string {
+    if (action === 'codeBlock') {
+        const fence = '```';
+        return `${fence}\n${body}\n${fence}`;
+    }
+    const [summary = '', ...rest] = body.split('\n');
+    return `<details>\n<summary>${summary}</summary>\n\n${rest.join('\n')}\n</details>`;
 }

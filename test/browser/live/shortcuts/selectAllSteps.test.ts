@@ -22,7 +22,9 @@ describe('Live モード: 段階的な全選択と mermaid（実ブラウザ）'
         browser = await launchBrowser();
     });
     after(async function () {
-        this.timeout(20000);
+        // mermaid を描く分、後始末が重い。全スイート連続実行では 20 秒では足りず
+        // "after all" hook がタイムアウトしていた（2026-09-12）。
+        this.timeout(60000);
         await browser?.close();
     });
     afterEach(async () => {
@@ -79,6 +81,120 @@ describe('Live モード: 段階的な全選択と mermaid（実ブラウザ）'
             await h.setCursor(0);
             await h.press('Meta+a');
             assert.deepStrictEqual(await selection(h), { from: 0, to: FENCE.length });
+        });
+    });
+
+    describe('host（VS Code 本体）からの「すべて選択」', () => {
+        /*
+         * 実 VS Code の webview では、⌘A を押すと CM が段階選択を終えた**あとに**
+         * 本体が document.execCommand('selectAll') を送ってきて、選択が文書全体へ
+         * 上書きされる（2026-08-09 に実機を CDP で計測して確認）。
+         * webview 単体のこのテストには本体が居ないので、その1手を手で再現する。
+         */
+        it('⌘A の直後に本体が selectAll を送ってきても段階選択が保たれる', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, FENCE);
+            await h.setCursor(FENCE.indexOf('const a') + 3);
+            await h.press('Meta+a');
+            await h.page.evaluate(`document.execCommand('selectAll')`);
+            await h.page.waitForTimeout(80);
+            assert.deepStrictEqual(await selection(h), {
+                from: FENCE.indexOf('const a'),
+                to: FENCE.indexOf('\n```\n\nい')
+            });
+        });
+
+        it('本体の selectAll が遅れて届いても段階が勝手に進まない', async function () {
+            if (!browser) { this.skip(); return; }
+            // 時間で判定していたときの退行防止（行を選んだつもりが表全体になる）
+            const table = '| A | B |\n| --- | --- |\n| あい | うえ |\n\n本文\n';
+            h = await openLive(browser, table);
+            await h.setCursor(table.indexOf('あい') + 1);
+            await h.press('Meta+a');
+            await h.press('Meta+a');
+            await h.page.waitForTimeout(1200);
+            await h.page.evaluate(`document.execCommand('selectAll')`);
+            await h.page.waitForTimeout(80);
+            const s = await selection(h);
+            assert.strictEqual(table.slice(s.from, s.to), '| あい | うえ |');
+        });
+
+        it('表のセルでも同じく上書きされない', async function () {
+            if (!browser) { this.skip(); return; }
+            const table = '| A | B |\n| --- | --- |\n| あい | うえ |\n\n本文\n';
+            h = await openLive(browser, table);
+            await h.setCursor(table.indexOf('あい') + 1);
+            await h.press('Meta+a');
+            await h.page.evaluate(`document.execCommand('selectAll')`);
+            await h.page.waitForTimeout(80);
+            const s = await selection(h);
+            assert.strictEqual(table.slice(s.from, s.to), 'あい');
+        });
+
+        it('キー操作と無関係に来た selectAll（メニューの「すべて選択」）は段階選択として効く', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, FENCE);
+            await h.setCursor(FENCE.indexOf('const a') + 3);
+            await h.page.evaluate(`document.execCommand('selectAll')`);
+            await h.page.waitForTimeout(80);
+            assert.deepStrictEqual(await selection(h), {
+                from: FENCE.indexOf('const a'),
+                to: FENCE.indexOf('\n```\n\nい')
+            });
+        });
+    });
+
+    describe('表のセルの中での ⌘A', () => {
+        const TABLE = '| A | B |\n| --- | --- |\n| あい | うえ |\n\n本文\n';
+        const TABLE_END = TABLE.indexOf('|\n\n本文') + 1;
+
+        /** 選択されているソース文字列。 */
+        async function selected(handle: LiveHandle): Promise<string> {
+            const s = await selection(handle);
+            return TABLE.slice(s.from, s.to);
+        }
+
+        it('1回目はカーソルのあるセルだけを選ぶ', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await h.setCursor(TABLE.indexOf('あい') + 1);
+            await h.press('Meta+a');
+            assert.strictEqual(await selected(h), 'あい');
+        });
+
+        it('2回目はその行', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await h.setCursor(TABLE.indexOf('あい') + 1);
+            await h.press('Meta+a');
+            await h.press('Meta+a');
+            assert.strictEqual(await selected(h), '| あい | うえ |');
+        });
+
+        it('3回目は表全体', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await h.setCursor(TABLE.indexOf('あい') + 1);
+            await h.press('Meta+a');
+            await h.press('Meta+a');
+            await h.press('Meta+a');
+            assert.deepStrictEqual(await selection(h), { from: 0, to: TABLE_END });
+        });
+
+        it('4回目は文書全体', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await h.setCursor(TABLE.indexOf('あい') + 1);
+            for (let i = 0; i < 4; i++) await h.press('Meta+a');
+            assert.deepStrictEqual(await selection(h), { from: 0, to: TABLE.length });
+        });
+
+        it('選んだセルをコピーすると生 Markdown ではなくセルの中身だけが載る', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, TABLE);
+            await h.setCursor(TABLE.indexOf('うえ') + 1);
+            await h.press('Meta+a');
+            assert.strictEqual(await selected(h), 'うえ');
         });
     });
 

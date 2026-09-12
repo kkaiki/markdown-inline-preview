@@ -39,6 +39,10 @@ export function registerOnDidChangeConfiguration(
                 deps.applyWrapTabsSetting();
             }
 
+            if (event.affectsConfiguration('markdownInline.notionKeymap.enabled')) {
+                deps.applyNotionKeymapContext();
+            }
+
             const activeEditor = vscode.window.activeTextEditor;
             if (activeEditor && activeEditor.document.languageId === 'markdown') {
                 deps.updateAllDecorations(activeEditor);

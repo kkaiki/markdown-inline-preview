@@ -27,8 +27,16 @@ export const TEXT_EDITOR_VIEW_TYPE = 'default';
  */
 export const MANAGED_ASSOCIATION_PATTERNS = ['*.md', '*.markdown'] as const;
 
+/** 旧 Preview モード（2026-08-05 に削除）の viewType。設定に残っていると解決先が
+ * 見つからず素のテキストエディタへ落ちるので、掃除の対象に含める。 */
+export const LEGACY_PREVIEW_VIEW_TYPE = 'ipreview.preview';
+
 /** 拡張機能が書き込みうる値。制御 OFF 時にこれらだけを取り除く判定に使う。 */
-const MANAGED_VIEW_TYPES: readonly string[] = [LIVE_VIEW_TYPE, TEXT_EDITOR_VIEW_TYPE];
+const MANAGED_VIEW_TYPES: readonly string[] = [
+    LIVE_VIEW_TYPE,
+    TEXT_EDITOR_VIEW_TYPE,
+    LEGACY_PREVIEW_VIEW_TYPE
+];
 
 /**
  * 次に開く Markdown をどちらのモードで開くか。

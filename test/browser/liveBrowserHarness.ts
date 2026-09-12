@@ -112,6 +112,8 @@ export interface LiveHandle {
 /** host から webview へ渡す設定（`init` メッセージの settings）。 */
 export interface LiveSettings {
     showLineNumbers?: boolean;
+    /** UI 文字列の言語（host が渡す `vscode.env.language` 相当）。 */
+    locale?: string;
 }
 
 /**

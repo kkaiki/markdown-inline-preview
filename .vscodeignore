@@ -22,3 +22,24 @@ build.js
 *_REPORT.md
 private/**
 **/strategy.md
+
+# --- 配布物に要らないもの（2026-09-12） ---
+# out/extension.js と media/live.bundle.js は esbuild でバンドル済みなので、
+# 実行時に node_modules は要らない。入れておくと vsix が 33MB になる。
+node_modules/**
+# ソース・テスト・ドキュメント・インフラ定義（拡張の実行には不要）
+src/**
+test/**
+docs/**
+terraform/**
+test-screenshots/**
+l10n/**/*.ts
+eslint.config.js
+build.ts
+tsconfig*.json
+.github/**
+.claude/**
+CLAUDE.md
+.gitleaks.toml
+.env.example
+vscode-settings-recommendation.json

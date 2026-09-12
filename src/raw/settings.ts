@@ -33,6 +33,24 @@ export function isPreviewEnabled(): boolean {
     return resolvePreviewEnabled(getMarkdownInlineConfig());
 }
 
+/**
+ * Notion 準拠のキー割り当てが有効か。
+ * `package.json` の `when` 句は設定値を直接読めないため、この値を
+ * `setContext` でコンテキストキーへ写して when 句から参照する。
+ */
+export function isNotionKeymapEnabled(): boolean {
+    return getMarkdownInlineConfig().get<boolean>('notionKeymap.enabled', true);
+}
+
+/** 上記の設定値をコンテキストキー `markdownInline.notionKeymap` へ反映する。 */
+export function applyNotionKeymapContext(): void {
+    void vscode.commands.executeCommand(
+        'setContext',
+        'markdownInline.notionKeymap',
+        isNotionKeymapEnabled()
+    );
+}
+
 export function isAutoTableFormattingEnabled(): boolean {
     return resolveAutoTableFormattingEnabled(
         getMarkdownInlineConfig(),

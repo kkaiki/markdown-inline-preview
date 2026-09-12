@@ -50,6 +50,12 @@
     --live-block-gap: 0.8em;
     /* リストのネスト1段ぶんの追加インデント */
     --live-indent: 1.1em;
+
+    /*
+     * 表示の拡大率（ツールバーの − / + で書き換わる）。
+     * 本文サイズと読み幅の**両方**に掛けるので、拡大しても1行の文字数は変わらない。
+     */
+    --live-zoom: 1;
 }
 
 html,
@@ -92,12 +98,20 @@ body {
  */
 .cm-editor .cm-content {
     font-family: var(--live-font);
-    font-size: 15px;
+    font-size: calc(15px * var(--live-zoom));
     line-height: 1.6;
-    max-width: var(--live-measure);
+    max-width: calc(var(--live-measure) * var(--live-zoom));
     margin: 0 auto;
     padding: 24px 20px 64px;
     caret-color: var(--live-fg);
+    /*
+     * `.cm-content` は `.cm-scroller`（flex）のアイテムで、既定の `min-width: auto` は
+     * 中身の min-content になる。セル内で折り返せない表が1つあるだけで本文まで表の幅で
+     * 折り返し、ペインからはみ出していた（ユーザー報告 2026-09-12）。0 にして本文は
+     * ペース幅で折り返し、はみ出すブロック（表・数式・mermaid）は各自の
+     * `overflow-x: auto` で横スクロールさせる。
+     */
+    min-width: 0;
 }
 
 .cm-cursor,
@@ -412,6 +426,37 @@ body {
 .cm-live-table-wrap {
     overflow-x: auto;
     padding: var(--live-block-gap) 0;
+    /* 列幅つまみ（.cm-live-col-resizers）の位置の基準 */
+    position: relative;
+}
+/* 列幅つまみ: 表に重ねたレイヤーに置く（セルは contenteditable で作り直されるため） */
+.cm-live-col-resizers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+.cm-live-col-resize {
+    position: absolute;
+    width: 9px;
+    margin-left: -5px;
+    cursor: col-resize;
+    pointer-events: auto;
+    z-index: 3;
+    touch-action: none;
+}
+.cm-live-col-resize::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: transparent;
+}
+.cm-live-col-resize:hover::after,
+.cm-live-col-resize[data-dragging='1']::after {
+    background: var(--live-link);
 }
 .cm-live-table {
     /*
@@ -524,19 +569,47 @@ body {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     padding: 6px 12px;
     border-bottom: 1px solid var(--live-border);
     background: var(--live-bg);
     position: sticky;
     top: 0;
     z-index: 5;
+    /* ペインが狭いときにツールバーの都合で編集領域まで横に広がらないようにする */
+    max-width: 100%;
+    min-width: 0;
+}
+/* 収まらない分はツールバーの中だけを横スクロールさせる（ページは広げない）。
+ * チートシート（.cm-live-toolbar-tip）は切れないようこの外側に置く。 */
+.cm-live-toolbar-scroll {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.cm-live-toolbar-scroll::-webkit-scrollbar {
+    height: 0;
+    display: none;
 }
 .cm-live-toolbar-group {
     display: flex;
     align-items: center;
     gap: 2px;
+    flex: 0 0 auto;
+}
+/* モード系（PDF / Raw / Live）はスクロールさせず、常に右端に見えるようにする */
+.cm-live-toolbar-modes {
+    flex: 0 0 auto;
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid var(--live-border);
+    background: var(--live-bg);
 }
 .cm-live-toolbar-button {
     min-width: 28px;
@@ -556,11 +629,71 @@ body {
     background: rgba(129, 139, 152, 0.14);
     color: var(--live-fg);
 }
+.cm-live-toolbar-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+.cm-live-toolbar-button:disabled:hover {
+    background: transparent;
+    color: var(--live-muted);
+}
+/* 拡大率（− / 100% / +）。数字の桁で幅が動かないように固定幅にする */
+.cm-live-toolbar-zoom {
+    margin-right: 4px;
+}
+.cm-live-toolbar-zoom-value {
+    min-width: 44px;
+    font-variant-numeric: tabular-nums;
+}
 .cm-live-toolbar-current {
     padding: 0 8px;
     font-size: 12px;
     font-weight: 700;
     color: var(--live-link);
+}
+/* ボタンにホバーしたときに出す「操作名 + ショートカット」（チートシート） */
+.cm-live-toolbar-tip {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    border: 1px solid var(--live-border);
+    border-radius: 6px;
+    background: var(--live-bg);
+    box-shadow: 0 4px 14px rgba(31, 35, 40, 0.22);
+    font-family: var(--live-font);
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+}
+.cm-live-toolbar-tip[hidden] {
+    display: none;
+}
+.cm-live-toolbar-tip-name {
+    color: var(--live-fg);
+}
+.cm-live-toolbar-tip-keys {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.cm-live-toolbar-tip-keys kbd {
+    min-width: 17px;
+    padding: 1px 4px;
+    border: 1px solid var(--live-border);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: rgba(129, 139, 152, 0.14);
+    color: var(--live-muted);
+    font-family: var(--live-font);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
 }
 
 /* ── スラッシュメニュー ───────────────────────── */

@@ -7,7 +7,8 @@
  * `## - 項目` のような壊れた行になるため、種別をまたぐ変換を重点的に固定する。
  */
 import * as assert from 'assert';
-import { applyBlockAction } from '../../../../src/live/shared/blockActions';
+import { applyBlockAction, wrapBlockAction } from '../../../../src/live/shared/blockActions';
+import { getNotionBlockAction } from '../../../../src/shared/notionBlockKeymap';
 
 describe('Live モード: ブロック変換', () => {
     it('段落を見出し1にする', () => {
@@ -74,5 +75,53 @@ describe('Live モード: ブロック変換', () => {
 
     it('コードブロックは行の置換では表せないので null を返す', () => {
         assert.strictEqual(applyBlockAction('本文', 'codeBlock'), null);
+    });
+
+    it('トグルリストも行の置換では表せないので null を返す', () => {
+        assert.strictEqual(applyBlockAction('本文', 'toggleList'), null);
+    });
+});
+
+describe('複数行にまたがるブロック変換（⌥⌘7 / ⌥⌘8）', () => {
+    it('⌥⌘8 は選択をコードフェンスで包む', () => {
+        assert.strictEqual(wrapBlockAction('const a = 1;', 'codeBlock'), '```\nconst a = 1;\n```');
+    });
+
+    it('⌥⌘7 は 1 行目を summary にした <details> にする', () => {
+        assert.strictEqual(
+            wrapBlockAction('たたむ見出し', 'toggleList'),
+            '<details>\n<summary>たたむ見出し</summary>\n\n\n</details>'
+        );
+    });
+
+    it('⌥⌘7 で複数行を選ぶと 2 行目以降が中身になる', () => {
+        assert.strictEqual(
+            wrapBlockAction('見出し\n中身1\n中身2', 'toggleList'),
+            '<details>\n<summary>見出し</summary>\n\n中身1\n中身2\n</details>'
+        );
+    });
+});
+
+describe('Notion のブロック変換キー対応表', () => {
+    it('0〜9 の割り当ては Notion と同じ（9 だけは引用として使う）', () => {
+        assert.deepStrictEqual(
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => getNotionBlockAction(n)),
+            [
+                'paragraph',
+                'heading1',
+                'heading2',
+                'heading3',
+                'todo',
+                'bulletList',
+                'orderedList',
+                'toggleList',
+                'codeBlock',
+                'blockquote'
+            ]
+        );
+    });
+
+    it('割り当ての無い数字は null', () => {
+        assert.strictEqual(getNotionBlockAction(10), null);
     });
 });

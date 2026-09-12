@@ -207,18 +207,18 @@ describe('Live モード: 表の行・列編集（コマンド）', () => {
             }
         });
 
-        it('項目には日本語のラベルが付く', () => {
+        it('項目のラベルは英語ソース（表示時に webview 側で訳す）', () => {
             const labels = tableMenuItems(TABLE, { row: 1, col: 0 }).map((i) => i.label);
             assert.deepStrictEqual(labels, [
-                '行を選択',
-                '列を選択',
-                '上に行を挿入',
-                '下に行を挿入',
-                '左に列を挿入',
-                '右に列を挿入',
-                '行を削除',
-                '列を削除',
-                '表を削除'
+                'Select row',
+                'Select column',
+                'Insert row above',
+                'Insert row below',
+                'Insert column left',
+                'Insert column right',
+                'Delete row',
+                'Delete column',
+                'Delete table'
             ]);
         });
     });

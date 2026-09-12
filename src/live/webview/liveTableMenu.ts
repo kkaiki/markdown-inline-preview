@@ -8,6 +8,7 @@
  * メニューは常に1つだけ（モジュール内のシングルトン）。ウィジェットは再生成されるので、
  * リスナーは開いている間だけ document に付け、閉じるときに必ず外す（漏らさない）。
  */
+import { t } from './i18n';
 import type { EditorView } from '@codemirror/view';
 import {
     applyTableCommand,
@@ -111,7 +112,7 @@ export function openTableMenu(event: MouseEvent, ctx: TableMenuContext): void {
         el.className = 'cm-live-table-menu-item';
         el.setAttribute('role', 'menuitem');
         el.dataset.command = item.id;
-        el.textContent = item.label;
+        el.textContent = t(item.label);
         if (!item.enabled) el.setAttribute('aria-disabled', 'true');
         el.addEventListener('mousedown', (e) => e.preventDefault()); // セルのフォーカスを保つ
         el.addEventListener('click', () => {

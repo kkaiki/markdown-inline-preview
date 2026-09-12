@@ -8,6 +8,7 @@
  * CodeMirror の autocomplete を使うので、絞り込み・キーボード選択・
  * Escape での取り消しは標準の挙動に乗る。
  */
+import { t } from './i18n';
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import type { Extension } from '@codemirror/state';
 import { SLASH_MENU_ITEMS } from '../../shared/slash/slashMenuItems';
@@ -25,7 +26,7 @@ function slashSource(context: CompletionContext): CompletionResult | null {
 
     const options: Completion[] = SLASH_MENU_ITEMS.map((item) => ({
         label: `/${item.label}`,
-        detail: item.detail,
+        detail: t(item.detail),
         type: 'keyword',
         apply: (view, _completion, applyFrom, applyTo) => {
             const insert = item.previewMarkdown;

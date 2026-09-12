@@ -19,6 +19,7 @@ import {
     toggleCheckbox
 } from './list';
 import * as liveModule from '../live/activate';
+import { registerLicenseCommands } from '../license/licenseCommands';
 import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
 import { showWhatsNewIfUpdated } from './whatsNew';
 import { registerImageHoverProvider } from './providers/imageHover';
@@ -28,6 +29,7 @@ import {
     applyDefaultWordWrapSetting,
     applyWrapTabsSetting,
     applyMarkdownSettings,
+    applyNotionKeymapContext,
     getMarkdownInlineConfig,
     isAutoTableFormattingEnabled,
     isCheckboxMouseToggleEnabled,
@@ -61,6 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
     applyAlwaysOpenNewTabSetting();
     applyDefaultWordWrapSetting();
     applyWrapTabsSetting();
+    applyNotionKeymapContext();
 
     setRawDecorationDeps({
         isPreviewEnabled,
@@ -89,6 +92,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     liveModule.activateLiveFeature(context);
 
+    // PDF のクレジット行除去（買い切り）。購入・キー入力・復元と deep link の受け口。
+    // Live 側より後に登録するのは、PDF 書き出しがこのストアを読むため。
+    liveModule.setLicenseStore(registerLicenseCommands(context), context.globalState);
+
     registerCheckboxCodeLensProvider(context, () => isShowCheckboxCodeLensEnabled());
     registerImageHoverProvider(context, () => isImageHoverPreviewEnabled());
     registerTableWrapHoverProvider(
@@ -111,7 +118,8 @@ export function activate(context: vscode.ExtensionContext): void {
         rebuildHeadingDecorations,
         applyAlwaysOpenNewTabSetting,
         applyDefaultWordWrapSetting,
-        applyWrapTabsSetting
+        applyWrapTabsSetting,
+        applyNotionKeymapContext
     });
 
     const editor = vscode.window.activeTextEditor;

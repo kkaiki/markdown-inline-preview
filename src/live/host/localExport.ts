@@ -3,7 +3,10 @@
  *
  * ユーザーの Chrome / Edge / Chromium をヘッドレスで起動し、
  * Markdown を HTML に変換した一時ファイルを --print-to-pdf で PDF 化する。
- * サーバーへの送信・Pro ライセンス不要でオフラインでも動作する。
+ * **文書の内容はサーバーへ一切送らない**（オフラインでも動作する）。
+ *
+ * HTML の組み立ては `src/shared/pdfHtml.ts`（VS Code 非依存・ユニットテスト対象）。
+ * クレジット行を入れるかどうかは呼び出し側が `options.credit` で決める。
  *
  * エクスポートモードは `markdownInline.export.mode` 設定で切り替え可能:
  *   "local"  → このファイルの処理（Chrome ヘッドレス）
@@ -18,8 +21,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { marked } from 'marked';
 import { splitFrontmatter } from '../../shared/markdown/frontmatter';
+import { buildPdfHtml } from '../../shared/pdfHtml';
 
 const execFileAsync = promisify(execFile);
 
@@ -76,44 +79,24 @@ function findBrowser(): string | undefined {
     });
 }
 
-/**
- * タスクリストアイテムのテキストノードを <span class="task-label"> で囲む。
- * marked は <li><input ...> text</li> と出力するが、テキストノードは CSS で
- * 直接選択できないため、取り消し線などのスタイルを当てるためにラップする。
- */
-function wrapTaskLabels(html: string): string {
-    return html.replace(
-        /(<li>)(<input[^>]*type="checkbox"[^>]*>)([\s\S]*?)(<\/li>)/g,
-        (_, liOpen, input, content, liClose) =>
-            `${liOpen}${input}<span class="task-label">${content.trim()}</span>${liClose}`
-    );
-}
-
-/** Markdown + CSS から PDF 用の完全 HTML 文字列を組み立てる。 */
-function buildHtml(markdownBody: string, css: string): string {
-    const rawHtml = marked.parse(markdownBody) as string;
-    const htmlBody = wrapTaskLabels(rawHtml);
-    return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>${css}</style>
-</head>
-<body class="markdown-body">
-${htmlBody}
-</body>
-</html>`;
+export interface LocalExportOptions {
+    /**
+     * 全ページ下部にクレジット行を入れるか（無料版）。
+     * 判定は `src/shared/license/entitlement.ts` の `shouldIncludeCredit()` が行う。
+     */
+    credit: boolean;
 }
 
 /**
  * ローカル Chrome ヘッドレスで PDF を生成してファイルに保存する。
  * @param document エクスポート対象の TextDocument
  * @param extensionPath 拡張機能のルートディレクトリ（media/ の親）
+ * @param options クレジット行の有無
  */
 export async function exportToPdfLocal(
     document: vscode.TextDocument,
-    extensionPath: string
+    extensionPath: string,
+    options: LocalExportOptions
 ): Promise<void> {
     if (document.uri.scheme !== 'file') {
         throw new Error(vscode.l10n.t(
@@ -129,7 +112,7 @@ export async function exportToPdfLocal(
     let css = '';
     try { css = fs.readFileSync(cssPath, 'utf-8'); } catch { /* fallback: no css */ }
 
-    const html = buildHtml(body, css);
+    const html = buildPdfHtml(body, css, { credit: options.credit });
 
     // 一時 HTML をドキュメントと同ディレクトリに置く
     // → relative な画像パス（./image.png 等）が正しく解決される

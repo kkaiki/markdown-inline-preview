@@ -13,6 +13,7 @@
  * 供給できないため（"Block decorations may not be specified via plugins"）、
  * フォーカス状態も StateEffect で state に載せて一元化している。
  */
+import { t } from './i18n';
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
 import { StateEffect, StateField, type EditorState, type Range } from '@codemirror/state';
 import katex from 'katex';
@@ -22,6 +23,7 @@ import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
 import { inlineSegments } from '../shared/inlineSegments';
 import { cellsInRect, selectionToMarkdown, type CellPos } from '../shared/tableSelection';
+import { normalizeWidths, resizeColumn } from '../shared/tableColumnWidths';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
@@ -213,6 +215,107 @@ class FenceLangWidget extends WidgetType {
 }
 
 /**
+ * 開いているあいだだけ覚える列幅（文書内の表の並び順がキー）。
+ *
+ * パイプ記法に列幅の表現は無いので Markdown には書かない（ユーザー指示 2026-09-12:
+ * 「一時的にでいいので開いている間 列の幅を調整できるように」）。タブを閉じれば消える。
+ */
+const columnWidthMemory = new Map<number, number[]>();
+
+/** ヘッダー行のセル（列の実体）。 */
+function headerCells(wrap: HTMLElement): HTMLElement[] {
+    return [...wrap.querySelectorAll<HTMLElement>('thead th')];
+}
+
+/** 今の列幅（記憶があればそれを、無ければ実測を使う）。 */
+function currentColumnWidths(wrap: HTMLElement, index: number): number[] {
+    const measured = headerCells(wrap).map((th) => th.getBoundingClientRect().width);
+    return normalizeWidths(columnWidthMemory.get(index), measured);
+}
+
+/** 列幅を `<colgroup>` に反映する（セルの中身を触らないので編集と干渉しない）。 */
+function applyColumnWidths(wrap: HTMLElement, widths: readonly number[]): void {
+    const table = wrap.querySelector<HTMLElement>('table');
+    const cols = [...wrap.querySelectorAll<HTMLElement>('colgroup col')];
+    if (!table || cols.length === 0) return;
+    table.style.tableLayout = 'fixed';
+    table.style.width = `${widths.reduce((a, b) => a + b, 0)}px`;
+    cols.forEach((col, i) => {
+        if (widths[i] !== undefined) col.style.width = `${widths[i]}px`;
+    });
+}
+
+/** つまみを列の境界へ置き直す（描画後・スクロール後・幅変更後に呼ぶ）。 */
+function layoutColumnResizers(wrap: HTMLElement): void {
+    const table = wrap.querySelector<HTMLElement>('table');
+    const layer = wrap.querySelector<HTMLElement>('.cm-live-col-resizers');
+    if (!table || !layer) return;
+    const cells = headerCells(wrap);
+    const handles = [...layer.querySelectorAll<HTMLElement>('.cm-live-col-resize')];
+    cells.forEach((th, i) => {
+        const handle = handles[i];
+        if (!handle) return;
+        handle.style.left = `${th.offsetLeft + th.offsetWidth}px`;
+        handle.style.top = `${table.offsetTop}px`;
+        handle.style.height = `${table.offsetHeight}px`;
+    });
+}
+
+/**
+ * 列の境界に「つまみ」を置いてドラッグで幅を変えられるようにする。
+ *
+ * セルは contenteditable で、フォーカスのたびに中身を作り直す（生 Markdown ⇄ 描画）ため、
+ * つまみはセルの中ではなく表の上に重ねたレイヤーに置く。
+ */
+function attachColumnResizers(wrap: HTMLElement, index: number): void {
+    const layer = document.createElement('div');
+    layer.className = 'cm-live-col-resizers';
+    layer.contentEditable = 'false';
+    for (let i = 0; i < headerCells(wrap).length; i++) {
+        const handle = document.createElement('span');
+        handle.className = 'cm-live-col-resize';
+        handle.dataset.col = String(i);
+        handle.setAttribute('role', 'separator');
+        handle.setAttribute('aria-label', t('Resize column'));
+        handle.setAttribute('aria-orientation', 'vertical');
+        layer.appendChild(handle);
+    }
+    wrap.appendChild(layer);
+
+    layer.addEventListener('pointerdown', (e) => {
+        const handle = (e.target as HTMLElement).closest<HTMLElement>('.cm-live-col-resize');
+        if (!handle) return;
+        // セルへフォーカスが移ったり、CodeMirror が選択を作ったりしないようにする
+        e.preventDefault();
+        e.stopPropagation();
+
+        const col = Number(handle.dataset.col ?? '0');
+        const start = e.clientX;
+        const base = currentColumnWidths(wrap, index);
+        handle.dataset.dragging = '1';
+        handle.setPointerCapture(e.pointerId);
+
+        const move = (ev: PointerEvent): void => {
+            const next = resizeColumn(base, col, ev.clientX - start);
+            columnWidthMemory.set(index, next);
+            applyColumnWidths(wrap, next);
+            layoutColumnResizers(wrap);
+        };
+        const up = (): void => {
+            handle.dataset.dragging = '0';
+            handle.removeEventListener('pointermove', move);
+            layoutColumnResizers(wrap);
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up, { once: true });
+        handle.addEventListener('pointercancel', up, { once: true });
+    });
+
+    wrap.addEventListener('scroll', () => layoutColumnResizers(wrap));
+    requestAnimationFrame(() => layoutColumnResizers(wrap));
+}
+
+/**
  * 表。パイプ記法のブロックを実 `<table>` として描画し、**セルの中で直接編集**できるようにする。
  *
  * Obsidian 実測（§2.8）どおり、カーソルが表の中にあっても生のパイプ記法へは戻さない
@@ -223,13 +326,15 @@ class FenceLangWidget extends WidgetType {
 class TableWidget extends WidgetType {
     constructor(
         private readonly source: string,
-        private readonly from: number
+        private readonly from: number,
+        /** 文書内で何番目の表か（列幅の記憶キー）。 */
+        private readonly index: number
     ) {
         super();
     }
 
     eq(other: TableWidget): boolean {
-        return other.source === this.source && other.from === this.from;
+        return other.source === this.source && other.from === this.from && other.index === this.index;
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -256,9 +361,21 @@ class TableWidget extends WidgetType {
             });
             (row.isHeader ? thead : tbody).appendChild(tr);
         });
+        const colgroup = document.createElement('colgroup');
+        const columnCount = thead.rows[0]?.cells.length ?? tbody.rows[0]?.cells.length ?? 0;
+        for (let i = 0; i < columnCount; i++) colgroup.appendChild(document.createElement('col'));
+        table.appendChild(colgroup);
         table.appendChild(thead);
         table.appendChild(tbody);
         wrap.appendChild(table);
+
+        // 列幅つまみ（一時的な列幅調整）。記憶があれば先に当てる。
+        attachColumnResizers(wrap, this.index);
+        const remembered = columnWidthMemory.get(this.index);
+        if (remembered) {
+            applyColumnWidths(wrap, remembered);
+            requestAnimationFrame(() => layoutColumnResizers(wrap));
+        }
 
         attachRangeSelection(wrap);
         wrap.addEventListener('input', () => this.onInput(wrap, view));
@@ -652,7 +769,11 @@ export function buildLiveDecorations(state: EditorState): DecorationSet {
     const hasFocus = state.field(liveFocusField, false) ?? false;
 
     const decos: Range<Decoration>[] = [];
-    for (const r of ranges) pushRange(decos, r, selections, hasFocus, state);
+    // 表は「文書内で何番目か」を渡す（列幅の一時記憶のキーになる）
+    let tableSeq = 0;
+    for (const r of ranges) {
+        pushRange(decos, r, selections, hasFocus, state, r.kind === 'table' ? tableSeq++ : -1);
+    }
     // Decoration.set の第2引数 true で from / startSide 順にソートさせる。
     return Decoration.set(decos, true);
 }
@@ -700,7 +821,8 @@ function pushRange(
     r: SyntaxRange,
     selections: { from: number; to: number }[],
     hasFocus: boolean,
-    state: EditorState
+    state: EditorState,
+    tableIndex: number
 ): void {
     if (r.kind === 'heading' && r.level) {
         const line = state.doc.lineAt(r.revealFrom);
@@ -796,7 +918,7 @@ function pushRange(
     if (r.kind === 'table') {
         const source = state.doc.sliceString(r.revealFrom, r.revealTo);
         decos.push(
-            Decoration.replace({ widget: new TableWidget(source, r.revealFrom), block: true }).range(
+            Decoration.replace({ widget: new TableWidget(source, r.revealFrom, tableIndex), block: true }).range(
                 r.revealFrom,
                 r.revealTo
             )

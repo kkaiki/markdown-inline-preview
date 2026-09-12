@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -242,17 +242,109 @@
       },
       {
         "command": "markdownInline.openLive",
-        "title": "Live モードで開く",
+        "title": "%command.openLive%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.toggleLive",
-        "title": "Live / Raw を切り替え",
+        "title": "%command.toggleLive%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.exportPdf",
         "title": "Export to PDF",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.removePdfCredit",
+        "title": "Remove PDF Credit Line (one-time purchase)",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.enterLicenseKey",
+        "title": "Enter License Key",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.restorePurchase",
+        "title": "Restore Purchase (sign in with Google)",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatBold",
+        "title": "Bold",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatItalic",
+        "title": "Italic",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatUnderline",
+        "title": "Underline",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatStrikethrough",
+        "title": "Strikethrough",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatCode",
+        "title": "Inline Code",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatLink",
+        "title": "Link",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatComment",
+        "title": "Comment (HTML comment)",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.formatHighlight",
+        "title": "Highlight",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.duplicateBlock",
+        "title": "Duplicate Block",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.convertToToggleList",
+        "title": "Convert to Toggle List",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.convertToCodeBlock",
+        "title": "Convert to Code Block",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.convertToQuote",
+        "title": "Convert to Quote",
+        "enablement": "editorLangId == markdown",
+        "category": "Markdown Inline Preview"
+      },
+      {
+        "command": "markdownInline.noop",
+        "title": "No-op (internal)",
         "category": "Markdown Inline Preview"
       }
     ],
@@ -268,7 +360,7 @@
             "filenamePattern": "*.markdown"
           }
         ],
-        "priority": "option"
+        "priority": "default"
       }
     ],
     "menus": {
@@ -291,6 +383,12 @@
           "command": "markdownInline.openLive",
           "when": "resourceLangId == markdown",
           "group": "1_open@10"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "markdownInline.noop",
+          "when": "false"
         }
       ]
     },
@@ -364,7 +462,7 @@
         "mac": "alt+cmd+5",
         "win": "alt+ctrl+5",
         "linux": "alt+ctrl+5",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToNumbered",
@@ -372,7 +470,7 @@
         "mac": "alt+cmd+6",
         "win": "alt+ctrl+6",
         "linux": "alt+ctrl+6",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToCheckbox",
@@ -380,7 +478,7 @@
         "mac": "alt+cmd+4",
         "win": "alt+ctrl+4",
         "linux": "alt+ctrl+4",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToNormal",
@@ -388,7 +486,7 @@
         "mac": "alt+cmd+0",
         "win": "alt+ctrl+0",
         "linux": "alt+ctrl+0",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToHeading1",
@@ -396,7 +494,7 @@
         "mac": "alt+cmd+1",
         "win": "alt+ctrl+1",
         "linux": "alt+ctrl+1",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToHeading2",
@@ -404,7 +502,7 @@
         "mac": "alt+cmd+2",
         "win": "alt+ctrl+2",
         "linux": "alt+ctrl+2",
-        "when": "editorTextFocus && editorLangId == markdown"
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.convertToHeading3",
@@ -412,7 +510,267 @@
         "mac": "alt+cmd+3",
         "win": "alt+ctrl+3",
         "linux": "alt+ctrl+3",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatBold",
+        "key": "ctrl+b",
+        "mac": "cmd+b",
+        "win": "ctrl+b",
+        "linux": "ctrl+b",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatItalic",
+        "key": "ctrl+i",
+        "mac": "cmd+i",
+        "win": "ctrl+i",
+        "linux": "ctrl+i",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatUnderline",
+        "key": "ctrl+u",
+        "mac": "cmd+u",
+        "win": "ctrl+u",
+        "linux": "ctrl+u",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatStrikethrough",
+        "key": "ctrl+shift+s",
+        "mac": "shift+cmd+s",
+        "win": "ctrl+shift+s",
+        "linux": "ctrl+shift+s",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatCode",
+        "key": "ctrl+e",
+        "mac": "cmd+e",
+        "win": "ctrl+e",
+        "linux": "ctrl+e",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatLink",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "win": "ctrl+k",
+        "linux": "ctrl+k",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatComment",
+        "key": "ctrl+shift+m",
+        "mac": "shift+cmd+m",
+        "win": "ctrl+shift+m",
+        "linux": "ctrl+shift+m",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.formatHighlight",
+        "key": "ctrl+shift+h",
+        "mac": "shift+cmd+h",
+        "win": "ctrl+shift+h",
+        "linux": "ctrl+shift+h",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.duplicateBlock",
+        "key": "ctrl+d",
+        "mac": "cmd+d",
+        "win": "ctrl+d",
+        "linux": "ctrl+d",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.moveLineUp",
+        "key": "ctrl+shift+up",
+        "mac": "shift+cmd+up",
+        "win": "ctrl+shift+up",
+        "linux": "ctrl+shift+up",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.moveLineDown",
+        "key": "ctrl+shift+down",
+        "mac": "shift+cmd+down",
+        "win": "ctrl+shift+down",
+        "linux": "ctrl+shift+down",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToToggleList",
+        "key": "alt+ctrl+7",
+        "mac": "alt+cmd+7",
+        "win": "alt+ctrl+7",
+        "linux": "alt+ctrl+7",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToCodeBlock",
+        "key": "alt+ctrl+8",
+        "mac": "alt+cmd+8",
+        "win": "alt+ctrl+8",
+        "linux": "alt+ctrl+8",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToQuote",
+        "key": "alt+ctrl+9",
+        "mac": "alt+cmd+9",
+        "win": "alt+ctrl+9",
+        "linux": "alt+ctrl+9",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToNormal",
+        "key": "ctrl+shift+0",
+        "win": "ctrl+shift+0",
+        "linux": "ctrl+shift+0",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToHeading1",
+        "key": "ctrl+shift+1",
+        "win": "ctrl+shift+1",
+        "linux": "ctrl+shift+1",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToHeading2",
+        "key": "ctrl+shift+2",
+        "win": "ctrl+shift+2",
+        "linux": "ctrl+shift+2",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToHeading3",
+        "key": "ctrl+shift+3",
+        "win": "ctrl+shift+3",
+        "linux": "ctrl+shift+3",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToCheckbox",
+        "key": "ctrl+shift+4",
+        "win": "ctrl+shift+4",
+        "linux": "ctrl+shift+4",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToBullet",
+        "key": "ctrl+shift+5",
+        "win": "ctrl+shift+5",
+        "linux": "ctrl+shift+5",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToNumbered",
+        "key": "ctrl+shift+6",
+        "win": "ctrl+shift+6",
+        "linux": "ctrl+shift+6",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToToggleList",
+        "key": "ctrl+shift+7",
+        "win": "ctrl+shift+7",
+        "linux": "ctrl+shift+7",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToCodeBlock",
+        "key": "ctrl+shift+8",
+        "win": "ctrl+shift+8",
+        "linux": "ctrl+shift+8",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToQuote",
+        "key": "ctrl+shift+9",
+        "win": "ctrl+shift+9",
+        "linux": "ctrl+shift+9",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.toggleLive",
+        "key": "ctrl+shift+.",
+        "mac": "shift+cmd+.",
+        "win": "ctrl+shift+.",
+        "linux": "ctrl+shift+.",
         "when": "editorTextFocus && editorLangId == markdown"
+      },
+      {
+        "command": "-workbench.action.toggleSidebarVisibility",
+        "key": "ctrl+b",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "cmd+b",
+        "win": "ctrl+b",
+        "linux": "ctrl+b"
+      },
+      {
+        "command": "-inlineChat.start",
+        "key": "ctrl+i",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "cmd+i",
+        "win": "ctrl+i",
+        "linux": "ctrl+i"
+      },
+      {
+        "command": "-cursorUndo",
+        "key": "ctrl+u",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "cmd+u",
+        "win": "ctrl+u",
+        "linux": "ctrl+u"
+      },
+      {
+        "command": "-actions.findWithSelection",
+        "key": "cmd+e",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "cmd+e"
+      },
+      {
+        "command": "-editor.action.addSelectionToNextFindMatch",
+        "key": "ctrl+d",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "cmd+d",
+        "win": "ctrl+d",
+        "linux": "ctrl+d"
+      },
+      {
+        "command": "-workbench.action.files.saveAs",
+        "key": "ctrl+shift+s",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "shift+cmd+s",
+        "win": "ctrl+shift+s",
+        "linux": "ctrl+shift+s"
+      },
+      {
+        "command": "-workbench.actions.view.problems",
+        "key": "ctrl+shift+m",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "shift+cmd+m",
+        "win": "ctrl+shift+m",
+        "linux": "ctrl+shift+m"
+      },
+      {
+        "command": "-workbench.action.replaceInFiles",
+        "key": "ctrl+shift+h",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap",
+        "mac": "shift+cmd+h",
+        "win": "ctrl+shift+h",
+        "linux": "ctrl+shift+h"
+      },
+      {
+        "command": "markdownInline.noop",
+        "key": "ctrl+k",
+        "mac": "cmd+k",
+        "win": "ctrl+k",
+        "linux": "ctrl+k",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap"
       }
     ],
     "configuration": {
@@ -559,6 +917,24 @@
           ],
           "description": "How PDF export is generated. \"local\" uses your installed Chromium-based browser via headless mode; \"server\" routes to the Pro cloud API."
         },
+        "markdownInline.export.creditLine": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "always"
+          ],
+          "enumDescriptions": [
+            "Hide the credit line once you have purchased its removal",
+            "Always include the credit line, even after purchasing (support the project)"
+          ],
+          "description": "PDF export is free and unlimited. Exported PDFs include a small credit line at the bottom of every page, which a one-time purchase removes."
+        },
+        "markdownInline.license.serverUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Advanced: override the license server URL. Leave empty to use the default."
+        },
         "markdownInline.export.browserPath": {
           "type": "string",
           "default": "",
@@ -589,22 +965,22 @@
         "markdownInline.live.showLineNumbers": {
           "type": "boolean",
           "default": true,
-          "description": "Live モードで行番号を表示する"
+          "description": "%config.live.showLineNumbers%"
         },
         "markdownInline.live.showDiffGutter": {
           "type": "boolean",
           "default": true,
-          "description": "Live モードで Git HEAD との差分を左ガターに表示する"
+          "description": "%config.live.showDiffGutter%"
         },
         "markdownInline.live.showToolbar": {
           "type": "boolean",
           "default": true,
-          "description": "Live モードで上部ツールバーを表示する"
+          "description": "%config.live.showToolbar%"
         },
         "markdownInline.live.enableSlashMenu": {
           "type": "boolean",
           "default": true,
-          "description": "Live モードでスラッシュコマンド（/）を有効にする"
+          "description": "%config.live.enableSlashMenu%"
         },
         "markdownInline.live.defaultMode": {
           "type": "string",
@@ -613,37 +989,47 @@
             "raw",
             "live"
           ],
-          "description": "Markdown を開くときの既定モード（raw = 通常のテキスト編集、live = Obsidian 風のライブ編集）"
+          "description": "%config.live.defaultMode%"
         },
         "markdownInline.live.rememberMode": {
           "type": "boolean",
           "default": true,
-          "description": "直前に使ったモード（Live / Raw）を覚えて、次に開く Markdown もそのモードで開く"
+          "description": "%config.live.rememberMode%"
         },
         "markdownInline.live.controlDefaultEditor": {
           "type": "boolean",
           "default": true,
-          "description": ".md の既定エディタ（workbench.editorAssociations）を現在のモードへ追従させる。他拡張との競合や、開いた直後に別エディタへ跳ね返る過渡状態を防ぐ"
+          "description": "%config.live.controlDefaultEditor%"
+        },
+        "markdownInline.live.avoidPanelGroup": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.live.avoidPanelGroup%"
         },
         "markdownInline.live.alwaysOpenNewTab": {
           "type": "boolean",
           "default": true,
-          "description": "ファイルを常に新しいタブで開く（VS Code のプレビュータブ再利用を無効にする）"
+          "description": "%config.live.alwaysOpenNewTab%"
         },
         "markdownInline.live.wordWrap": {
           "type": "boolean",
           "default": true,
-          "description": "Markdown を既定で折り返す（[markdown] スコープの editor.wordWrap を設定する）"
+          "description": "%config.live.wordWrap%"
         },
         "markdownInline.live.wrapTabs": {
           "type": "boolean",
           "default": true,
-          "description": "タブが多いときにタブバーを複数行へ折り返す（workbench.editor.wrapTabs）"
+          "description": "%config.live.wrapTabs%"
         },
         "markdownInline.enablePreview": {
           "type": "boolean",
           "default": true,
-          "description": "Markdown の装飾（見出し・チェックボックス等のデコレーション）を有効にする"
+          "description": "%config.enablePreview%"
+        },
+        "markdownInline.notionKeymap.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.notionKeymap.enabled%"
         }
       }
     },

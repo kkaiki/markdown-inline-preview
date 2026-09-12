@@ -8,6 +8,7 @@
  * カーソルを動かしただけで差分が変化してはならない（requirements.md 受け入れ基準 #9）。
  * そのため差分は「HEAD 本文」と「ドキュメント本文」だけから決まるようにしてある。
  */
+import { t } from './i18n';
 import { GutterMarker, gutter, type BlockInfo, type EditorView } from '@codemirror/view';
 import { StateEffect, StateField, type EditorState } from '@codemirror/state';
 import { computeLineDiff, type LineDiffResult } from '../shared/lineDiff';
@@ -64,7 +65,7 @@ class DiffMarker extends GutterMarker {
         if (this.deletedBefore) el.classList.add('cm-live-diff-deleted-before');
         el.dataset.line = String(this.line);
         el.title =
-            this.kind === 'added' ? '追加された行' : this.kind === 'modified' ? '変更された行' : '前の行が削除されている';
+            this.kind === 'added' ? t('Added line') : this.kind === 'modified' ? t('Modified line') : t('Previous line deleted');
         return el;
     }
 }

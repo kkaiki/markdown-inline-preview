@@ -73,25 +73,77 @@ describe('Live モード: 段階的な全選択（コードフェンス）', () 
 });
 
 describe('Live モード: 段階的な全選択（表）', () => {
-    const doc = '前\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n\n後\n';
+    const doc = '前\n\n| A | B |\n| --- | --- |\n| あい | うえ |\n| 3 | 4 |\n\n後\n';
     const tableFrom = doc.indexOf('| A');
     const lastRow = '| 3 | 4 |';
     const tableTo = doc.indexOf(lastRow) + lastRow.length;
-    const rowFrom = doc.indexOf('| 1 | 2 |');
-    const rowTo = rowFrom + '| 1 | 2 |'.length;
+    const rowText = '| あい | うえ |';
+    const rowFrom = doc.indexOf(rowText);
+    const rowTo = rowFrom + rowText.length;
+    const cellFrom = doc.indexOf('あい');
+    const cellTo = cellFrom + 'あい'.length;
 
-    it('1回目はカーソルのある行だけ', () => {
-        const r = nextSelectAllRange(doc, { from: rowFrom + 3, to: rowFrom + 3 });
+    it('1回目はカーソルのあるセルだけ', () => {
+        const r = nextSelectAllRange(doc, { from: cellFrom + 1, to: cellFrom + 1 });
+        assert.deepStrictEqual(r, { from: cellFrom, to: cellTo });
+    });
+
+    it('2回目はカーソルのある行', () => {
+        const r = nextSelectAllRange(doc, { from: cellFrom, to: cellTo });
         assert.deepStrictEqual(r, { from: rowFrom, to: rowTo });
     });
 
-    it('2回目は表全体', () => {
+    it('3回目は表全体', () => {
         const r = nextSelectAllRange(doc, { from: rowFrom, to: rowTo });
         assert.deepStrictEqual(r, { from: tableFrom, to: tableTo });
     });
 
-    it('3回目は文書全体', () => {
+    it('4回目は文書全体', () => {
         const r = nextSelectAllRange(doc, { from: tableFrom, to: tableTo });
         assert.deepStrictEqual(r, { from: 0, to: doc.length });
+    });
+
+    it('セル内の空白の上でもそのセルが選ばれる', () => {
+        // "| あい | うえ |" の "うえ" の直前の空白
+        const at = doc.indexOf('うえ') - 1;
+        const r = nextSelectAllRange(doc, { from: at, to: at });
+        assert.strictEqual(doc.slice(r.from, r.to), 'うえ');
+    });
+
+    it('ヘッダ行でもセルから始まる', () => {
+        const at = doc.indexOf('| A') + 2;
+        const r = nextSelectAllRange(doc, { from: at, to: at });
+        assert.strictEqual(doc.slice(r.from, r.to), 'A');
+    });
+
+    it('区切り行の上ではセルを飛ばして行から始まる', () => {
+        const delim = '| --- | --- |';
+        const at = doc.indexOf(delim) + 3;
+        const r = nextSelectAllRange(doc, { from: at, to: at });
+        assert.deepStrictEqual(r, { from: doc.indexOf(delim), to: doc.indexOf(delim) + delim.length });
+    });
+
+    it('空セルの上では（選ぶものが無いので）行から始まる', () => {
+        const d = '| A | B |\n| --- | --- |\n|  | 2 |\n';
+        const rowStart = d.indexOf('|  | 2 |');
+        const at = rowStart + 2;
+        const r = nextSelectAllRange(d, { from: at, to: at });
+        assert.deepStrictEqual(r, { from: rowStart, to: rowStart + '|  | 2 |'.length });
+    });
+
+    it('セルが1つだけの行でも段階は セル → 行 → 表 と進む', () => {
+        const d = '| A |\n| --- |\n| x |\n';
+        const cell = d.lastIndexOf('x');
+        const rowFrom1 = d.lastIndexOf('| x |');
+        const rowTo1 = rowFrom1 + '| x |'.length;
+        assert.deepStrictEqual(nextSelectAllRange(d, { from: cell, to: cell }), { from: cell, to: cell + 1 });
+        assert.deepStrictEqual(nextSelectAllRange(d, { from: cell, to: cell + 1 }), {
+            from: rowFrom1,
+            to: rowTo1
+        });
+        assert.deepStrictEqual(nextSelectAllRange(d, { from: rowFrom1, to: rowTo1 }), {
+            from: 0,
+            to: rowTo1
+        });
     });
 });

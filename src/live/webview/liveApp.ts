@@ -17,8 +17,17 @@
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 import { EditorState, type Extension } from '@codemirror/state';
 import { defaultKeymap } from '@codemirror/commands';
+import { setWebviewLocale } from './i18n';
 import { indentUnit } from '@codemirror/language';
-import { applyBlockActionToSelection, liveKeymap, wrapInlineMarker } from './liveKeymap';
+import {
+    applyBlockActionToSelection,
+    applyInlineFormatToSelection,
+    lastLiveSelectAllRange,
+    liveHostBridge,
+    liveKeymap,
+    liveSelectAll
+} from './liveKeymap';
+import { shouldIgnoreHostSelectAll } from '../shared/hostSelectAll';
 import { liveSlashMenu } from './liveSlashMenu';
 import { mountLiveToolbar } from './liveToolbar';
 import { liveLineNumbers } from './liveLineNumbers';
@@ -38,6 +47,8 @@ interface VsCodeApi {
 declare function acquireVsCodeApi(): VsCodeApi;
 
 interface LiveSettings {
+    /** VS Code のロケール（`vscode.env.language`）。未指定なら英語。 */
+    locale?: string;
     showLineNumbers?: boolean;
     showDiffGutter?: boolean;
     showToolbar?: boolean;
@@ -109,9 +120,55 @@ function extensions(settings: LiveSettings): Extension[] {
     ];
 }
 
+/** `document.execCommand` を横取り済みか（多重フック防止）。 */
+let selectAllGuarded = false;
+
+/**
+ * host（VS Code / Cursor 本体）が送ってくる「すべて選択」を横取りする。
+ *
+ * 本体は webview にフォーカスがあるとき ⌘A を自分でも処理し、webview が
+ * `preventDefault()` していても `execCommand('selectAll')` を送ってくる。放っておくと
+ * 段階的な ⌘A の結果が毎回そのあとで文書全体へ上書きされる（実機で計測。
+ * docs/specifications/live-mode/requirements.md §3.4.3）。
+ *
+ * webview 単体のブラウザテストには本体が居ないため、この経路は
+ * `test/browser/live/shortcuts/selectAllSteps.test.ts` が execCommand を直接呼んで再現する。
+ */
+function guardHostSelectAll(): void {
+    if (selectAllGuarded) return;
+    selectAllGuarded = true;
+    const original = document.execCommand.bind(document);
+    document.execCommand = (command: string, showUI?: boolean, value?: string): boolean => {
+        if (command === 'selectAll' && view) {
+            /*
+             * 表のセルの中は**表ウィジェット側**（selectAllStepInTable）が ⌘A を処理していて、
+             * CodeMirror の選択は動かさない。ここで本体の selectAll を通すと CodeMirror 側の
+             * 段階選択も走って段階が二重に進む（実機では 3回目に選択が文書全体へ化けた）。
+             */
+            const active = document.activeElement;
+            if (active instanceof Element && active.closest('.cm-live-table-wrap')) return true;
+            // 自分が設定した選択のままなら本体による上書きなので捨てる（段階選択の結果を守る）
+            const sel = view.state.selection.main;
+            if (shouldIgnoreHostSelectAll(lastLiveSelectAllRange(), { from: sel.from, to: sel.to })) {
+                return true;
+            }
+            // メニューの「すべて選択」など単体で来たものは段階選択として扱う
+            return liveSelectAll(view);
+        }
+        return original(command, showUI, value);
+    };
+}
+
 function createEditor(text: string, settings: LiveSettings): void {
+    // UI 文字列の言語はエディタのロケールに従う（既定は英語）
+    setWebviewLocale(settings.locale);
+    // ⌘⇧. で Raw へ戻す（keymap から host へ依頼するための受け口）
+    liveHostBridge.switchMode = (mode) => {
+        vscode?.postMessage({ type: 'switchMode', mode });
+        pushSent({ type: 'switchMode', mode });
+    };
     const parent = document.getElementById('live-root');
-    if (!parent) throw new Error('#live-root が見つかりません');
+    if (!parent) throw new Error('#live-root not found');
     parent.innerHTML = '';
     const host = document.createElement('div');
     host.className = 'cm-live-editor-host';
@@ -123,8 +180,8 @@ function createEditor(text: string, settings: LiveSettings): void {
     if (settings.showToolbar !== false) {
         mountLiveToolbar(parent, view, {
             applyBlock: (v, action) => applyBlockActionToSelection(v, action),
-            wrapInline: (v, marker) => {
-                wrapInlineMarker(v, marker);
+            applyInlineFormat: (v, format) => {
+                applyInlineFormatToSelection(v, format);
             },
             switchMode: (mode) => {
                 vscode?.postMessage({ type: 'switchMode', mode });
@@ -136,6 +193,7 @@ function createEditor(text: string, settings: LiveSettings): void {
             }
         });
     }
+    guardHostSelectAll();
     (window as unknown as { __liveView: EditorView }).__liveView = view;
     // テスト用シーム: 差分の計算結果を覗けるようにする（描画されない原因の切り分け用）
     (window as unknown as { __liveDiff: () => unknown }).__liveDiff = () =>

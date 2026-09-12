@@ -13,4 +13,5 @@ export interface RawHandlerDeps {
     applyAlwaysOpenNewTabSetting: () => void;
     applyDefaultWordWrapSetting: () => void;
     applyWrapTabsSetting: () => void;
+    applyNotionKeymapContext: () => void;
 }

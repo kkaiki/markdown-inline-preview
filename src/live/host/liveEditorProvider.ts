@@ -22,12 +22,19 @@ import { changeToRange, createEchoGuard, type DocChange } from '../shared/docume
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
 import {
+    shouldIncludeCredit,
+    MONETIZATION_ENABLED,
+    type CreditLineSetting
+} from '../../shared/license/entitlement';
+import type { LicenseVerifyResult } from '../../shared/license/token';
+import {
     computeEditorAssociations,
     editorAssociationsEqual,
     resolveDefaultOpenMode,
     type LiveMode
 } from './defaultEditorAssociation';
 import { fileMode, rememberFileMode, tabsToClose, type ModeMemory, type TabLike } from './modeMemory';
+import { chooseDocumentGroup, type GroupTabLike } from './editorGroups';
 
 const execFileAsync = promisify(execFile);
 
@@ -97,27 +104,86 @@ async function closeOppositeTabs(uri: vscode.Uri, mode: LiveMode): Promise<void>
 }
 
 /**
- * `.md` の既定エディタ（`workbench.editorAssociations`）から、この拡張が書いた値を取り除く。
+ * `.md` の既定エディタ（`workbench.editorAssociations`）を既定モードへ追従させる。
  *
- * この設定は**グローバルな glob 指定**なので「ファイルごとに Live / Raw を覚える」という
- * 要件と根本的に噛み合わない。Live に固定すると Raw と覚えたファイルまで Live で開こうとし、
- * さらに入口（CLI / エクスプローラ）によって適用され方が変わって挙動が割れる
- * （ユーザー報告 2026-08-05:「cli から開いたものは raw、左サイドバーから開いたものは live」）。
+ * customEditor の `priority: "default"` は**拡張機能側の「希望」でしかなく、尊重しない
+ * 環境がある**（ユーザー報告 2026-09-12: Cursor では左サイドバーからクリックすると
+ * 素のテキストエディタが先に開き、そのあと Live へ切り替わって Raw タブが閉じる＝ちらつく）。
+ * 一方 `workbench.editorAssociations` はユーザー設定なので拡張機能の宣言より強く、
+ * 「開く前から解決先が1つに確定している」状態を作れる。
  *
- * そのため関連付けは**使わない**。素のテキストエディタで開かれたあと、拡張が
- * ファイルごとの記憶を見て Live へ切り替える（applyRememberedMode）。
- * ユーザーが自分で他拡張のビューアへ向けている設定は残す。
+ * 関連付けは**グローバルな glob 指定**でファイル単位にはできないので、ここは既定モード
+ * （`live.defaultMode`）に合わせるだけにして、記憶が既定と違うファイルは
+ * `resolveCustomTextEditor` の跳ね返しで反対のモードへ開き直す。
+ *
+ * `live.controlDefaultEditor` が OFF のときは**自分が書いた値だけ**取り除く
+ * （ユーザーが他拡張のビューアへ向けている設定は残す）。
  */
-async function clearManagedEditorAssociation(): Promise<void> {
+async function syncManagedEditorAssociation(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    const desired = config.get<boolean>('live.controlDefaultEditor', true)
+        ? resolveDefaultOpenMode({ defaultMode: config.get<string>('live.defaultMode', 'live') })
+        : null;
     const workbench = vscode.workspace.getConfiguration('workbench');
     const current = workbench.get<Record<string, string>>('editorAssociations');
-    const next = computeEditorAssociations(current, null);
+    const next = computeEditorAssociations(current, desired);
     if (editorAssociationsEqual(current, next)) return;
     try {
         await workbench.update('editorAssociations', next, vscode.ConfigurationTarget.Global);
     } catch {
-        // 設定を書けない環境では黙って諦める
+        // 設定を書けない環境では黙って諦める（priority: default と applyRememberedMode が受け皿）
     }
+}
+
+/** そのタブが本文を編集するタブ（テキスト・カスタムエディタ・差分・ノートブック）か。 */
+function isDocumentTab(tab: vscode.Tab): boolean {
+    const input = tab.input;
+    return (
+        input instanceof vscode.TabInputText ||
+        input instanceof vscode.TabInputCustom ||
+        input instanceof vscode.TabInputNotebook ||
+        input instanceof vscode.TabInputTextDiff ||
+        input instanceof vscode.TabInputNotebookDiff
+    );
+}
+
+/** そのタブが `uri` を開いているか。 */
+function tabUri(tab: vscode.Tab): string | undefined {
+    return (tab.input as { uri?: vscode.Uri } | undefined)?.uri?.toString();
+}
+
+/**
+ * Markdown が「パネルだけのエディタグループ」に開かれてしまったときに、文書を並べている
+ * グループへ移す。
+ *
+ * VS Code は新しいエディタを**アクティブなグループ**へ開くため、Claude Code のセッションや
+ * ターミナルを開いている側にフォーカスがあると、作業していない方のグループに .md が開く
+ * （ユーザー報告 2026-09-12）。移動先の判定は `chooseDocumentGroup`（純関数）。
+ */
+async function relocateOutOfPanelGroup(uri: vscode.Uri): Promise<void> {
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    if (!config.get<boolean>('live.avoidPanelGroup', true)) return;
+
+    const groups = vscode.window.tabGroups.all;
+    const landing = groups.findIndex(
+        (g) => g.isActive && g.tabs.some((t) => t.isActive && tabUri(t) === uri.toString())
+    );
+    // アクティブなタブでないなら `moveActiveEditor` は別のエディタを動かしてしまうので触らない
+    if (landing === -1) return;
+
+    const mapped: GroupTabLike[][] = groups.map((g) =>
+        g.tabs.map((t) =>
+            isDocumentTab(t) ? { kind: 'document', uri: tabUri(t) } : { kind: 'panel' }
+        )
+    );
+    const target = chooseDocumentGroup(mapped, landing, uri.toString());
+    if (target === null) return;
+
+    await vscode.commands.executeCommand('moveActiveEditor', {
+        to: 'position',
+        by: 'group',
+        value: target + 1
+    });
 }
 
 /** 今 Live へ切り替え中の URI（再入して無限ループになるのを防ぐ）。 */
@@ -187,14 +253,82 @@ function html(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     });
 }
 
+/** 未購入のときのフォールバック（ライセンス機能が登録される前に呼ばれた場合）。 */
+const NO_LICENSE: LicenseVerifyResult = { ok: false, reason: 'malformed' };
+
+/**
+ * SecretStorage を読む窓口。`activate()` から注入される。
+ * ここを直接 import すると host 層が拡張のライフサイクルに依存してしまうため、
+ * setter で受け取る形にしている。
+ */
+let licenseStore: { verify(): Promise<LicenseVerifyResult> } | undefined;
+
+/** 「クレジット行を消す」案内を出した回数の記録先。毎回出すとうるさいので間引く。 */
+let upsellMemento: vscode.Memento | undefined;
+
+export function setLicenseStore(
+    store: { verify(): Promise<LicenseVerifyResult> },
+    memento?: vscode.Memento
+): void {
+    licenseStore = store;
+    upsellMemento = memento;
+}
+
+const UPSELL_COUNT_KEY = 'markdownInline.export.creditExportCount';
+/** 何回に 1 回 案内を出すか。1 回目は必ず出し、以後はこの間隔。 */
+const UPSELL_INTERVAL = 5;
+
+/**
+ * 無料版で書き出したあとに「クレジット行を消す」導線を出す。
+ * **書き出し自体は成功しているので、失敗のように見せない。** 毎回出すと嫌われるため間引く。
+ */
+async function offerCreditRemoval(): Promise<void> {
+    if (!upsellMemento) return;
+
+    const count = (upsellMemento.get<number>(UPSELL_COUNT_KEY) ?? 0) + 1;
+    await upsellMemento.update(UPSELL_COUNT_KEY, count);
+    if (count !== 1 && count % UPSELL_INTERVAL !== 0) return;
+
+    const removeLabel = vscode.l10n.t('Remove credit line…');
+    const enterKeyLabel = vscode.l10n.t('Enter license key');
+    const choice = await vscode.window.showInformationMessage(
+        vscode.l10n.t('This PDF includes a small credit line at the bottom of each page.'),
+        removeLabel,
+        enterKeyLabel
+    );
+
+    if (choice === removeLabel) {
+        await vscode.commands.executeCommand('markdownInline.removePdfCredit');
+    } else if (choice === enterKeyLabel) {
+        await vscode.commands.executeCommand('markdownInline.enterLicenseKey');
+    }
+}
+
 /** PDF 書き出し。失敗しても webview は壊さず、メッセージだけ出す。 */
 async function exportPdf(document: vscode.TextDocument, extensionPath: string): Promise<void> {
+    const setting = vscode.workspace
+        .getConfiguration('markdownInline')
+        .get<CreditLineSetting>('export.creditLine', 'auto');
+
+    // ここでネットワークに出ない。書き出しを待たせないため、判定はローカルの
+    // 保存済みトークンだけで行う（更新は起動時と 24 時間ごとに裏で走る）。
+    const license = (await licenseStore?.verify()) ?? NO_LICENSE;
+
+    const credit = shouldIncludeCredit({
+        license,
+        monetizationEnabled: MONETIZATION_ENABLED,
+        setting
+    });
+
     try {
-        await exportToPdfLocal(document, extensionPath);
+        await exportToPdfLocal(document, extensionPath, { credit });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         void vscode.window.showErrorMessage(vscode.l10n.t('PDF export failed: {0}', msg));
+        return;
     }
+
+    if (credit) void offerCreditRemoval();
 }
 
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
@@ -208,11 +342,36 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
         panel: vscode.WebviewPanel,
         _token: vscode.CancellationToken
     ): void {
+        if (openModeFor(this.context, document.uri) === 'raw') {
+            // customEditor の priority が default なので、Raw と記憶したファイルも
+            // 一度はここへ来てしまう。webview は作らず、素のエディタへ即座に開き直す（跳ね返し）。
+            // 今 resolveCustomTextEditor 中のこのタブ自身が閉じられずに残ってしまうため、
+            // 開き直す前に閉じる（他のコマンドの switchMode 等と同じ順序）。
+            void (async () => {
+                await closeOppositeTabs(document.uri, 'raw');
+                await vscode.commands.executeCommand('vscode.openWith', document.uri, 'default');
+            })();
+            return;
+        }
+
         const echo = createEchoGuard();
         const extensionPath = this.extensionUri.fsPath;
 
         // Live で開かれた＝このファイルは Live で使う、と覚える
         void rememberMode(this.context, document.uri, 'live');
+
+        /*
+         * Claude Code のセッションやターミナルだけのグループに開かれていたら、文書を
+         * 並べているグループへ移す。タブはまだ tabGroups に現れていないことがあるので、
+         * 「今」「アクティブになったとき」「少し後」の3回試す（移動が要らなければ no-op）。
+         */
+        const relocate = (): void => void relocateOutOfPanelGroup(document.uri);
+        relocate();
+        const viewStateSub = panel.onDidChangeViewState(() => {
+            if (panel.active) relocate();
+        });
+        panel.onDidDispose(() => viewStateSub.dispose());
+        setTimeout(relocate, 200);
         void closeOppositeTabs(document.uri, 'live');
         panel.webview.options = {
             enableScripts: true,
@@ -232,6 +391,8 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                 type: 'init',
                 text: document.getText(),
                 settings: {
+                    // UI 文字列の言語（既定は英語、日本語のエディタなら日本語）
+                    locale: vscode.env.language,
                     showLineNumbers: vscode.workspace
                         .getConfiguration('markdownInline')
                         .get<boolean>('live.showLineNumbers', true),
@@ -341,8 +502,19 @@ async function activeMarkdownDocument(): Promise<vscode.TextDocument | undefined
 }
 
 export function activateLiveFeature(context: vscode.ExtensionContext): void {
-    // 関連付けはファイル単位の記憶と噛み合わないので使わない（書いた値は掃除する）
-    void clearManagedEditorAssociation();
+    // 既定エディタの関連付けを既定モードへ追従させる（priority: default だけでは
+    // 素の Raw を経由してしまう環境があるため）。設定変更にも追従する。
+    void syncManagedEditorAssociation();
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (
+                e.affectsConfiguration('markdownInline.live.controlDefaultEditor') ||
+                e.affectsConfiguration('markdownInline.live.defaultMode')
+            ) {
+                void syncManagedEditorAssociation();
+            }
+        })
+    );
 
     /*
      * 素のテキストエディタで Markdown が開かれたら、記憶しているモードへ合わせる。
@@ -350,7 +522,12 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
      */
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (editor) void applyRememberedMode(context, editor.document);
+            if (!editor) return;
+            void applyRememberedMode(context, editor.document);
+            // Raw のまま使うファイルも、パネルだけのグループに開かれたら文書側へ移す
+            if (editor.document.languageId === 'markdown' && editor.document.uri.scheme === 'file') {
+                void relocateOutOfPanelGroup(editor.document.uri);
+            }
         })
     );
     if (vscode.window.activeTextEditor) {

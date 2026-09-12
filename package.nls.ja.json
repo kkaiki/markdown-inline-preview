@@ -6,5 +6,20 @@
   "walkthrough.slash.title": "スラッシュメニューで挿入",
   "walkthrough.slash.description": "行頭で / を打つと、見出し・リスト・テーブルなどを素早く挿入できます。",
   "walkthrough.shortcuts.title": "ショートカット",
-  "walkthrough.shortcuts.description": "見出し・チェックボックス・整形などのショートカットを覚えると一気に速くなります。"
+  "walkthrough.shortcuts.description": "見出し・チェックボックス・整形などのショートカットを覚えると一気に速くなります。",
+  "config.live.showLineNumbers": "Live モードで行番号を表示する",
+  "config.live.showDiffGutter": "Live モードで Git HEAD との差分を左ガターに表示する",
+  "config.live.showToolbar": "Live モードで上部ツールバーを表示する",
+  "config.live.enableSlashMenu": "Live モードでスラッシュコマンド（/）を有効にする",
+  "config.live.defaultMode": "Markdown を開くときの既定モード（raw = 通常のテキスト編集、live = Obsidian 風のライブ編集）",
+  "config.live.rememberMode": "直前に使ったモード（Live / Raw）を覚えて、次に開く Markdown もそのモードで開く",
+  "config.live.controlDefaultEditor": ".md の既定エディタ（workbench.editorAssociations）を現在のモードへ追従させる。他拡張との競合や、開いた直後に別エディタへ跳ね返る過渡状態を防ぐ",
+  "config.live.avoidPanelGroup": "Markdown が Claude / ターミナルなどパネルだけのエディタグループに開かれたとき、文書を並べているグループへ移す",
+  "config.live.alwaysOpenNewTab": "ファイルを常に新しいタブで開く（VS Code のプレビュータブ再利用を無効にする）",
+  "config.live.wordWrap": "Markdown を既定で折り返す（[markdown] スコープの editor.wordWrap を設定する）",
+  "config.live.wrapTabs": "タブが多いときにタブバーを複数行へ折り返す（workbench.editor.wrapTabs）",
+  "config.enablePreview": "Markdown の装飾（見出し・チェックボックス等のデコレーション）を有効にする",
+  "config.notionKeymap.enabled": "Notion と同じキー割り当て（⌘B 太字・⌘E コード・⌘K リンク・⌥⌘数字 ブロック変換など）を有効にする。切ると Raw モードでは VS Code 既定のキーに戻る",
+  "command.openLive": "Live モードで開く",
+  "command.toggleLive": "Live / Raw を切り替え"
 }

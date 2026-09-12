@@ -6,5 +6,20 @@
   "walkthrough.slash.title": "Insert with the slash menu",
   "walkthrough.slash.description": "Type / at the start of a line to quickly insert headings, lists, tables, and more.",
   "walkthrough.shortcuts.title": "Shortcuts",
-  "walkthrough.shortcuts.description": "Learn the shortcuts for headings, checkboxes, and formatting to speed things up."
+  "walkthrough.shortcuts.description": "Learn the shortcuts for headings, checkboxes, and formatting to speed things up.",
+  "config.live.showLineNumbers": "Show line numbers in Live mode",
+  "config.live.showDiffGutter": "Show the diff against Git HEAD in the left gutter in Live mode",
+  "config.live.showToolbar": "Show the toolbar at the top in Live mode",
+  "config.live.enableSlashMenu": "Enable slash commands (/) in Live mode",
+  "config.live.defaultMode": "Default mode when opening Markdown (raw = plain text editing, live = Obsidian-style live editing)",
+  "config.live.rememberMode": "Remember the mode last used for each file and reopen it in that mode",
+  "config.live.controlDefaultEditor": "Keep the default editor for .md (workbench.editorAssociations) in sync with the current mode, so files open directly in the right editor",
+  "config.live.avoidPanelGroup": "When Markdown opens in an editor group that only holds panels (Claude, terminals), move it to the group that holds documents",
+  "config.live.alwaysOpenNewTab": "Always open files in a new tab (disable VS Code preview tab reuse)",
+  "config.live.wordWrap": "Wrap Markdown by default (sets editor.wordWrap for the [markdown] scope)",
+  "config.live.wrapTabs": "Wrap the tab bar onto multiple rows when there are many tabs (workbench.editor.wrapTabs)",
+  "config.enablePreview": "Enable Markdown decorations (headings, checkboxes, and so on)",
+  "config.notionKeymap.enabled": "Enable Notion-compatible keybindings (⌘B bold, ⌘E code, ⌘K link, ⌥⌘digits block conversion). Turning it off restores the VS Code defaults",
+  "command.openLive": "Open in Live mode",
+  "command.toggleLive": "Toggle Live / Raw"
 }

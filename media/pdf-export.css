@@ -212,3 +212,47 @@ img {
     print-color-adjust: exact;
   }
 }
+
+/* ── Credit line (free tier) ────────────────────────────── */
+/*
+ * 無料版の PDF に入る 1 行。要素そのものは購入者の出力には含まれない
+ * （src/shared/pdfHtml.ts が DOM に出さない）。
+ *
+ * **各ページへの繰り返しは `<tfoot>` に依る。** `position: fixed` は Chrome の印刷で
+ * 本文と重なり、`@page { margin-bottom }` + 負の bottom はページ上部へ回り込んだ
+ * （2026-08-13 に複数ページ PDF を生成して実測）。ここでは見た目だけを定義する。
+ */
+
+table.ipreview-page {
+  width: 100%;
+  border-collapse: collapse;
+  border: 0;
+}
+
+/* 包みのテーブル自身は見えてはいけない。本文中の表の枠線設定を打ち消す */
+table.ipreview-page > tbody > tr > td,
+table.ipreview-page > tfoot > tr > td {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* 本文の最終行とクレジットが詰まって見えないようにする */
+table.ipreview-page > tfoot > tr > td {
+  padding-top: 6mm;
+}
+
+.ipreview-credit {
+  text-align: center;
+  font-size: 8pt;
+  line-height: 1.2;
+  color: #9aa0a6;
+  letter-spacing: 0.02em;
+}
+
+@media print {
+  .ipreview-credit {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

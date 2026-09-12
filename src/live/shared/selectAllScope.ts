@@ -5,6 +5,9 @@
  *   表のセル → その行 → 表全体 → ファイル全体、
  *   コードフェンスも同じく 中身 → ブロック全体 → ファイル全体。
  *
+ * 2026-08-09: 表だけ**セルの段階が抜けていて**行から始まっていた
+ * （ユーザー報告:「table コードセルを command + a で選択する操作がないです」）。
+ *
  * 直前の選択範囲を見て「今どの段階か」を判定し、次の段階を返す。
  * 段階の判定に状態を持たないので、外部から選択を変えられても破綻しない。
  */
@@ -38,6 +41,7 @@ function lineRanges(doc: string): TextRange[] {
 }
 
 import { findFenceBlocks } from './fenceBlocks';
+import { isTableDelimiterRow, parseTableCells } from './tableCells';
 
 const TABLE_ROW = /\|/;
 const TABLE_DELIM = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
@@ -86,6 +90,25 @@ function tableAt(doc: string, offset: number): TextRange | null {
     return null;
 }
 
+/**
+ * オフセットを含む表のセル本文の範囲。
+ *
+ * セル解析は装飾・セル内編集と**同じ関数**（`parseTableCells`）を使う。ここだけ別実装に
+ * すると「見えているセルと選択範囲がズレる」事故になる。
+ *
+ * 区切り行（`| --- |`）と空セルは「選ぶ中身が無い」ので null を返し、行の段階から始める。
+ */
+function tableCellAt(doc: string, offset: number): TextRange | null {
+    const row = lineRangeAt(doc, offset);
+    const line = doc.slice(row.from, row.to);
+    if (isTableDelimiterRow(line)) return null;
+    const cells = parseTableCells(line, row.from)[0]?.cells ?? [];
+    // セル本文より手前の空白にカーソルがあっても、そのセルを選ぶ
+    const cell = cells.find((c) => offset <= c.to);
+    if (!cell || cell.from === cell.to) return null;
+    return { from: cell.from, to: cell.to };
+}
+
 function same(a: TextRange, b: TextRange): boolean {
     return a.from === b.from && a.to === b.to;
 }
@@ -112,6 +135,11 @@ export function nextSelectAllRange(doc: string, selection: TextRange): TextRange
     const table = tableAt(doc, at);
     if (table) {
         const row = lineRangeAt(doc, at);
+        const cell = tableCellAt(doc, at);
+        // セル → 行 → 表 → 文書全体（ユーザー指示 2026-08-05）
+        if (cell && !same(selection, cell) && !same(selection, row) && !same(selection, table)) {
+            return cell;
+        }
         if (!same(selection, row) && !same(selection, table)) return row;
         if (same(selection, row)) return table;
         return whole;

@@ -10,6 +10,7 @@ import type { CommandHandlers, DebugLogFunction } from '../../types';
 import * as listCommands from './list';
 import * as tableCommands from './table';
 import * as navigationCommands from './navigation';
+import * as formatCommands from './format';
 
 /**
  * デバッグログ出力（外部から注入）
@@ -134,6 +135,39 @@ export function registerCommands(context: vscode.ExtensionContext, handlers: Com
 
     safeRegister(context, 'markdownInline.moveLineDown',
         navigationCommands.createMoveLineHandler(handlers, 'down'), conflicts);
+
+    // Notion 準拠のショートカット（docs/specifications/notion-shortcuts.md）
+    const INLINE_FORMAT_COMMANDS = {
+        'markdownInline.formatBold': 'bold',
+        'markdownInline.formatItalic': 'italic',
+        'markdownInline.formatUnderline': 'underline',
+        'markdownInline.formatStrikethrough': 'strikethrough',
+        'markdownInline.formatCode': 'code',
+        'markdownInline.formatLink': 'link',
+        'markdownInline.formatComment': 'comment',
+        'markdownInline.formatHighlight': 'highlight'
+    } as const;
+    for (const [commandId, format] of Object.entries(INLINE_FORMAT_COMMANDS)) {
+        safeRegister(context, commandId, formatCommands.createInlineFormatHandler(format), conflicts);
+    }
+
+    safeRegister(context, 'markdownInline.duplicateBlock',
+        formatCommands.createDuplicateBlockHandler(), conflicts);
+
+    safeRegister(context, 'markdownInline.convertToToggleList',
+        formatCommands.createWrapBlockHandler('toggleList'), conflicts);
+
+    safeRegister(context, 'markdownInline.convertToCodeBlock',
+        formatCommands.createWrapBlockHandler('codeBlock'), conflicts);
+
+    safeRegister(context, 'markdownInline.convertToQuote',
+        formatCommands.createConvertToQuoteHandler(), conflicts);
+
+    safeRegister(context, 'markdownInline.repairNestedCodeFences',
+        formatCommands.createRepairNestedCodeFencesHandler(), conflicts);
+
+    // Live モードで VS Code の chord（⌘K …）が始まらないようにするためだけの空コマンド
+    safeRegister(context, 'markdownInline.noop', () => { /* 何もしない */ }, conflicts);
 
     // 競合警告
     if (conflicts.length > 0) {
