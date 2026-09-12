@@ -173,8 +173,7 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 - 1 万行超のファイルでは装飾更新に遅延が出る場合があります。
 - Live は CommonMark/GFM 中心。ウィキリンク等の Obsidian 拡張は未対応です。
 - Live モードのキー操作は WebView 内（CodeMirror）に持っているため、VS Code のキーバインド
-  設定からは個別に変更できません（Raw モードのキーは変更できます。背景:
-  [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)）。
+  設定からは個別に変更できません（Raw モードのキーは変更できます）。
 - 統合テスト（`npm test`）は Electron ランナーが必要です。CI では `npm run test:unit` を推奨します。
 
 ### 他拡張との競合
@@ -195,11 +194,8 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 
 | ファイル | 内容 |
 |----------|------|
-| [docs/README.md](./docs/README.md) | ドキュメント索引 |
-| [docs/specifications/live-mode/README.md](./docs/specifications/live-mode/README.md) | Live モード仕様（実測仕様・要件・アーキテクチャ） |
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | ショートカット早見表 |
-| [docs/specifications/notion-shortcuts.md](./docs/specifications/notion-shortcuts.md) | Notion 準拠のショートカット仕様 |
-| [docs/developer/architecture.md](./docs/developer/architecture.md) | アーキテクチャ概要 |
+| [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) | PDF 書き出し |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 
 ---
@@ -207,8 +203,6 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 ## コントリビューション
 
 Issue・PR: [github.com/kkaiki/markdown-inline-preview](https://github.com/kkaiki/markdown-inline-preview/issues)
-
-[docs/developer/contributing.md](./docs/developer/contributing.md) も参照してください。
 
 ## ライセンス
 

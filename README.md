@@ -176,8 +176,7 @@ More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcu
 - Very large files (10k+ lines) may slow decoration updates.
 - Live targets CommonMark/GFM; wiki links and some Obsidian extensions are not supported.
 - Live-mode keys live inside the WebView (CodeMirror), so they cannot be remapped from
-  VS Code's keyboard-shortcuts UI. Raw-mode keys can
-  (background: [docs/research/notion-shortcuts.md](./docs/research/notion-shortcuts.md)).
+  VS Code's keyboard-shortcuts UI. Raw-mode keys can.
 - Integration tests (`npm test`) need the VS Code Electron runner; prefer `npm run test:unit` in CI.
 
 ### Conflicts with other extensions
@@ -198,11 +197,8 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 
 | Doc | Content |
 |-----|---------|
-| [docs/README.md](./docs/README.md) | Documentation index |
-| [docs/specifications/live-mode/README.md](./docs/specifications/live-mode/README.md) | Live mode specification (observed spec, requirements, architecture) |
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | Keyboard shortcuts |
-| [docs/specifications/notion-shortcuts.md](./docs/specifications/notion-shortcuts.md) | Notion-compatible shortcut spec |
-| [docs/developer/architecture.md](./docs/developer/architecture.md) | Architecture overview |
+| [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) | PDF export |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 
 ---
@@ -210,8 +206,6 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 ## Contributing
 
 Issues and pull requests: [github.com/kkaiki/markdown-inline-preview](https://github.com/kkaiki/markdown-inline-preview/issues)
-
-See also [docs/developer/contributing.md](./docs/developer/contributing.md).
 
 ## License
 
