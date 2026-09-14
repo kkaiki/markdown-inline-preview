@@ -272,6 +272,13 @@ body {
     line-height: 1.65;
     padding-left: 16px;
     padding-right: 16px;
+    /*
+     * 編集領域全体には本文の折り返し用に EditorView.lineWrapping が効いているが、
+     * コードは折り返さず、はみ出した分をその行だけ横スクロールする
+     * （ユーザー指摘 2026-09-14）。
+     */
+    white-space: pre;
+    overflow-x: auto;
 }
 .cm-line.cm-live-code-first {
     border-top-left-radius: 6px;
