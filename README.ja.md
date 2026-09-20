@@ -103,10 +103,14 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 ### UI・ナビゲーション
 
 - **上部ツールバー** — H1/H2/H3・☑・箇条書き・番号・引用・太字・斜体・コード・PDF・Raw 切替
+- **検索・置換**（`⌘F` / `Ctrl+F`）— 表示上は隠れている記法（`**` や `#` など）も含めて、生の
+  Markdown ソースを検索。大文字小文字・単語単位・正規表現の切り替え付き
 - **行番号ガター**（`live.showLineNumbers`）
 - **Git 差分ガター** — HEAD との差分（追加=緑 / 変更=青 / 削除=赤三角、`live.showDiffGutter`）
 - **モード記憶** — ファイルごとに最後のモードを覚えて次回もそのモードで開く（`live.rememberMode`）
-- **PDF 書き出し** — `Markdown Inline Preview: Export to PDF`
+- **PDF 書き出し** — `Markdown Inline Preview: Export to PDF`。無料・無制限。各ページ下部に
+  小さなクレジット行が入るが、一度きりの購入（¥100 / $1）で消せる。
+  詳細は [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
 
 ---
 

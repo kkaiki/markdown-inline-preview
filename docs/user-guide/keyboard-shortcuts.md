@@ -73,6 +73,8 @@ Windows は Notion と同じ `Ctrl+Shift+数字` に加えて、従来の `Alt+C
 | 行末へ（スマート） | `⌘→` | `End` | ✅ | ❌ |
 | 行頭まで選択 | `⇧⌘←` | `Shift+Home` | ✅ | ❌ |
 | 上下移動（表では同じ列へ） | `↑` / `↓` | 同 | ✅ | ❌ |
+| 検索・置換 | `⌘F` | `Ctrl+F` | VS Code 標準 | ✅ |
+| 次 / 前の一致へ | `⌘G` / `⇧⌘G` | `Ctrl+G` / `Ctrl+Shift+G` | VS Code 標準 | ✅ |
 | Live / Raw を切り替え | `⌘⇧.` | `Ctrl+Shift+.` | ✅ | ✅ |
 
 > **Mac の注意**: Live のスマート行頭移動は `Home` にしか割り当てていない。

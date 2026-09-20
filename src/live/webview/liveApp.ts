@@ -17,7 +17,10 @@
 import { EditorView, keymap, type ViewUpdate } from '@codemirror/view';
 import { EditorState, type Extension } from '@codemirror/state';
 import { defaultKeymap } from '@codemirror/commands';
+import { search, searchKeymap } from '@codemirror/search';
+import { createLiveSearchPanel } from './liveSearchPanel';
 import { setWebviewLocale } from './i18n';
+import { searchPhrases } from '../shared/webviewStrings';
 import { indentUnit } from '@codemirror/language';
 import {
     applyBlockActionToSelection,
@@ -94,6 +97,9 @@ const theme = EditorView.theme({
 
 function extensions(settings: LiveSettings): Extension[] {
     return [
+        // ⌘F 検索。ラベルはロケールに従う（docs/specifications/live-mode/find.md）
+        EditorState.phrases.of(searchPhrases(settings.locale)),
+        search({ top: true, createPanel: createLiveSearchPanel }),
         // 行番号は視覚行に1対1で付く（畳まれたブロックは先頭のソース行番号だけが出る）
         ...(settings.showLineNumbers ? [liveLineNumbers] : []),
         // Git 差分ガター（基準は host から 'diffBase' で受け取る）
@@ -115,6 +121,8 @@ function extensions(settings: LiveSettings): Extension[] {
         ...(settings.enableSlashMenu === false ? [] : [liveSlashMenu]),
         // Live モード固有のキーは既定より先に評価させる
         keymap.of(liveKeymap),
+        // ⌘D は Notion 準拠の「ブロック複製」なので、検索側の「次の出現を選択」は使わない
+        keymap.of(searchKeymap.filter((b) => b.key !== 'Mod-d')),
         // history は載せない（Undo は VS Code 側へ一本化する）
         keymap.of(defaultKeymap.filter((b) => b.key !== 'Mod-z' && b.key !== 'Mod-y'))
     ];

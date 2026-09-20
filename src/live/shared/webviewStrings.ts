@@ -33,7 +33,7 @@ export const JA_STRINGS: Record<string, string> = {
     'Zoom out': '縮小',
     'Zoom in': '拡大',
     'Reset zoom to 100%': '拡大率を 100% に戻す',
-    'Export to PDF': 'PDF に書き出す',
+    'Export to PDF (free)': 'PDF に書き出す（無料）',
     'Open in Raw mode': 'Raw モードで開く',
     // 表
     'Select row': '行を選択',
@@ -63,8 +63,36 @@ export const JA_STRINGS: Record<string, string> = {
     'Danger callout 🚨': '危険コールアウト 🚨',
     'Info callout ℹ️': '情報コールアウト ℹ️',
     'Bullet list': '箇条書きリスト',
-    'Heading (choose level)': '見出し (レベル指定)'
+    'Heading (choose level)': '見出し (レベル指定)',
+    // ⌘F 検索パネル（用語は VS Code 日本語版に合わせる）
+    Find: '検索',
+    Replace: '置換',
+    'Replace All': 'すべて置換',
+    'Toggle Replace': '置換の切り替え',
+    'Match Case': '大文字と小文字を区別する',
+    'Match Whole Word': '単語単位で検索する',
+    'Use Regular Expression': '正規表現を使用する',
+    'Previous Match': '前の一致項目',
+    'Next Match': '次の一致項目',
+    Close: '閉じる',
+    'No results': '結果なし',
+    '{0} of {1}': '{1} 件中 {0} 件'
 };
+
+/**
+ * CodeMirror 標準の UI（「行へ移動」パネル）の文言。キーは CodeMirror が `state.phrase()` に渡す英語そのまま。
+ * `EditorState.phrases` に渡す辞書として使うため、`t('…')` の走査対象にはしない。
+ * 検索パネルは独自実装（liveSearchPanel.ts）で、文言は上の JA_STRINGS にある。
+ */
+export const JA_SEARCH_PHRASES: Record<string, string> = {
+    'Go to line': '行へ移動',
+    go: '移動'
+};
+
+/** ロケールに応じた検索パネルの文言辞書（英語は CodeMirror 既定のまま＝空）。 */
+export function searchPhrases(locale: string | undefined): Record<string, string> {
+    return isJapaneseLocale(locale) ? JA_SEARCH_PHRASES : {};
+}
 
 /** VS Code のロケール（`vscode.env.language`）が日本語か。 */
 export function isJapaneseLocale(locale: string | undefined): boolean {

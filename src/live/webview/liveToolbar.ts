@@ -60,9 +60,14 @@ const BUTTONS: ToolbarButton[] = [
     { label: '🔗', name: 'Link', format: 'link' }
 ];
 
+/*
+ * PDF 書き出し自体は無料・無制限。ツールチップ名に "(free)" を付け、
+ * クレジット行除去だけが有料であることをホバー時点で誤解なく伝える
+ * （docs/specifications/live-mode/requirements.md §4.6.1）。
+ */
 /** スクロールする側の末尾に置く操作（固定はしない）。 */
 const EXTRAS: ToolbarButton[] = [
-    { label: 'PDF', name: 'Export to PDF', command: 'exportPdf' }
+    { label: 'PDF', name: 'Export to PDF (free)', command: 'exportPdf' }
 ];
 
 /** 右端に固定するモード系。 */

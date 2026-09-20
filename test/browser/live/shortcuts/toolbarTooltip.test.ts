@@ -82,7 +82,7 @@ describe('Live モード: ツールバーのショートカット・チートシ
         h = await openLive(browser, '本文\n');
         await h.page.hover('.cm-live-toolbar-button[data-command="exportPdf"]');
         await h.page.locator(TIP).waitFor({ state: 'visible', timeout: 5000 });
-        assert.strictEqual((await h.page.locator(TIP_NAME).textContent())?.trim(), 'Export to PDF');
+        assert.strictEqual((await h.page.locator(TIP_NAME).textContent())?.trim(), 'Export to PDF (free)');
         assert.deepStrictEqual(await keys(h), []);
     });
 

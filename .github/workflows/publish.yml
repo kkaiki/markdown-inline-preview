@@ -7,7 +7,33 @@ on:
   workflow_dispatch:  # 手動実行も可能
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint:error
+
+      - name: Build extension
+        run: npm run compile
+
+      - name: Unit & webview tests
+        run: npm run test:unit
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +57,7 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: vsce publish -p ${{ secrets.VSCE_PAT }}
-        continue-on-error: true  # VSCE_PATがない場合もOpen VSXへの公開を続行
+        continue-on-error: true  # Marketplace側が失敗してもOpen VSXへの公開を続行
 
       - name: Publish to Open VSX
         run: ovsx publish *.vsix -p ${{ secrets.OVSX_PAT }}

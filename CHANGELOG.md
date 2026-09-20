@@ -1,3 +1,11 @@
+## 3.3.0 - 2026-09-20
+
+- Feature: `⌘F` / `Ctrl+F` find & replace in Live mode. Live is a custom editor, so VS Code's own find widget cannot reach the source hidden by the preview (`**`, `#`, …); the panel is built into the editor (CodeMirror `@codemirror/search`) and searches the raw Markdown. It follows the VS Code widget layout (floating card, `Aa` / `ab` / `.*` toggles, match count, prev / next, collapsible replace row) and the editor's locale. `⌘G` / `⇧⌘G` move to the next / previous match. Not supported: find in selection, preserve-case replace. Spec: `docs/specifications/live-mode/find.md`; guarded by `test/browser/live/shortcuts/find.test.ts`.
+- Feature: PDF export is free and unlimited, with a small credit line at the bottom of each page. Removing it is a one-time purchase (¥100 / $1) via `Markdown Inline Preview: Remove PDF Credit Line (one-time purchase)`. The toolbar tooltip now reads "Export to PDF (free)". See `docs/user-guide/pdf-export.md`.
+- Change: The editor title-bar button now depends on the mode. In Raw (plain text editor) it is "Open in Live mode" (`markdownInline.openLive`); in Live it is "Toggle Live / Raw" (`markdownInline.toggleLive`). Guarded by `test/suite/shared/editorTitleMenu.test.ts`.
+- Chore: Added the extension icon (`images/icon.png`).
+- Chore: The publish workflow now runs lint, build and unit tests first and only publishes when they pass. `npm run prepare-release <patch|minor|major>` bumps the version and adds the CHANGELOG stub.
+
 ## 3.2.0 - 2026-09-12
 
 - Feature: Table columns can now be resized by dragging the handle on a column border. The width is temporary — it is kept while the file stays open (Markdown has no way to express column widths) and never written to the document. Columns cannot be dragged below 48px; a table wider than the pane scrolls inside itself. Spec: `docs/specifications/live-mode/requirements.md` §4.9.1; guarded by `test/suite/live/lists-tables/tableColumnWidths.test.ts` and `test/browser/live/lists-tables/tableColumnResize.test.ts`.

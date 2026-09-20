@@ -797,3 +797,169 @@ body {
     text-align: left;
     white-space: pre-wrap;
 }
+
+/*
+ * ⌘F 検索パネル（liveSearchPanel.ts）。仕様: docs/specifications/live-mode/find.md
+ *
+ * VS Code / Cursor の検索ウィジェットと同じ構成（左に置換の開閉、検索欄の右端内側に
+ * Aa / ab / .*、件数、↑ ↓ ×）。本文の上に重ねて右上に浮かべ、本文を押し下げない。
+ * 既定テーマは `.ͼN` 付きのセレクタで当たるため、`#live-root` を前置して特異度で勝つ。
+ */
+#live-root .cm-editor .cm-panels {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    left: auto;
+    width: min(440px, calc(100% - 32px));
+    z-index: 20;
+    background: transparent;
+    border: none;
+    color: var(--live-fg);
+}
+#live-root .cm-editor .cm-panels-top {
+    border: none;
+}
+#live-root .cm-editor .cm-find-widget {
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    box-sizing: border-box;
+    padding: 6px 8px 6px 4px;
+    background: var(--live-bg);
+    border: 1px solid var(--live-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(31, 35, 40, 0.14), 0 1px 3px rgba(31, 35, 40, 0.08);
+    font-family: var(--live-font);
+    font-size: 12px;
+    color: var(--live-fg);
+}
+#live-root .cm-editor .cm-find-rows {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+#live-root .cm-editor .cm-find-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+#live-root .cm-editor .cm-find-row[hidden] {
+    display: none;
+}
+/* 検索欄・置換欄。オプションのボタンは欄の内側の右端に置く */
+#live-root .cm-editor .cm-find-field {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-right: 4px;
+}
+#live-root .cm-editor .cm-find-input {
+    width: 100%;
+    height: 26px;
+    margin: 0;
+    padding: 0 8px;
+    box-sizing: border-box;
+    border: 1px solid var(--live-border);
+    border-radius: 5px;
+    background: var(--live-bg);
+    color: var(--live-fg);
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+}
+#live-root .cm-editor .cm-find-row:not(.cm-find-replace) .cm-find-input {
+    /* 右端のオプション 3 つ分をテキストが潜り込まないように空ける */
+    padding-right: 84px;
+}
+#live-root .cm-editor .cm-find-input:focus {
+    border-color: var(--live-link);
+    box-shadow: 0 0 0 1px var(--live-link);
+}
+#live-root .cm-editor .cm-find-options {
+    position: absolute;
+    top: 0;
+    right: 3px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+}
+#live-root .cm-editor .cm-find-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    margin: 0;
+    padding: 0 3px;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    background-image: none;
+    color: var(--live-muted);
+    font: inherit;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+}
+#live-root .cm-editor .cm-find-button:hover {
+    background: rgba(129, 139, 152, 0.16);
+    color: var(--live-fg);
+}
+#live-root .cm-editor .cm-find-button:focus-visible {
+    outline: 1px solid var(--live-link);
+    outline-offset: -1px;
+}
+#live-root .cm-editor .cm-find-option[aria-pressed='true'] {
+    background: rgba(9, 105, 218, 0.14);
+    border-color: rgba(9, 105, 218, 0.55);
+    color: var(--live-link);
+}
+#live-root .cm-editor .cm-find-option-word {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+#live-root .cm-editor .cm-find-toggle-replace {
+    align-self: stretch;
+    height: auto;
+    min-width: 18px;
+    padding: 0;
+}
+#live-root .cm-editor .cm-find-toggle-replace svg {
+    transition: transform 0.12s;
+    transform: rotate(-90deg);
+}
+#live-root .cm-editor .cm-find-toggle-open svg {
+    transform: none;
+}
+#live-root .cm-editor .cm-find-count {
+    flex: 0 0 auto;
+    min-width: 64px;
+    padding: 0 4px;
+    text-align: center;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    color: var(--live-fg);
+}
+#live-root .cm-editor .cm-find-count-empty {
+    color: #cf222e;
+}
+/* 一致箇所: 淡い黄色、選択中は濃い黄色 */
+#live-root .cm-editor .cm-searchMatch {
+    background: var(--live-highlight-bg);
+    outline: none;
+    border-radius: 2px;
+}
+#live-root .cm-editor .cm-searchMatch.cm-searchMatch-selected {
+    background: #ffd84d;
+}
+/* CodeMirror 既定の閉じるボタン（右上に絶対配置）を、1 行目の末尾に並べる通常のボタンへ戻す */
+#live-root .cm-editor .cm-find-widget button[name='close'] {
+    position: static;
+    top: auto;
+    right: auto;
+    width: auto;
+    font-size: 12px;
+}

@@ -103,12 +103,16 @@ and **only the syntax under the cursor** expands into source form.
 ### UI & navigation
 
 - **Toolbar** — H1/H2/H3, checkbox, bullet, numbered, quote, bold, italic, code, PDF, Raw
+- **Find & replace** (`⌘F` / `Ctrl+F`) — searches the raw Markdown source, including syntax
+  hidden by the preview (`**`, `#`, …); case / whole-word / regex toggles
 - **Line-number gutter** (`live.showLineNumbers`)
 - **Git diff gutter** against HEAD — added = green / changed = blue / deleted = red triangle
   (`live.showDiffGutter`)
 - **Mode memory** per file — reopening a file uses the mode you last used for it
   (`live.rememberMode`)
-- **PDF export** — `Markdown Inline Preview: Export to PDF`
+- **PDF export** — `Markdown Inline Preview: Export to PDF`. Free and unlimited; a small
+  credit line is printed at the bottom of each page. Removing it is a one-time purchase
+  (¥100 / $1) — see [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
 
 ---
 

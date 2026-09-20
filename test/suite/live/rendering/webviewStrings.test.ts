@@ -82,7 +82,7 @@ describe('Live モード: webview の文字列（i18n）', () => {
             'Strikethrough',
             'Inline code',
             'Link',
-            'Export to PDF',
+            'Export to PDF (free)',
             'Open in Raw mode',
             'Zoom out',
             'Zoom in',

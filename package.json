@@ -2,7 +2,7 @@
   "name": "ipreview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "publisher": "ipreview",
   "license": "MIT",
   "repository": {
@@ -30,6 +30,7 @@
     "toc",
     "md"
   ],
+  "icon": "images/icon.png",
   "galleryBanner": {
     "color": "#1e1e1e",
     "theme": "dark"
@@ -366,8 +367,13 @@
     "menus": {
       "editor/title": [
         {
+          "command": "markdownInline.openLive",
+          "when": "editorLangId == markdown && activeCustomEditorId != 'ipreview.live'",
+          "group": "navigation@1"
+        },
+        {
           "command": "markdownInline.toggleLive",
-          "when": "editorLangId == markdown || activeCustomEditorId == 'ipreview.live'",
+          "when": "activeCustomEditorId == 'ipreview.live'",
           "group": "navigation@1"
         }
       ],
@@ -1075,6 +1081,7 @@
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "docs:test-catalog": "node scripts/generate-test-catalog.mjs",
+    "prepare-release": "node scripts/prepare-release.mjs",
     "setup:hooks": "sh scripts/install-githooks.sh",
     "check:secrets": "bash scripts/check-secrets.sh",
     "package": "vsce package",
@@ -1108,6 +1115,7 @@
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",
+    "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.8",
     "@lezer/highlight": "^1.2.3",
