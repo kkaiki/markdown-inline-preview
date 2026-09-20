@@ -23,6 +23,7 @@ import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
 import {
     shouldIncludeCredit,
+    shouldShowProBadge,
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
@@ -386,7 +387,9 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             void panel.webview.postMessage(message);
         };
 
-        const sendInit = (): void => {
+        const sendInit = async (): Promise<void> => {
+            // 保存済みトークンだけで判定する（ネットワークには出ない）。PDF ボタンの PRO+ バッジ用
+            const license = (await licenseStore?.verify().catch(() => undefined)) ?? NO_LICENSE;
             post({
                 type: 'init',
                 text: document.getText(),
@@ -404,7 +407,8 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                         .get<boolean>('live.showToolbar', true),
                     enableSlashMenu: vscode.workspace
                         .getConfiguration('markdownInline')
-                        .get<boolean>('live.enableSlashMenu', true)
+                        .get<boolean>('live.enableSlashMenu', true),
+                    showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED })
                 }
             });
         };
@@ -417,7 +421,8 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
 
         const messageSub = panel.webview.onDidReceiveMessage(async (msg: EditMessage | { type: string }) => {
             if (msg.type === 'ready') {
-                sendInit();
+                // diffBase は init で作られる editor に対して送るので、init を先に届ける
+                await sendInit();
                 void sendDiffBase();
                 return;
             }
@@ -469,8 +474,7 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
         // webview 側の bundle 読み込み完了を待たずに init が飛ぶのを避けるため、
         // 'ready' を受けてから送る。取りこぼし対策として一度だけ遅延送信もする。
         const kick = setTimeout(() => {
-            sendInit();
-            void sendDiffBase();
+            void sendInit().then(() => sendDiffBase());
         }, 500);
 
         // 保存のたびに HEAD 版を取り直す（コミット直後などに差分が残らないように）

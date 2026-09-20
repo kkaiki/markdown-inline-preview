@@ -34,6 +34,7 @@ export const JA_STRINGS: Record<string, string> = {
     'Zoom in': '拡大',
     'Reset zoom to 100%': '拡大率を 100% に戻す',
     'Export to PDF (free)': 'PDF に書き出す（無料）',
+    'Export to PDF (free; PRO+ removes the credit line)': 'PDF に書き出す（無料。PRO+ でクレジット行を消せます）',
     'Open in Raw mode': 'Raw モードで開く',
     // 表
     'Select row': '行を選択',

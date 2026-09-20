@@ -56,6 +56,8 @@ interface LiveSettings {
     showDiffGutter?: boolean;
     showToolbar?: boolean;
     enableSlashMenu?: boolean;
+    /** PDF ボタンに PRO+ バッジを出すか（host が「販売中かつ未購入」のときだけ true にする）。 */
+    showProBadge?: boolean;
 }
 
 const vscode: VsCodeApi | null = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
@@ -199,7 +201,7 @@ function createEditor(text: string, settings: LiveSettings): void {
                 vscode?.postMessage({ type: command });
                 pushSent({ type: command });
             }
-        });
+        }, { showProBadge: settings.showProBadge === true });
     }
     guardHostSelectAll();
     (window as unknown as { __liveView: EditorView }).__liveView = view;

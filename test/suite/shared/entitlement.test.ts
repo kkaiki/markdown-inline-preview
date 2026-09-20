@@ -12,6 +12,7 @@
 import * as assert from 'assert';
 import {
     shouldIncludeCredit,
+    shouldShowProBadge,
     needsTokenRefresh,
     REFRESH_BEFORE_EXPIRY_SEC,
     type CreditDecisionInput
@@ -76,6 +77,25 @@ describe('クレジット行を入れるかの判定', () => {
             shouldIncludeCredit(input({ license: validToken(), setting: 'always' })),
             true
         );
+    });
+});
+
+describe('ツールバーの PRO+ バッジを出すかの判定', () => {
+    it('購入導線が未出荷（monetizationEnabled=false）なら出さない（買えないのに促さない）', () => {
+        assert.strictEqual(shouldShowProBadge({ license: input().license, monetizationEnabled: false }), false);
+    });
+
+    it('未購入なら出す', () => {
+        assert.strictEqual(shouldShowProBadge({ license: input().license, monetizationEnabled: true }), true);
+    });
+
+    it('購入者には出さない', () => {
+        assert.strictEqual(shouldShowProBadge({ license: validToken(), monetizationEnabled: true }), false);
+    });
+
+    it('購入者が creditLine=always にしていても出さない（もう買っているので）', () => {
+        assert.strictEqual(shouldShowProBadge({ license: validToken(), monetizationEnabled: true }), false);
+        assert.strictEqual(shouldIncludeCredit(input({ license: validToken(), setting: 'always' })), true);
     });
 });
 

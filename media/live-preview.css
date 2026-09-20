@@ -644,6 +644,26 @@ body {
     background: transparent;
     color: var(--live-muted);
 }
+/* PDF ボタンの右上に重ねる PRO+ バッジ（クレジット行の除去が有料であることの示唆）。
+   クリックは下のボタンに通す。ツールバーのスクロール領域から切れないよう、ボタン内に収める */
+.cm-live-toolbar-button-pro {
+    position: relative;
+    padding-right: 38px;
+}
+.cm-live-toolbar-badge {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    padding: 2px 4px;
+    border-radius: 3px;
+    background: #f59e0b;
+    color: #1f1300;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    pointer-events: none;
+}
 /* 拡大率（− / 100% / +）。数字の桁で幅が動かないように固定幅にする */
 .cm-live-toolbar-zoom {
     margin-right: 4px;

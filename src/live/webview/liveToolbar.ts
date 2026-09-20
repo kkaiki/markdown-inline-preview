@@ -94,8 +94,18 @@ export interface ToolbarHandlers {
     runCommand(command: 'exportPdf'): void;
 }
 
+export interface ToolbarOptions {
+    /** PDF ボタンの右上に PRO+ バッジを出す（クレジット行の除去が有料であることの示唆）。 */
+    showProBadge?: boolean;
+}
+
 /** ツールバーの DOM を作って `parent` の先頭に差し込む。 */
-export function mountLiveToolbar(parent: HTMLElement, view: EditorView, handlers: ToolbarHandlers): HTMLElement {
+export function mountLiveToolbar(
+    parent: HTMLElement,
+    view: EditorView,
+    handlers: ToolbarHandlers,
+    options: ToolbarOptions = {}
+): HTMLElement {
     const bar = document.createElement('div');
     bar.className = 'cm-live-toolbar';
 
@@ -120,7 +130,7 @@ export function mountLiveToolbar(parent: HTMLElement, view: EditorView, handlers
     extras.className = 'cm-live-toolbar-group';
     extras.appendChild(makeZoomControl(view, tip));
     for (const b of EXTRAS) {
-        extras.appendChild(makeButton(b, view, handlers, tip));
+        extras.appendChild(makeButton(b, view, handlers, tip, options));
     }
     scroll.appendChild(extras);
     bar.appendChild(scroll);
@@ -314,17 +324,28 @@ function makeButton(
     b: ToolbarButton,
     view: EditorView,
     handlers: ToolbarHandlers,
-    tip: ShortcutTip
+    tip: ShortcutTip,
+    options: ToolbarOptions = {}
 ): HTMLButtonElement {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'cm-live-toolbar-button';
     el.textContent = b.label;
+    // PDF の書き出し自体は無料。バッジは「クレジット行の除去が有料」の示唆で、ツールチップで併記する
+    const pro = b.command === 'exportPdf' && options.showProBadge === true;
+    if (pro) {
+        el.classList.add('cm-live-toolbar-button-pro');
+        const badge = document.createElement('span');
+        badge.className = 'cm-live-toolbar-badge';
+        badge.textContent = 'PRO+';
+        badge.setAttribute('aria-hidden', 'true');
+        el.appendChild(badge);
+    }
     if (b.block) el.dataset.block = b.block;
     if (b.format) el.dataset.format = b.format;
     if (b.mode) el.dataset.mode = b.mode;
     if (b.command) el.dataset.command = b.command;
-    tip.attach(el, t(b.name), shortcutOf(b));
+    tip.attach(el, t(pro ? 'Export to PDF (free; PRO+ removes the credit line)' : b.name), shortcutOf(b));
     // ボタンを押してもエディタのフォーカス・選択を失わないようにする
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', () => {

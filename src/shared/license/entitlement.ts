@@ -55,6 +55,16 @@ export function shouldIncludeCredit(input: CreditDecisionInput): boolean {
 }
 
 /**
+ * ツールバーの PDF ボタンに「PRO+」バッジを出すべきか。
+ *
+ * 販売が有効で、クレジット行の除去を未購入のときだけ出す（買えないのに促さない／購入者には出さない）。
+ * 購入者が `export.creditLine = always` にしていてもバッジは出さないので、setting は見ない。
+ */
+export function shouldShowProBadge(input: Pick<CreditDecisionInput, 'license' | 'monetizationEnabled'>): boolean {
+    return shouldIncludeCredit({ ...input, setting: 'auto' });
+}
+
+/**
  * バックグラウンドでトークンを取り直すべきか。
  *
  * 署名が壊れている・知らないバージョンといった「取り直しても直らない」失敗では
