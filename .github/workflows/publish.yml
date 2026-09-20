@@ -56,6 +56,7 @@ jobs:
         run: vsce package
 
       - name: Publish to VS Code Marketplace
+        id: vsce
         run: vsce publish -p ${{ secrets.VSCE_PAT }}
         continue-on-error: true  # Marketplace側が失敗してもOpen VSXへの公開を続行
 
@@ -68,6 +69,14 @@ jobs:
           name: vsix-package
           path: '*.vsix'
           retention-days: 30
+
+      # Marketplace 側の失敗を握りつぶさない（PAT 期限切れでも job が緑になるのを防ぐ）。
+      # Open VSX への公開と VSIX の保存を終えたあとで、job を失敗として終わらせる。
+      - name: Fail if Marketplace publish failed
+        if: steps.vsce.outcome == 'failure'
+        run: |
+          echo "::error::VS Code Marketplace への公開に失敗しました（VSCE_PAT の期限切れが典型）。Open VSX には公開済みです。"
+          exit 1
 
   create-release:
     needs: publish
