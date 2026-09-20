@@ -31,3 +31,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
+          # 既定の 8.24.3 は .gitleaks.toml の [[allowlists]]（8.25 以降の書式）を読めず、
+          # キーバインド宣言などを誤検知し続けていた。全履歴で指摘 0 件を確認した版に固定する。
+          GITLEAKS_VERSION: 8.30.1
