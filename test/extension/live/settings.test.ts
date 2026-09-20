@@ -32,7 +32,7 @@ suite('Live モード: .md の既定エディタとの連動（実 VS Code）', 
     suiteSetup(async () => {
         // このスイートは Markdown を開かないので、拡張機能を明示的に有効化しておく
         // （activationEvents は onLanguage:markdown / onCustomEditor のため）。
-        await vscode.extensions.getExtension('ipreview.ipreview')?.activate();
+        await vscode.extensions.getExtension('markdown-inline-preview.markdown-inline-preview')?.activate();
         await wait(500);
     });
 

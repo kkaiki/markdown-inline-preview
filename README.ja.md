@@ -26,14 +26,14 @@ Live モードは Markdown を別のモデルへ変換しないため、記法�
 
 ```bash
 # VSIX から（npm run package 後）
-code --install-extension ipreview-3.1.1.vsix
+code --install-extension markdown-inline-preview-3.3.0.vsix
 
 # ソースからビルド
 git clone https://github.com/kkaiki/markdown-inline-preview.git
 cd markdown-inline-preview
 npm install
 npm run package
-code --install-extension ipreview-*.vsix
+code --install-extension markdown-inline-preview-*.vsix
 ```
 
 開発時はフォルダを VS Code で開き **F5** でデバッグ実行できます。

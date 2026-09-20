@@ -25,14 +25,14 @@ Switch from the tab's context menu or the command palette:
 
 ```bash
 # From a packaged VSIX (after npm run package)
-code --install-extension ipreview-3.1.1.vsix
+code --install-extension markdown-inline-preview-3.3.0.vsix
 
 # Or build from source
 git clone https://github.com/kkaiki/markdown-inline-preview.git
 cd markdown-inline-preview
 npm install
 npm run package
-code --install-extension ipreview-*.vsix
+code --install-extension markdown-inline-preview-*.vsix
 ```
 
 For development, open the folder in VS Code and press **F5**.

@@ -9,7 +9,7 @@
  */
 
 /** `package.json` の `publisher`.`name`。deep link のホスト部になる。 */
-export const EXTENSION_ID = 'ipreview.ipreview';
+export const EXTENSION_ID = 'markdown-inline-preview.markdown-inline-preview';
 
 /** 末尾スラッシュの有無によらず `<base>/<path>` を組む。 */
 function joinUrl(baseUrl: string, path: string): URL {

@@ -16,7 +16,7 @@
 import assert from "assert";
 import * as vscode from "vscode";
 
-const EXTENSION_ID = 'ipreview.ipreview';
+const EXTENSION_ID = 'markdown-inline-preview.markdown-inline-preview';
 
 suite('Raw: license', () => {
 
