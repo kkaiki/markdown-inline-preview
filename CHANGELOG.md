@@ -4,6 +4,7 @@
 - Feature: PDF export is free and unlimited, with a small credit line at the bottom of each page. Removing it is a one-time purchase (¥100 / $1) via `Markdown Inline Preview: Remove PDF Credit Line (one-time purchase)`. The toolbar tooltip now reads "Export to PDF (free)". See `docs/user-guide/pdf-export.md`.
 - Change: The editor title-bar button now depends on the mode. In Raw (plain text editor) it is "Open in Live mode" (`markdownInline.openLive`); in Live it is "Toggle Live / Raw" (`markdownInline.toggleLive`). Guarded by `test/suite/shared/editorTitleMenu.test.ts`.
 - Feature: A colored "PRO+" badge sits at the top-right of the toolbar's PDF button while purchasing is available and the credit-line removal has not been bought; the tooltip says PDF export itself is free. It is hidden for buyers and while purchasing is not yet enabled.
+- Change: Fenced code blocks now wrap at the pane width instead of scrolling horizontally, including unbreakable strings such as URLs or hashes. This reverses the 2026-09-14 change. Spec: `docs/specifications/live-mode/requirements.md` §4.6.1; guarded by `test/browser/live/rendering/codeBlockWrap.test.ts`.
 - Chore: Added the extension icon (`images/icon.png`).
 - Chore: The publish workflow now runs lint, build and unit tests first and only publishes when they pass. `npm run prepare-release <patch|minor|major>` bumps the version and adds the CHANGELOG stub.
 

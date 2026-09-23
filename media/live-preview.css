@@ -273,12 +273,11 @@ body {
     padding-left: 16px;
     padding-right: 16px;
     /*
-     * 編集領域全体には本文の折り返し用に EditorView.lineWrapping が効いているが、
-     * コードは折り返さず、はみ出した分をその行だけ横スクロールする
-     * （ユーザー指摘 2026-09-14）。
+     * ペインの幅で折り返す（ユーザー指摘 2026-09-23）。空白の無い長い文字列
+     * （URL・ハッシュ値など）でも折り返せるよう、単語境界に関係なく折り返す。
      */
-    white-space: pre;
-    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 .cm-line.cm-live-code-first {
     border-top-left-radius: 6px;

@@ -1,12 +1,12 @@
 /**
- * フェンスコードブロックは折り返さず、横スクロールで見られること（実 Chromium）。
+ * フェンスコードブロックは長い行を折り返し、横スクロールしないこと（実 Chromium）。
  *
- * ユーザー指摘（2026-09-14）:「コードブロックは、折り返さずに、横スクロールで
- * 移動できるようにするのが基本なのでは？」。
+ * ユーザー指摘（2026-09-23）:「横スクロールを変えて欲しいです。折り返すようにして欲しいです」。
+ * 2026-09-14 に一度「コードは折り返さず横スクロール」へ変えたが、方針をここで逆にする
+ * （旧テスト `codeBlockScroll.test.ts` は本ファイルに置き換え）。
  *
- * Live モードは `EditorView.lineWrapping` を編集領域全体に効かせている
- * （地の文の折り返しのため）ので、素のままだとコード行もそれに巻き込まれて
- * 折り返ってしまう。コード行だけ `white-space: pre` + 横スクロールへ戻す。
+ * 折り返しは空白の無い長い文字列（URL やハッシュ値など）でも起きる必要があるため、
+ * 単語境界に関係なく折り返す（`overflow-wrap: anywhere`）。
  */
 import * as assert from 'assert';
 import type { Browser } from 'playwright';
@@ -35,7 +35,7 @@ describe('Live モード: コードブロックの折り返し（実ブラウザ
         }
     });
 
-    it('長いコード行は折り返さず、行の高さは1行分のまま', async function () {
+    it('長いコード行は折り返され、行の高さが増える', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, DOC);
 
@@ -47,24 +47,30 @@ describe('Live モード: コードブロックの折り返し（実ブラウザ
         assert.strictEqual(heights.length, 2, `コード行が2つのはず: ${JSON.stringify(heights)}`);
         const [longLineHeight, shortLineHeight] = heights;
         assert.ok(
-            longLineHeight <= shortLineHeight * 1.5,
-            `長い行が折り返されて縦に伸びている（長: ${longLineHeight} / 短: ${shortLineHeight}）`
+            longLineHeight > shortLineHeight * 1.5,
+            `長い行が折り返されていない（長: ${longLineHeight} / 短: ${shortLineHeight}）`
         );
     });
 
-    it('長いコード行はその場で横スクロールできる', async function () {
+    it('空白の無い長い行（URL・ハッシュ値等）でも折り返される', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, DOC);
-
-        const raw = await h.page.evaluate(`(() => {
+        const raw = await h.page.evaluate<number>(`(() => {
             const line = document.querySelectorAll('.cm-live-code-line:not(.cm-live-code-first):not(.cm-live-code-last)')[0];
-            const overflowing = line.scrollWidth > line.clientWidth + 1;
-            line.scrollLeft = line.scrollWidth;
-            return { overflowing, scrollLeft: line.scrollLeft };
+            return line.scrollWidth - line.clientWidth;
         })()`);
-        const result = raw as { overflowing: boolean; scrollLeft: number };
-        assert.ok(result.overflowing, '長い行がそもそもはみ出していない（テスト前提が崩れている）');
-        assert.ok(result.scrollLeft > 0, 'コード行を横スクロールできない');
+        assert.ok(raw <= 1, `折り返されず、はみ出している（差 ${raw}px）`);
+    });
+
+    it('コードブロックは横スクロールしない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, DOC);
+        const overflowX = await h.page.evaluate(`(() => {
+            const line = document.querySelectorAll('.cm-live-code-line:not(.cm-live-code-first):not(.cm-live-code-last)')[0];
+            return getComputedStyle(line).overflowX;
+        })()`);
+        assert.notStrictEqual(overflowX, 'auto', 'コード行がまだ横スクロール可能になっている');
+        assert.notStrictEqual(overflowX, 'scroll', 'コード行がまだ横スクロール可能になっている');
     });
 
     it('コードブロックがあってもページ全体は横に広がらない', async function () {
