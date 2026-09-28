@@ -24,6 +24,7 @@ import { exportToPdfLocal } from './localExport';
 import {
     shouldIncludeCredit,
     shouldShowProBadge,
+    shouldPromptBeforeExport,
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
@@ -276,33 +277,35 @@ export function setLicenseStore(
 }
 
 const UPSELL_COUNT_KEY = 'markdownInline.export.creditExportCount';
-/** 何回に 1 回 案内を出すか。1 回目は必ず出し、以後はこの間隔。 */
-const UPSELL_INTERVAL = 5;
 
-/**
- * 無料版で書き出したあとに「クレジット行を消す」導線を出す。
- * **書き出し自体は成功しているので、失敗のように見せない。** 毎回出すと嫌われるため間引く。
- */
-async function offerCreditRemoval(): Promise<void> {
-    if (!upsellMemento) return;
-
+/** クレジット行付きで書き出した回数を1つ進めて返す（`shouldPromptBeforeExport` の間引き判定に使う）。 */
+async function nextCreditExportCount(): Promise<number> {
+    if (!upsellMemento) return 1; // 記録先が無ければ「毎回1回目」扱い（安全側＝出す）
     const count = (upsellMemento.get<number>(UPSELL_COUNT_KEY) ?? 0) + 1;
     await upsellMemento.update(UPSELL_COUNT_KEY, count);
-    if (count !== 1 && count % UPSELL_INTERVAL !== 0) return;
+    return count;
+}
 
-    const removeLabel = vscode.l10n.t('Remove credit line…');
-    const enterKeyLabel = vscode.l10n.t('Enter license key');
+/** 書き出し前の確認ダイアログの結果。 */
+type ExportPromptDecision = 'export' | 'upgrade' | 'cancel';
+
+/**
+ * 「このまま無料で出すか、購入して消すか」を書き出しの**前**に確認する
+ * （ユーザー指示 2026-09-28:「毎回クレジットは入るがその前にポップアップで
+ * 課金する稼働かを確認するようにしてから一手間つけてから、pdf の書き出しに移る」）。
+ */
+async function confirmExportWithCredit(): Promise<ExportPromptDecision> {
+    const continueLabel = vscode.l10n.t('Export with credit line (free)');
+    const upgradeLabel = vscode.l10n.t('Remove credit line (one-time purchase)');
     const choice = await vscode.window.showInformationMessage(
-        vscode.l10n.t('This PDF includes a small credit line at the bottom of each page.'),
-        removeLabel,
-        enterKeyLabel
+        vscode.l10n.t('This PDF will include a small credit line at the bottom of each page.'),
+        { modal: true },
+        continueLabel,
+        upgradeLabel
     );
-
-    if (choice === removeLabel) {
-        await vscode.commands.executeCommand('markdownInline.removePdfCredit');
-    } else if (choice === enterKeyLabel) {
-        await vscode.commands.executeCommand('markdownInline.enterLicenseKey');
-    }
+    if (choice === upgradeLabel) return 'upgrade';
+    if (choice === continueLabel) return 'export';
+    return 'cancel'; // Esc・ダイアログを閉じた
 }
 
 /** PDF 書き出し。失敗しても webview は壊さず、メッセージだけ出す。 */
@@ -321,6 +324,19 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
         setting
     });
 
+    if (credit) {
+        const exportCount = await nextCreditExportCount();
+        if (shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED, exportCount })) {
+            const decision = await confirmExportWithCredit();
+            if (decision === 'cancel') return;
+            if (decision === 'upgrade') {
+                await vscode.commands.executeCommand('markdownInline.upgradeToPro');
+                return; // 購入ページを開いただけ。今回は書き出さない
+            }
+            // decision === 'export' → このまま下へ進んで書き出す
+        }
+    }
+
     try {
         await exportToPdfLocal(document, extensionPath, { credit });
     } catch (err) {
@@ -328,8 +344,6 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
         void vscode.window.showErrorMessage(vscode.l10n.t('PDF export failed: {0}', msg));
         return;
     }
-
-    if (credit) void offerCreditRemoval();
 }
 
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {

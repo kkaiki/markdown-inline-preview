@@ -262,6 +262,11 @@
         "category": "Markdown Inline Preview"
       },
       {
+        "command": "markdownInline.upgradeToPro",
+        "title": "Upgrade to Pro",
+        "category": "Markdown Inline Preview"
+      },
+      {
         "command": "markdownInline.enterLicenseKey",
         "title": "Enter License Key",
         "category": "Markdown Inline Preview"

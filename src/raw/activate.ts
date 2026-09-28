@@ -94,7 +94,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // PDF のクレジット行除去（買い切り）。購入・キー入力・復元と deep link の受け口。
     // Live 側より後に登録するのは、PDF 書き出しがこのストアを読むため。
-    liveModule.setLicenseStore(registerLicenseCommands(context), context.globalState);
+    const licenseStore = registerLicenseCommands(context);
+    liveModule.setLicenseStore(licenseStore, context.globalState);
 
     registerCheckboxCodeLensProvider(context, () => isShowCheckboxCodeLensEnabled());
     registerImageHoverProvider(context, () => isImageHoverPreviewEnabled());
@@ -133,7 +134,7 @@ export function activate(context: vscode.ExtensionContext): void {
         debugLog('No active editor found on activation');
     }
 
-    showWhatsNewIfUpdated(context);
+    showWhatsNewIfUpdated(context, licenseStore);
 
     debugLog('=== Extension activation completed successfully ===');
 }

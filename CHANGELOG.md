@@ -6,6 +6,9 @@
 - Feature: A colored "PRO+" badge sits at the top-right of the toolbar's PDF button while purchasing is available and the credit-line removal has not been bought; the tooltip says PDF export itself is free. It is hidden for buyers and while purchasing is not yet enabled.
 - Change: Fenced code blocks now wrap at the pane width instead of scrolling horizontally, including unbreakable strings such as URLs or hashes. This reverses the 2026-09-14 change. Spec: `docs/specifications/live-mode/requirements.md` §4.6.1; guarded by `test/browser/live/rendering/codeBlockWrap.test.ts`.
 - Chore: Added the extension icon (`images/icon.png`).
+- Change: PDF export now confirms before (not after) writing a file that would include the credit line — "Export with credit line (free)" or "Remove credit line (one-time purchase)". Picking removal opens the purchase page and skips this export; picking free export or hitting the throttle interval proceeds as before. The confirmation is throttled the same way the old post-export offer was (first export, then every 5th). Guarded by `test/suite/shared/entitlement.test.ts` (`shouldPromptBeforeExport`).
+- Feature: A "PRO+" status bar item and an `iPreview: Upgrade to Pro` command appear while purchasing is available and the credit-line removal has not been bought; clicking either opens the purchase page. Hidden for buyers and while purchasing is not yet enabled, and updates automatically when a license is entered, restored, or refunded.
+- Feature: The "What's new" notification on update now adds a "Remove PDF credit line" button when purchasing is available and not yet bought.
 - Chore: The publish workflow now runs lint, build and unit tests first and only publishes when they pass. `npm run prepare-release <patch|minor|major>` bumps the version and adds the CHANGELOG stub.
 
 ## 3.2.0 - 2026-09-12

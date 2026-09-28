@@ -64,6 +64,25 @@ export function shouldShowProBadge(input: Pick<CreditDecisionInput, 'license' | 
     return shouldIncludeCredit({ ...input, setting: 'auto' });
 }
 
+/** PDF 書き出し前の確認ダイアログを、間引いて何回に1回出すか（1回目は必ず出す）。 */
+export const EXPORT_PROMPT_INTERVAL = 5;
+
+export interface ExportPromptInput extends Pick<CreditDecisionInput, 'license' | 'monetizationEnabled'> {
+    /** クレジット行付きで書き出した回数（今回の書き出しを含む。1 始まり）。 */
+    exportCount: number;
+}
+
+/**
+ * PDF 書き出しの**前**に「このまま無料で出すか、購入して消すか」を確認するダイアログを出すべきか。
+ *
+ * 未購入かつ販売中のときだけ出す（`shouldShowProBadge` と同じ条件）。
+ * 毎回出すと嫌われるため、1 回目は必ず出し、以後は `EXPORT_PROMPT_INTERVAL` 回に1回に間引く。
+ */
+export function shouldPromptBeforeExport(input: ExportPromptInput): boolean {
+    if (!shouldShowProBadge(input)) return false;
+    return input.exportCount === 1 || input.exportCount % EXPORT_PROMPT_INTERVAL === 0;
+}
+
 /**
  * バックグラウンドでトークンを取り直すべきか。
  *

@@ -31,11 +31,12 @@ suite('Raw: license', () => {
 
     suite('30. コマンドの登録', () => {
 
-        test('30.1 購入・キー入力・復元の3コマンドが登録されている', async () => {
+        test('30.1 購入・アップグレード・キー入力・復元の4コマンドが登録されている', async () => {
             const commands = await vscode.commands.getCommands(true);
 
             for (const id of [
                 'markdownInline.removePdfCredit',
+                'markdownInline.upgradeToPro',
                 'markdownInline.enterLicenseKey',
                 'markdownInline.restorePurchase'
             ]) {
@@ -51,9 +52,9 @@ suite('Raw: license', () => {
                 extension.packageJSON?.contributes?.commands ?? [];
             const licenseCommands = declared
                 .map((entry) => entry.command)
-                .filter((id) => /removePdfCredit|enterLicenseKey|restorePurchase/.test(id));
+                .filter((id) => /removePdfCredit|upgradeToPro|enterLicenseKey|restorePurchase/.test(id));
 
-            assert.strictEqual(licenseCommands.length, 3, '宣言されたライセンスコマンドが3つでない');
+            assert.strictEqual(licenseCommands.length, 4, '宣言されたライセンスコマンドが4つでない');
         });
     });
 

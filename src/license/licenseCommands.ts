@@ -18,7 +18,7 @@ import {
 } from '../shared/license/activationUri';
 import { fetchEntitlement } from '../shared/license/client';
 import { applyEntitlementOutcome } from '../shared/license/refresh';
-import { needsTokenRefresh } from '../shared/license/entitlement';
+import { needsTokenRefresh, shouldShowProBadge, MONETIZATION_ENABLED } from '../shared/license/entitlement';
 import { verifyLicenseToken } from '../shared/license/token';
 import { LICENSE_PUBLIC_KEYS } from './publicKey';
 import { LicenseStore } from './licenseStore';
@@ -129,20 +129,53 @@ export async function refreshLicenseQuietly(store: LicenseStore): Promise<void> 
     }
 }
 
+/**
+ * 未購入かつ販売中のときだけ出す「PRO+」ステータスバー項目。
+ * クリックで購入ページを開く（`markdownInline.upgradeToPro` と同じ導線）。
+ */
+function createProStatusBarItem(): vscode.StatusBarItem {
+    const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0);
+    item.name = vscode.l10n.t('iPreview Pro');
+    item.text = '$(star-full) PRO+';
+    item.tooltip = vscode.l10n.t('PDF export is free. Click to remove the credit line (one-time purchase).');
+    item.command = 'markdownInline.upgradeToPro';
+    item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+    return item;
+}
+
 export function registerLicenseCommands(context: vscode.ExtensionContext): LicenseStore {
     const store = new LicenseStore(context.secrets);
+    const statusBarItem = createProStatusBarItem();
+
+    /** ステータスバーの表示・非表示を、保存済みトークンから再評価する。 */
+    const refreshStatusBar = async (): Promise<void> => {
+        const license = await store.verify();
+        if (shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED })) {
+            statusBarItem.show();
+        } else {
+            statusBarItem.hide();
+        }
+    };
+
+    const openPurchasePage = async (): Promise<void> => {
+        await openInBrowser(
+            buildPurchaseUrl({
+                baseUrl: baseUrl(),
+                nonce: newNonce(),
+                uriScheme: vscode.env.uriScheme,
+                language: vscode.env.language
+            })
+        );
+    };
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('markdownInline.removePdfCredit', async () => {
-            await openInBrowser(
-                buildPurchaseUrl({
-                    baseUrl: baseUrl(),
-                    nonce: newNonce(),
-                    uriScheme: vscode.env.uriScheme,
-                    language: vscode.env.language
-                })
-            );
-        }),
+        statusBarItem,
+
+        vscode.commands.registerCommand('markdownInline.removePdfCredit', openPurchasePage),
+
+        // ステータスバー・What's New・書き出し前の確認ダイアログなど、
+        // 「Pro を示唆する入り口」はどれもこのコマンドへ揃える（購入ページは removePdfCredit と同じ）。
+        vscode.commands.registerCommand('markdownInline.upgradeToPro', openPurchasePage),
 
         vscode.commands.registerCommand('markdownInline.enterLicenseKey', async () => {
             const key = await vscode.window.showInputBox({
@@ -153,6 +186,7 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             });
             if (!key?.trim()) return;
             await redeemKey(store, key.trim());
+            void refreshStatusBar();
         }),
 
         vscode.commands.registerCommand('markdownInline.restorePurchase', async () => {
@@ -169,13 +203,17 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             handleUri(uri) {
                 const parsed = parseActivationUri({ path: uri.path, query: uri.query });
                 if (!parsed) return; // 知らない deep link は黙って無視する
-                void acceptToken(store, parsed.token);
+                void acceptToken(store, parsed.token).then(() => refreshStatusBar());
             }
-        })
+        }),
+
+        // 返金（トークン削除）・別コマンドからの償還など、どの経路の変化も拾う。
+        context.secrets.onDidChange(() => void refreshStatusBar())
     );
 
+    void refreshStatusBar();
     // 起動時に一度だけ静かに更新する。失敗しても何も起きない。
-    void refreshLicenseQuietly(store);
+    void refreshLicenseQuietly(store).then(() => refreshStatusBar());
 
     return store;
 }

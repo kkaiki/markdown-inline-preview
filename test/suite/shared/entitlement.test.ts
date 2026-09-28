@@ -13,8 +13,10 @@ import * as assert from 'assert';
 import {
     shouldIncludeCredit,
     shouldShowProBadge,
+    shouldPromptBeforeExport,
     needsTokenRefresh,
     REFRESH_BEFORE_EXPIRY_SEC,
+    EXPORT_PROMPT_INTERVAL,
     type CreditDecisionInput
 } from '../../../src/shared/license/entitlement';
 import { FEATURE_PDF_NO_CREDIT, type LicenseVerifyResult } from '../../../src/shared/license/token';
@@ -96,6 +98,58 @@ describe('ツールバーの PRO+ バッジを出すかの判定', () => {
     it('購入者が creditLine=always にしていても出さない（もう買っているので）', () => {
         assert.strictEqual(shouldShowProBadge({ license: validToken(), monetizationEnabled: true }), false);
         assert.strictEqual(shouldIncludeCredit(input({ license: validToken(), setting: 'always' })), true);
+    });
+});
+
+describe('PDF 書き出し前に確認ダイアログを出すかの判定', () => {
+    it('購入導線が未出荷（monetizationEnabled=false）なら、何回目でも出さない', () => {
+        assert.strictEqual(
+            shouldPromptBeforeExport({ license: input().license, monetizationEnabled: false, exportCount: 1 }),
+            false
+        );
+    });
+
+    it('購入者には、何回目でも出さない', () => {
+        assert.strictEqual(
+            shouldPromptBeforeExport({ license: validToken(), monetizationEnabled: true, exportCount: 1 }),
+            false
+        );
+    });
+
+    it('未購入の1回目は出す', () => {
+        assert.strictEqual(
+            shouldPromptBeforeExport({ license: input().license, monetizationEnabled: true, exportCount: 1 }),
+            true
+        );
+    });
+
+    it('未購入でも、間引き間隔に満たない回は出さない（毎回だと煩わしいため）', () => {
+        for (let n = 2; n < EXPORT_PROMPT_INTERVAL; n++) {
+            assert.strictEqual(
+                shouldPromptBeforeExport({ license: input().license, monetizationEnabled: true, exportCount: n }),
+                false,
+                `${n} 回目`
+            );
+        }
+    });
+
+    it('未購入で、間引き間隔ちょうどの回は出す', () => {
+        assert.strictEqual(
+            shouldPromptBeforeExport({
+                license: input().license,
+                monetizationEnabled: true,
+                exportCount: EXPORT_PROMPT_INTERVAL
+            }),
+            true
+        );
+        assert.strictEqual(
+            shouldPromptBeforeExport({
+                license: input().license,
+                monetizationEnabled: true,
+                exportCount: EXPORT_PROMPT_INTERVAL * 2
+            }),
+            true
+        );
     });
 });
 
