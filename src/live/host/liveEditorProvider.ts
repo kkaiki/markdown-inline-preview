@@ -25,9 +25,13 @@ import {
     shouldIncludeCredit,
     shouldShowProBadge,
     shouldPromptBeforeExport,
+    proFeatureAccess,
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
+import { FEATURE_PDF_STYLING } from '../../shared/license/token';
+import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
+import { showProLockedDialog } from '../../license/proGate';
 import type { LicenseVerifyResult } from '../../shared/license/token';
 import {
     computeEditorAssociations,
@@ -324,7 +328,27 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
         setting
     });
 
-    if (credit) {
+    // PDF の体裁（PRO+）。既定のままなら判定しない。販売前は黙って既定の体裁で書き出す
+    const requested = readPdfStyling((key) =>
+        vscode.workspace.getConfiguration('markdownInline').get(`export.pdf.${key}`)
+    );
+    let styling: PdfStyling = DEFAULT_PDF_STYLING;
+    let upsellShown = false;
+    if (!isDefaultPdfStyling(requested)) {
+        const access = proFeatureAccess({ license, monetizationEnabled: MONETIZATION_ENABLED, feature: FEATURE_PDF_STYLING });
+        if (access === 'allowed') {
+            styling = requested;
+        } else if (access === 'locked') {
+            const decision = await showProLockedDialog(
+                vscode.l10n.t('PDF layout options'),
+                vscode.l10n.t('Export without layout options')
+            );
+            if (decision !== 'continue') return;
+            upsellShown = true; // この回はクレジット行の確認を重ねて出さない
+        }
+    }
+
+    if (credit && !upsellShown) {
         const exportCount = await nextCreditExportCount();
         if (shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED, exportCount })) {
             const decision = await confirmExportWithCredit();
@@ -338,7 +362,7 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
     }
 
     try {
-        await exportToPdfLocal(document, extensionPath, { credit });
+        await exportToPdfLocal(document, extensionPath, { credit, styling });
     } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         void vscode.window.showErrorMessage(vscode.l10n.t('PDF export failed: {0}', msg));

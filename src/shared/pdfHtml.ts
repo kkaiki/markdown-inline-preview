@@ -9,6 +9,7 @@
  */
 
 import { marked } from 'marked';
+import { pdfStylingCss, type PdfStyling, type PdfStylingContext } from './pdfStyling';
 
 /** 無料版の PDF 全ページ下部に入る 1 行。ブランド名なのでロケールによらず英語のまま。 */
 export const PDF_CREDIT_TEXT = 'Made with Markdown Inline Preview';
@@ -16,6 +17,25 @@ export const PDF_CREDIT_TEXT = 'Made with Markdown Inline Preview';
 export interface BuildPdfHtmlOptions {
     /** true なら全ページ下部にクレジット行を入れる（無料版） */
     credit: boolean;
+    /** PDF の体裁（PRO+）。省略・既定値なら今までと同じ HTML */
+    styling?: PdfStyling;
+    /** ヘッダー・フッターの `{title}` / `{date}` と目次の見出し */
+    context?: PdfStylingContext & { tocTitle?: string };
+}
+
+/** 目次を作るために、h1〜h3 に連番の id を付けてリンク一覧を作る。 */
+function addTableOfContents(html: string, tocTitle: string): string {
+    const items: string[] = [];
+    let n = 0;
+    const body = html.replace(/<h([1-3])>([\s\S]*?)<\/h\1>/g, (_, level: string, inner: string) => {
+        const id = `ipreview-h-${++n}`;
+        const text = inner.replace(/<[^>]+>/g, '').trim();
+        items.push(`<li class="toc-h${level}"><a href="#${id}">${text}</a></li>`);
+        return `<h${level} id="${id}">${inner}</h${level}>`;
+    });
+    if (items.length === 0) return html;
+    const nav = `<nav class="ipreview-toc"><p class="ipreview-toc-title">${tocTitle}</p><ul>${items.join('')}</ul></nav>`;
+    return `${nav}\n${body}`;
 }
 
 /**
@@ -57,7 +77,12 @@ export function buildPdfHtml(
     options: BuildPdfHtmlOptions
 ): string {
     const rawHtml = marked.parse(markdownBody) as string;
-    const htmlBody = wrapTaskLabels(rawHtml);
+    let htmlBody = wrapTaskLabels(rawHtml);
+    const context = options.context ?? { title: '', date: '' };
+    if (options.styling?.tableOfContents) {
+        htmlBody = addTableOfContents(htmlBody, context.tocTitle ?? 'Contents');
+    }
+    const stylingCss = options.styling ? pdfStylingCss(options.styling, context) : '';
 
     // 購入者には table を被せない。今までと同一の HTML のままにして、
     // 金を払った人の出力にレイアウト変更のリスクを持ち込まない。
@@ -68,7 +93,7 @@ export function buildPdfHtml(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>${css}</style>
+<style>${css}${stylingCss ? `\n${stylingCss}` : ''}</style>
 </head>
 <body class="markdown-body">
 ${content}

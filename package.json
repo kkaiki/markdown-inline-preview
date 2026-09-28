@@ -941,6 +941,71 @@
           ],
           "description": "PDF export is free and unlimited. Exported PDFs include a small credit line at the bottom of every page, which a one-time purchase removes."
         },
+        "markdownInline.export.pdf.paperSize": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "A4",
+            "Letter",
+            "Legal",
+            "A5",
+            "B5"
+          ],
+          "description": "Paper size of exported PDFs. \"default\" leaves it to the browser (Letter in many locales). (PRO+)"
+        },
+        "markdownInline.export.pdf.margins": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "narrow",
+            "normal",
+            "wide"
+          ],
+          "enumDescriptions": [
+            "Browser default",
+            "10 mm",
+            "18 mm",
+            "25 mm"
+          ],
+          "description": "Page margins of exported PDFs. (PRO+)"
+        },
+        "markdownInline.export.pdf.pageNumbers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Print \"page / total\" at the bottom right of every page. (PRO+)"
+        },
+        "markdownInline.export.pdf.headerText": {
+          "type": "string",
+          "default": "",
+          "description": "Text at the top center of every page. {title} is replaced with the file name and {date} with the export date. (PRO+)"
+        },
+        "markdownInline.export.pdf.footerText": {
+          "type": "string",
+          "default": "",
+          "description": "Text at the bottom left of every page. {title} and {date} are replaced as in the header. (PRO+)"
+        },
+        "markdownInline.export.pdf.tableOfContents": {
+          "type": "boolean",
+          "default": false,
+          "description": "Put a table of contents (headings 1–3) before the document. (PRO+)"
+        },
+        "markdownInline.export.pdf.theme": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "serif",
+            "compact"
+          ],
+          "enumDescriptions": [
+            "Sans-serif, as in the editor",
+            "Serif (Mincho), for reports and papers",
+            "Smaller text and tighter spacing"
+          ],
+          "description": "Look of exported PDFs. (PRO+)"
+        },
         "markdownInline.license.serverUrl": {
           "type": "string",
           "default": "",

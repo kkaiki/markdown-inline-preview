@@ -77,6 +77,17 @@ suite('Raw: license', () => {
             assert.deepStrictEqual(setting.enum, ['auto', 'always']);
         });
 
+        test('31.4 PDF の体裁（PRO+）の設定は、既定なら今までと同じ PDF になる値', () => {
+            const config = vscode.workspace.getConfiguration('markdownInline');
+            assert.strictEqual(config.get('export.pdf.paperSize'), 'default');
+            assert.strictEqual(config.get('export.pdf.margins'), 'default');
+            assert.strictEqual(config.get('export.pdf.pageNumbers'), false);
+            assert.strictEqual(config.get('export.pdf.tableOfContents'), false);
+            assert.strictEqual(config.get('export.pdf.theme'), 'default');
+            assert.strictEqual(config.get('export.pdf.headerText'), '');
+            assert.strictEqual(config.get('export.pdf.footerText'), '');
+        });
+
         test('31.3 license.serverUrl は既定が空（＝拡張内の既定 URL を使う）', () => {
             const value = vscode.workspace
                 .getConfiguration('markdownInline')

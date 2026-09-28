@@ -23,6 +23,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { splitFrontmatter } from '../../shared/markdown/frontmatter';
 import { buildPdfHtml } from '../../shared/pdfHtml';
+import { DEFAULT_PDF_STYLING, type PdfStyling } from '../../shared/pdfStyling';
 
 const execFileAsync = promisify(execFile);
 
@@ -85,6 +86,15 @@ export interface LocalExportOptions {
      * 判定は `src/shared/license/entitlement.ts` の `shouldIncludeCredit()` が行う。
      */
     credit: boolean;
+    /** PDF の体裁（PRO+）。使えるかどうかは呼び出し側が判定済みのものを渡す */
+    styling?: PdfStyling;
+}
+
+/** 書き出した日（ローカル時刻の YYYY-MM-DD）。ヘッダー・フッターの {date} に入る。 */
+function today(): string {
+    const d = new Date();
+    const pad = (n: number): string => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /**
@@ -112,7 +122,15 @@ export async function exportToPdfLocal(
     let css = '';
     try { css = fs.readFileSync(cssPath, 'utf-8'); } catch { /* fallback: no css */ }
 
-    const html = buildPdfHtml(body, css, { credit: options.credit });
+    const html = buildPdfHtml(body, css, {
+        credit: options.credit,
+        styling: options.styling ?? DEFAULT_PDF_STYLING,
+        context: {
+            title: path.basename(document.uri.fsPath).replace(/\.(md|markdown)$/i, ''),
+            date: today(),
+            tocTitle: vscode.l10n.t('Contents')
+        }
+    });
 
     // 一時 HTML をドキュメントと同ディレクトリに置く
     // → relative な画像パス（./image.png 等）が正しく解決される

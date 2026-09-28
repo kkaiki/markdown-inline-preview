@@ -58,5 +58,12 @@
   "Open": "開く",
   "PDF saved: {0}": "PDF を保存しました: {0}",
   "Insert as Markdown table": "Markdown の表として挿入",
-  "Remove PDF credit line": "PDF のクレジット行を消す"
+  "Remove PDF credit line": "PDF のクレジット行を消す",
+  "Get PRO+": "PRO+ を購入",
+  "Enter license key": "ライセンスキーを入力",
+  "{0} is a PRO+ feature.": "{0}は PRO+ の機能です。",
+  "PRO+ is a one-time purchase (¥100 / $1 / €1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.": "PRO+ は買い切り（¥100 / $1 / €1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。",
+  "PDF layout options": "PDF の体裁の設定",
+  "Export without layout options": "体裁なしで書き出す",
+  "Contents": "目次"
 }

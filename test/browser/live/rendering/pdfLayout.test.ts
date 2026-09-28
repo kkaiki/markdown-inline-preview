@@ -15,10 +15,13 @@
  */
 import * as assert from 'assert';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import type { Browser, Page } from 'playwright';
 import { launchBrowser } from '../../liveBrowserHarness';
 import { buildPdfHtml, PDF_CREDIT_TEXT } from '../../../../src/shared/pdfHtml';
+import { DEFAULT_PDF_STYLING } from '../../../../src/shared/pdfStyling';
 
 /** 印刷時の本文幅（Letter 816px − 既定余白 約 38px × 2）。 */
 const PRINT_WIDTH = 740;
@@ -65,6 +68,62 @@ async function overflows(page: Page): Promise<string[]> {
         return found;
     }, PRINT_WIDTH);
 }
+
+/** 拡張と同じ手順（Chrome ヘッドレスの --print-to-pdf）で PDF を作り、1 ページ目の用紙寸法（pt）を返す。 */
+function printAndMeasure(html: string): { width: number; height: number } | null {
+    const chrome = [
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/google-chrome',
+        '/usr/bin/chromium'
+    ].find((p) => fs.existsSync(p));
+    if (!chrome) return null;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-pdf-'));
+    try {
+        const htmlPath = path.join(dir, 'doc.html');
+        const pdfPath = path.join(dir, 'doc.pdf');
+        fs.writeFileSync(htmlPath, html);
+        execFileSync(chrome, ['--headless=new', '--disable-gpu', '--no-pdf-header-footer',
+            `--print-to-pdf=${pdfPath}`, `file://${htmlPath}`], { stdio: 'ignore', timeout: 60000 });
+        const box = /\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/.exec(fs.readFileSync(pdfPath, 'latin1'));
+        return box ? { width: Math.round(Number(box[1])), height: Math.round(Number(box[2])) } : null;
+    } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+    }
+}
+
+describe('PDF 書き出し: PRO+ の用紙サイズが実際の PDF に効く（実 Chrome）', function () {
+    this.timeout(120000);
+
+    it('用紙を A4 にすると、PDF の用紙が A4（595 × 842 pt）になる', function () {
+        const size = printAndMeasure(buildPdfHtml(DOC, CSS, {
+            credit: false,
+            styling: { ...DEFAULT_PDF_STYLING, paperSize: 'A4' },
+            context: { title: 't', date: '2026-09-29' }
+        }));
+        if (!size) { this.skip(); return; }
+        assert.deepStrictEqual(size, { width: 595, height: 842 });
+    });
+
+    it('用紙を A5 にすると、PDF の用紙が A5（420 × 595 pt）になる（既定の Letter と違う大きさで確かめる）', function () {
+        const size = printAndMeasure(buildPdfHtml(DOC, CSS, {
+            credit: true,
+            styling: { ...DEFAULT_PDF_STYLING, paperSize: 'A5' },
+            context: { title: 't', date: '2026-09-29' }
+        }));
+        if (!size) { this.skip(); return; }
+        assert.deepStrictEqual(size, { width: 420, height: 595 });
+    });
+
+    it('体裁が既定なら、用紙は今までどおり（Chrome の既定）', function () {
+        const plain = printAndMeasure(buildPdfHtml(DOC, CSS, { credit: false }));
+        const withDefault = printAndMeasure(buildPdfHtml(DOC, CSS, {
+            credit: false, styling: DEFAULT_PDF_STYLING, context: { title: 't', date: '2026-09-29' }
+        }));
+        if (!plain || !withDefault) { this.skip(); return; }
+        assert.deepStrictEqual(withDefault, plain);
+    });
+});
 
 describe('PDF 書き出し: 紙幅に収まる（実ブラウザ）', function () {
     this.timeout(120000);
