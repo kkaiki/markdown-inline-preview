@@ -24,6 +24,22 @@ export const LICENSE_TOKEN_VERSION = 1;
 
 /** PDF のクレジット行を消す権利。 */
 export const FEATURE_PDF_NO_CREDIT = 'pdf-nocredit';
+export const FEATURE_PDF_STYLING = 'pdf-styling';
+export const FEATURE_DOCX_EXPORT = 'docx-export';
+export const FEATURE_BATCH_EXPORT = 'batch-export';
+export const FEATURE_MARP_EXPORT = 'marp-export';
+
+/**
+ * PRO+（買い切り ¥100 / $1 / €1）で解放される機能。サーバー
+ * （ipreview-license/lib/licenseToken.ts の同名定数）と同じ文字列・同じ並びにする契約。
+ */
+export const PRO_PLUS_FEATURES: readonly string[] = [
+    FEATURE_PDF_NO_CREDIT,
+    FEATURE_PDF_STYLING,
+    FEATURE_DOCX_EXPORT,
+    FEATURE_BATCH_EXPORT,
+    FEATURE_MARP_EXPORT
+];
 
 /**
  * 端末の時計がサーバーより進んでいても弾かないための許容幅。

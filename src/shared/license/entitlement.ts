@@ -84,6 +84,21 @@ export function shouldPromptBeforeExport(input: ExportPromptInput): boolean {
 }
 
 /**
+ * PRO+ の機能（クレジット行以外）を使えるか。
+ *   - `allowed`: 購入者
+ *   - `locked`: 販売中・未購入 → 購入案内を出す
+ *   - `unavailable`: 販売前 → 買えないので案内も出さない（コマンド自体を出さない）
+ */
+export type ProFeatureAccess = 'allowed' | 'locked' | 'unavailable';
+
+export function proFeatureAccess(
+    input: Pick<CreditDecisionInput, 'license' | 'monetizationEnabled'> & { feature: string }
+): ProFeatureAccess {
+    if (!input.monetizationEnabled) return 'unavailable';
+    return hasFeature(input.license, input.feature) ? 'allowed' : 'locked';
+}
+
+/**
  * バックグラウンドでトークンを取り直すべきか。
  *
  * 署名が壊れている・知らないバージョンといった「取り直しても直らない」失敗では

@@ -14,12 +14,18 @@ import {
     shouldIncludeCredit,
     shouldShowProBadge,
     shouldPromptBeforeExport,
+    proFeatureAccess,
     needsTokenRefresh,
     REFRESH_BEFORE_EXPIRY_SEC,
     EXPORT_PROMPT_INTERVAL,
     type CreditDecisionInput
 } from '../../../src/shared/license/entitlement';
-import { FEATURE_PDF_NO_CREDIT, type LicenseVerifyResult } from '../../../src/shared/license/token';
+import {
+    FEATURE_PDF_NO_CREDIT,
+    FEATURE_DOCX_EXPORT,
+    PRO_PLUS_FEATURES,
+    type LicenseVerifyResult
+} from '../../../src/shared/license/token';
 
 const NOW = 1_786_665_600;
 const DAY = 86_400;
@@ -149,6 +155,43 @@ describe('PDF 書き出し前に確認ダイアログを出すかの判定', () 
                 exportCount: EXPORT_PROMPT_INTERVAL * 2
             }),
             true
+        );
+    });
+});
+
+describe('PRO+ の機能を使えるかの判定（Word・まとめて書き出し・Marp・PDF の体裁）', () => {
+    it('購入導線が未出荷（monetizationEnabled=false）なら unavailable（買えないのでロック画面も出さない）', () => {
+        assert.strictEqual(
+            proFeatureAccess({ license: input().license, monetizationEnabled: false, feature: FEATURE_DOCX_EXPORT }),
+            'unavailable'
+        );
+    });
+
+    it('未購入なら locked（購入案内を出す）', () => {
+        assert.strictEqual(
+            proFeatureAccess({ license: input().license, monetizationEnabled: true, feature: FEATURE_DOCX_EXPORT }),
+            'locked'
+        );
+    });
+
+    it('PRO+ の購入者なら allowed', () => {
+        assert.strictEqual(
+            proFeatureAccess({ license: validToken([...PRO_PLUS_FEATURES]), monetizationEnabled: true, feature: FEATURE_DOCX_EXPORT }),
+            'allowed'
+        );
+    });
+
+    it('その機能を含まないトークン（以前の単品購入のまま更新されていない等）なら locked', () => {
+        assert.strictEqual(
+            proFeatureAccess({ license: validToken([FEATURE_PDF_NO_CREDIT]), monetizationEnabled: true, feature: FEATURE_DOCX_EXPORT }),
+            'locked'
+        );
+    });
+
+    it('期限切れのトークンなら locked', () => {
+        assert.strictEqual(
+            proFeatureAccess({ license: { ok: false, reason: 'expired' }, monetizationEnabled: true, feature: FEATURE_DOCX_EXPORT }),
+            'locked'
         );
     });
 });

@@ -16,7 +16,8 @@ import {
     verifyLicenseToken,
     hasFeature,
     LICENSE_TOKEN_VERSION,
-    FEATURE_PDF_NO_CREDIT
+    FEATURE_PDF_NO_CREDIT,
+    PRO_PLUS_FEATURES
 } from '../../../src/shared/license/token';
 
 const VECTOR_PUBLIC_KEY_PEM =
@@ -58,6 +59,10 @@ describe('ライセンスサーバーとのトークン形式の契約', () => {
     it('サーバーと共有する定数が一致している', () => {
         assert.strictEqual(LICENSE_TOKEN_VERSION, 1);
         assert.strictEqual(FEATURE_PDF_NO_CREDIT, 'pdf-nocredit');
+        // PRO+ の機能フラグ。サーバー（ipreview-license/lib/licenseToken.ts の PRO_PLUS_FEATURES）と同じ並び
+        assert.deepStrictEqual(PRO_PLUS_FEATURES, [
+            'pdf-nocredit', 'pdf-styling', 'docx-export', 'batch-export', 'marp-export'
+        ]);
     });
 
     it('期限（発行から 30 日）を 1 秒過ぎたら失効する', () => {
