@@ -24,6 +24,7 @@ import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
 import { showWhatsNewIfUpdated } from './whatsNew';
 import { registerImageHoverProvider } from './providers/imageHover';
 import { registerTableWrapHoverProvider } from './providers/tableWrapHover';
+import { registerSpreadsheetPasteProvider } from './providers/spreadsheetPaste';
 import {
     applyAlwaysOpenNewTabSetting,
     applyDefaultWordWrapSetting,
@@ -104,6 +105,9 @@ export function activate(context: vscode.ExtensionContext): void {
         () => isTableWrapHoverEnabled(),
         () => getTableWrapMaxWidth()
     );
+
+    // Excel・スプレッドシートの範囲を貼ったら Markdown の表にする（無料・既定）
+    registerSpreadsheetPasteProvider(context);
 
     registerSlashCommandCompletion(context);
 

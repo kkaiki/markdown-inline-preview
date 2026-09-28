@@ -88,6 +88,8 @@ and **only the syntax under the cursor** expands into source form.
 - **Edit inside tables** while they stay rendered
 - **Row / column operations** — right-click a cell to select, insert, or delete rows and
   columns, or delete the whole table
+- **Paste from Excel / Google Sheets / Numbers** — a copied cell range becomes a Markdown table
+  (first row as header). Works in Raw mode too; code copied from an editor is pasted as-is
 - **Code fences** rendered as blocks with a language label; put the cursor on the fence to edit it
 - **Slash menu** — same commands as Raw (`live.enableSlashMenu`)
 - **Checkboxes** — click to toggle; saved as `- [x]` in the file

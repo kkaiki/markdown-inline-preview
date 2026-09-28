@@ -448,4 +448,45 @@ suite('Raw: lists-tables', () => {
             );
         });
     });
+    suite('40. スプレッドシートからの貼り付け（Raw）', () => {
+        // Excel・スプレッドシートの範囲を貼ったら Markdown の表にする（無料・既定。requirements.md §2.7.3）。
+        // テストでは text/html をクリップボードに載せられないので、HTML が無いときの厳しめの判定
+        // （2 行以上・2 列以上・列数がそろったタブ区切り）で確かめる。変換規則そのものは
+        // test/suite/shared/spreadsheetPaste.test.ts が固定している。
+
+        async function pasteText(text: string): Promise<void> {
+            await vscode.env.clipboard.writeText(text);
+            await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
+
+        test('40.1 タブ区切りの範囲を貼り付けると、Markdown の表になる', async function() {
+            this.timeout(10000);
+            const editor = await createTestDocument('');
+            await pasteText('氏名\t年齢\r\n田中\t30\r\n');
+            // 列そろえの空白は見ない。先行テストの「/table normalize on」（メモリ上の上書きで、
+            // 設定からは戻せない）が残っていると、既存の自動整形が区切り行を書き直すため。
+            const lines = editor.document.getText().split('\n');
+            const cells = (line: string): string[] => line.split('|').slice(1, -1).map((c) => c.trim());
+            assert.strictEqual(lines.length, 3, JSON.stringify(lines));
+            assert.deepStrictEqual(cells(lines[0]), ['氏名', '年齢']);
+            assert.ok(/^\|(\s*:?-+:?\s*\|)+$/.test(lines[1]), `区切り行でない: ${lines[1]}`);
+            assert.deepStrictEqual(cells(lines[2]), ['田中', '30']);
+        });
+
+        test('40.2 タブを含む 1 行（コードなど）は、そのまま貼り付ける', async function() {
+            this.timeout(10000);
+            const editor = await createTestDocument('');
+            await pasteText('int\tx;');
+            assert.strictEqual(editor.document.getText(), 'int\tx;');
+        });
+
+        test('40.3 コードブロックの中では、表にせずそのまま貼り付ける', async function() {
+            this.timeout(10000);
+            const editor = await createTestDocument('```\n\n```');
+            editor.selection = new vscode.Selection(1, 0, 1, 0);
+            await pasteText('a\tb\nc\td');
+            assert.strictEqual(editor.document.getText(), '```\na\tb\nc\td\n```');
+        });
+    });
 });

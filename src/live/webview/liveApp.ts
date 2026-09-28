@@ -33,6 +33,7 @@ import {
 import { shouldIgnoreHostSelectAll } from '../shared/hostSelectAll';
 import { liveSlashMenu } from './liveSlashMenu';
 import { mountLiveToolbar } from './liveToolbar';
+import { liveSpreadsheetPaste } from './liveSpreadsheetPaste';
 import { liveLineNumbers } from './liveLineNumbers';
 import { diffBaseField, diffField, liveDiffGutter, setDiffBase } from './liveDiffGutter';
 import {
@@ -117,6 +118,8 @@ function extensions(settings: LiveSettings): Extension[] {
         liveDecorationField,
         liveFocusWatcher,
         liveCompositionWatcher,
+        // Excel・スプレッドシートの範囲を貼ったら Markdown の表にする（無料・既定。requirements.md §2.7.3）
+        liveSpreadsheetPaste,
         sendEdits,
         theme,
         // スラッシュコマンド（/ でメニュー）

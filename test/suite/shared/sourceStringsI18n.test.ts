@@ -70,6 +70,27 @@ describe('ソースの UI 文字列は英語（i18n）', () => {
         assert.deepStrictEqual(offenders, [], `日本語がベタ書きされている: ${offenders.join(' / ')}`);
     });
 
+    it('ホスト側の vscode.l10n.t の文字列には、すべて日本語訳がある（訳し忘れ防止）', () => {
+        const bundle = JSON.parse(
+            fs.readFileSync(path.join(repoRoot, 'l10n/bundle.l10n.ja.json'), 'utf8')
+        ) as Record<string, string>;
+        // 'a' + 'b' の連結もひとつのキーとして読む
+        const literal = String.raw`'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"`;
+        const call = new RegExp(String.raw`l10n\.t\(\s*((?:${literal})(?:\s*\+\s*(?:${literal}))*)`, 'g');
+        const unquote = (piece: string): string =>
+            piece.slice(1, -1).replace(/\\(.)/g, (_, c: string) => (c === 'n' ? '\n' : c));
+
+        const missing: string[] = [];
+        for (const file of tsFiles(path.join(repoRoot, 'src'))) {
+            const source = fs.readFileSync(file, 'utf8');
+            for (const m of source.matchAll(call)) {
+                const key = (m[1].match(new RegExp(literal, 'g')) ?? []).map(unquote).join('');
+                if (!(key in bundle)) missing.push(`${path.relative(repoRoot, file)}: ${key}`);
+            }
+        }
+        assert.deepStrictEqual(missing, [], `日本語訳が無い: \n${missing.join('\n')}`);
+    });
+
     it('日本語の訳（l10n バンドル）のキーは英語である', () => {
         const bundle = JSON.parse(
             fs.readFileSync(path.join(repoRoot, 'l10n/bundle.l10n.ja.json'), 'utf8')
