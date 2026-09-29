@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+import { pathToFileURL } from 'url';
 
 export interface PrintedPdf {
     /** 1 ページ目の用紙（pt、四捨五入） */
@@ -17,7 +18,11 @@ export interface PrintedPdf {
 }
 
 export function findChrome(): string | undefined {
+    const pf = process.env['PROGRAMFILES'] ?? 'C:\\Program Files';
+    const pf86 = process.env['PROGRAMFILES(X86)'] ?? 'C:\\Program Files (x86)';
     return [
+        path.join(pf, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+        path.join(pf86, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/usr/bin/google-chrome-stable',
         '/usr/bin/google-chrome',
@@ -34,7 +39,7 @@ export function printHtml(html: string): PrintedPdf | null {
         const pdfPath = path.join(dir, 'doc.pdf');
         fs.writeFileSync(htmlPath, html);
         execFileSync(chrome, ['--headless=new', '--disable-gpu', '--no-pdf-header-footer',
-            `--print-to-pdf=${pdfPath}`, `file://${htmlPath}`], { stdio: 'ignore', timeout: 120000 });
+            `--print-to-pdf=${pdfPath}`, pathToFileURL(htmlPath).href], { stdio: 'ignore', timeout: 120000 });
         const pdf = fs.readFileSync(pdfPath, 'latin1');
         const pages = [...pdf.matchAll(/\/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]/g)].map((m) => ({
             width: Math.round(Number(m[1])),

@@ -1,0 +1,68 @@
+# Windows での動作確認（手動実行）。
+# 実機の代わりに GitHub Actions の Windows で、テストと日本語サンプルの書き出しを行い、
+# 書き出した PDF・スライド・Word を成果物（artifact）として保存する。
+# ユーザー要望 2026-09-30:「Windows は何か仮想的にできたりしないでしょうか？」
+name: Windows check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: |
+          npm run compile
+          npm run build:browser-test
+
+      - name: Environment (browsers and Japanese fonts)
+        shell: pwsh
+        run: |
+          foreach ($p in @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) {
+            if (Test-Path $p) { "{0}  {1}" -f $p, (Get-Item $p).VersionInfo.ProductVersion } else { "missing: $p" }
+          }
+          "Japanese fonts:"
+          Get-ChildItem C:\Windows\Fonts | Where-Object { $_.Name -match 'meiryo|yugoth|YuGoth|msgothic|msmincho|yumin|BIZ-UD' } | ForEach-Object { "  " + $_.Name }
+          "System locale: " + (Get-WinSystemLocale).Name
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Sample exports (PDF / styled PDF / merged PDF / Marp / Word)
+        if: success() || failure()
+        run: node out-test/test/platform/sampleExports.js
+
+      - name: Install poppler (pdftotext for PDF tests)
+        if: success() || failure()
+        run: choco install poppler -y --no-progress
+        continue-on-error: true
+
+      - name: Chrome PDF tests
+        if: success() || failure()
+        run: npx mocha out-test/test/browser/live/rendering/pdfRendering.test.js out-test/test/browser/live/rendering/pdfBatch.test.js out-test/test/browser/live/rendering/pdfLayout.test.js out-test/test/browser/live/rendering/marpPdf.test.js --timeout 180000
+
+      - name: Real VS Code tests
+        if: success() || failure()
+        run: node ./out-test/test/runTest.js
+        env:
+          VSCODE_TEST_VERSION: '1.130.0'
+
+      - name: Upload samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-samples
+          path: sample-exports/
+          retention-days: 14
