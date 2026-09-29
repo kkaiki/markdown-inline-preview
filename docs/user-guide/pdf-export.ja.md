@@ -1,6 +1,6 @@
 # PDF 書き出し
 
-コマンドパレットから `Markdown Inline Preview: Export to PDF`、または Live モードの
+コマンドパレットから `Markdown Inline Preview: PDF に書き出す`、または Live モードの
 ツールバーの **PDF** ボタンで、開いている Markdown を PDF に書き出せます。
 
 ## 仕組み
@@ -32,9 +32,9 @@ PDF 書き出しは**無料で無制限**に使えます。ページ数の制限
 
 | コマンド | 内容 |
 |---|---|
-| `Get PRO+ (one-time purchase)` / `Remove PDF Credit Line (one-time purchase)` | ブラウザで購入ページを開きます |
-| `Enter License Key` | 購入時に表示されたライセンスキーを貼り付けます |
-| `Restore Purchase (sign in with Google)` | 別の PC・再インストール後に購入を復元します |
+| `PRO+ を購入する（買い切り）` / `PDF のクレジット行を消す（買い切り）` | ブラウザで購入ページを開きます |
+| `ライセンスキーを入力` | 購入時に表示されたライセンスキーを貼り付けます |
+| `購入を復元（Google でログイン）` | 別の PC・再インストール後に購入を復元します |
 
 ### 設定
 

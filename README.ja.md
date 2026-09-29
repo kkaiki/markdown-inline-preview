@@ -110,7 +110,7 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 - **行番号ガター**（`live.showLineNumbers`）
 - **Git 差分ガター** — HEAD との差分（追加=緑 / 変更=青 / 削除=赤三角、`live.showDiffGutter`）
 - **モード記憶** — ファイルごとに最後のモードを覚えて次回もそのモードで開く（`live.rememberMode`）
-- **PDF 書き出し** — `Markdown Inline Preview: Export to PDF`。無料・無制限。各ページ下部に
+- **PDF 書き出し** — `Markdown Inline Preview: PDF に書き出す`。無料・無制限。各ページ下部に
   小さなクレジット行が入る。詳細は [docs/user-guide/pdf-export.ja.md](./docs/user-guide/pdf-export.ja.md)
 
 ### PRO+（買い切り）

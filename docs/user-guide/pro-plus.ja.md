@@ -7,9 +7,9 @@
 |---|---|
 | PDF のクレジット行を消す | 購入すると、以後の PDF に自動で入らなくなります |
 | PDF の体裁 | 設定 `markdownInline.export.pdf.*`（下記） |
-| Word（.docx）書き出し | `Markdown Inline Preview: Export to Word (.docx)` |
-| まとめて書き出し | エクスプローラの右クリック、または `Markdown Inline Preview: Batch Export to PDF…` |
-| Marp スライド書き出し | `Markdown Inline Preview: Export as Slides (Marp PDF)` |
+| Word（.docx）書き出し | `Markdown Inline Preview: Word（.docx）に書き出す` |
+| まとめて書き出し | エクスプローラの右クリック、または `Markdown Inline Preview: まとめて PDF に書き出す…` |
+| Marp スライド書き出し | `Markdown Inline Preview: スライドとして書き出す（Marp PDF）` |
 
 エディタの機能と PDF 書き出しそのものは、これまでどおり無料・無制限です。
 未購入のまま PRO+ の機能を実行すると、購入の案内が出ます（書き出しは行いません）。
@@ -43,7 +43,7 @@ Word ファイルは拡張の中で作ります。文書がどこかへ送信さ
 
 ## まとめて書き出し
 
-エクスプローラでフォルダ、または複数の `.md` を選んで右クリック →「Batch Export to PDF…」。
+エクスプローラでフォルダ、または複数の `.md` を選んで右クリック →「まとめて PDF に書き出す…」。
 
 - **1 ファイルずつ PDF にする** — 保存先は「各ファイルの隣」か「選んだフォルダ（元のフォルダ構成のまま）」。
   同じ名前の PDF があるときは、上書き・スキップ・別名保存から選べます
@@ -66,9 +66,9 @@ Word ファイルは拡張の中で作ります。文書がどこかへ送信さ
 
 | コマンド | 内容 |
 |---|---|
-| `Get PRO+ (one-time purchase)` | ブラウザで購入ページを開きます（ステータスバーの「PRO+」からも開けます） |
-| `Enter License Key` | 購入時に表示されたライセンスキーを貼り付けます |
-| `Restore Purchase (sign in with Google)` | 別の PC・再インストール後に購入を復元します |
+| `PRO+ を購入する（買い切り）` | ブラウザで購入ページを開きます（ステータスバーの「PRO+」からも開けます） |
+| `ライセンスキーを入力` | 購入時に表示されたライセンスキーを貼り付けます |
+| `購入を復元（Google でログイン）` | 別の PC・再インストール後に購入を復元します |
 
 - ライセンスは PC の中に保存され、機能を使うたびにネットワークへは出ません。
   30 日ごとにバックグラウンドで自動更新しますが、失敗しても機能は止まりません

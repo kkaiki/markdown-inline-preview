@@ -86,12 +86,12 @@ Windows は Notion と同じ `Ctrl+Shift+数字` に加えて、従来の `Alt+C
 
 | コマンド | 内容 |
 |---|---|
-| `Format Markdown Table` | 表の整形 |
-| `Renumber Ordered Lists` | 番号付きリストの再採番 |
+| `表を整形` | 表の整形 |
+| `番号付きリストの番号を振り直す` | 番号付きリストの再採番 |
 | `Navigate to Next / Previous Table Cell` | セル間移動 |
-| `Toggle Line Numbers` | 行番号ガターの表示切替 |
-| `Export to PDF` | PDF 書き出し |
-| `Repair Double-Fenced Code Blocks` | 二重フェンスの修復 |
+| `行番号の表示を切り替え` | 行番号ガターの表示切替 |
+| `PDF に書き出す` | PDF 書き出し |
+| `二重に囲まれたコードブロックを修復` | 二重フェンスの修復 |
 
 ***
 
