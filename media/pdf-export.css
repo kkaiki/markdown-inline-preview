@@ -110,10 +110,20 @@ li > ul, li > ol { margin: 0.1em 0; }
 
 /* Task list (marked renders: <li><input type="checkbox" ...> text</li>) */
 
-ul:has(input[type="checkbox"]) { list-style: none; padding-left: 0.4em; }
-
-/* flex-start でチェックボックスを先頭に上揃え（baseline だと input の基線が不定でズレる） */
-li:has(input[type="checkbox"]) { display: flex; align-items: flex-start; gap: 0.4em; }
+/*
+ * 行頭記号を消すのは**チェックボックスを持つ項目だけ**。以前は ul ごと消していたので、
+ * 普通の項目とタスクが混ざったリストで普通の項目の「・」まで消えていた（2026-09-29）。
+ * 子孫ではなく直下の input で判定する（入れ子のタスクを持つ親の項目を巻き込まない）。
+ * 消した記号の幅だけ左へ寄せ、チェックボックスを行頭記号の位置に置く。
+ * flex-start でチェックボックスを先頭に上揃え（baseline だと input の基線が不定でズレる）。
+ */
+li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.2em;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+}
 
 input[type="checkbox"] {
   -webkit-appearance: none;
@@ -220,58 +230,87 @@ img {
 
 /* ── Credit line (free tier) ────────────────────────────── */
 /*
- * 無料版の PDF に入る 1 行。要素そのものは購入者の出力には含まれない
- * （src/shared/pdfHtml.ts が DOM に出さない）。
- *
- * **各ページへの繰り返しは `<tfoot>` に依る。** `position: fixed` は Chrome の印刷で
- * 本文と重なり、`@page { margin-bottom }` + 負の bottom はページ上部へ回り込んだ
- * （2026-08-13 に複数ページ PDF を生成して実測）。ここでは見た目だけを定義する。
+ * クレジット行は src/shared/pdfHtml.ts の creditCss() が `@page { @bottom-center }` に置く
+ * （購入者の HTML には出さない）。以前の <table>/<tfoot> の包みは 2026-09-29 に廃止した
+ * （最後のページで本文の直後に出ていたため。docs/specifications/fixes/pdf-output-parity-fix.md）。
  */
 
-table.ipreview-page {
-  width: 100%;
-  border-collapse: collapse;
-  border: 0;
-  /*
-   * 既定（auto）だとセルが中身の「折り返せない最小幅」まで広がり、幅の広い表や長いコード行が
-   * 1 つあるだけで本文全体が紙幅を超えて右端から切れていた（2026-09-28）。fixed で紙幅に固定する。
-   * 本文の表・コードブロック側でも折り返すので、中身がはみ出すことはない。
-   */
-  table-layout: fixed;
-  /*
-   * 本文の表向けの指定（font-size: 0.9em / 改ページ禁止）を包みにまで効かせない。
-   * 効いていたせいで無料版だけ文字が 1 割小さく、購入者版とページ数が変わっていた（2026-08-13 の記録）。
-   */
-  margin: 0;
-  font-size: inherit;
-  page-break-inside: auto;
-  break-inside: auto;
+/* ── Highlight ==…== ────────────────────────────────────── */
+
+mark {
+  background: #fff3a3;
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 2px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-/* 包みのテーブル自身は見えてはいけない。本文中の表の枠線設定を打ち消す */
-table.ipreview-page > tbody > tr > td,
-table.ipreview-page > tfoot > tr > td {
-  border: 0;
-  padding: 0;
-  background: none;
+/* ── Callout > [!TYPE] （エディタの .cm-live-callout と同じ配色） ── */
+
+.ipreview-callout {
+  --callout-accent: #0969da;
+  --callout-bg: rgba(9, 105, 218, 0.05);
+  margin: 0.8em 0;
+  padding: 0.5em 1em;
+  border-left: 4px solid var(--callout-accent);
+  border-radius: 0 4px 4px 0;
+  background: var(--callout-bg);
+  page-break-inside: avoid;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.ipreview-callout-title {
+  font-weight: 600;
+  color: var(--callout-accent);
+  margin: 0.1em 0 0.2em;
+}
+.ipreview-callout > p { margin: 0.2em 0; }
+.ipreview-callout-tip, .ipreview-callout-success, .ipreview-callout-hint, .ipreview-callout-check, .ipreview-callout-done {
+  --callout-accent: #1a7f37;
+  --callout-bg: rgba(26, 127, 55, 0.05);
+}
+.ipreview-callout-warning, .ipreview-callout-caution, .ipreview-callout-attention, .ipreview-callout-important {
+  --callout-accent: #9a6700;
+  --callout-bg: rgba(154, 103, 0, 0.07);
+}
+.ipreview-callout-danger, .ipreview-callout-error, .ipreview-callout-bug, .ipreview-callout-failure, .ipreview-callout-fail {
+  --callout-accent: #cf222e;
+  --callout-bg: rgba(207, 34, 46, 0.05);
+}
+.ipreview-callout-quote, .ipreview-callout-cite, .ipreview-callout-example {
+  --callout-accent: #6e7781;
+  --callout-bg: rgba(110, 119, 129, 0.06);
 }
 
-/* 本文の最終行とクレジットが詰まって見えないようにする */
-table.ipreview-page > tfoot > tr > td {
-  padding-top: 6mm;
-}
+/* ── Math / Mermaid ─────────────────────────────────────── */
 
-.ipreview-credit {
+.ipreview-math-display {
+  margin: 0.8em 0;
+  overflow-wrap: normal;
+  page-break-inside: avoid;
+}
+.ipreview-mermaid {
+  margin: 0.8em 0;
   text-align: center;
-  font-size: 8pt;
-  line-height: 1.2;
-  color: #9aa0a6;
-  letter-spacing: 0.02em;
+  page-break-inside: avoid;
 }
+.ipreview-mermaid svg { max-width: 100%; height: auto; }
 
-@media print {
-  .ipreview-credit {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
+/* ── Code highlighting（highlight.js のクラス。GitHub の配色に寄せた） ── */
+
+.hljs-comment, .hljs-quote { color: #6e7781; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type, .hljs-meta .hljs-keyword { color: #cf222e; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string { color: #0a3069; }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-variable.language_, .hljs-built_in { color: #0550ae; }
+.hljs-title, .hljs-title.function_, .hljs-title.class_, .hljs-section { color: #8250df; }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-params, .hljs-variable, .hljs-template-variable { color: #953800; }
+.hljs-name, .hljs-tag, .hljs-selector-class, .hljs-selector-id { color: #116329; }
+.hljs-deletion { color: #82071e; background: #ffebe9; }
+.hljs-meta { color: #6e7781; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+pre code.hljs {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }

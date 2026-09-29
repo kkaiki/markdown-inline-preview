@@ -10,7 +10,7 @@
  */
 import * as path from 'path';
 import { splitFrontmatter } from '../markdown/frontmatter';
-import { buildPdfBody, wrapWithCreditFooter } from '../pdfHtml';
+import { buildPdfBody, creditCss, pdfAssetTags, type PdfAssets } from '../pdfHtml';
 import { MARKDOWN_FILE } from './fileOrder';
 import { decodeHtmlEntities, isNonLocalReference, rewriteImageSources } from './imagePaths';
 
@@ -25,6 +25,8 @@ export interface MergedOptions {
     tocTitle: string;
     /** 呼び出し側が shouldIncludeCredit で決めた値 */
     credit: boolean;
+    /** 数式・Mermaid・コードの色分けの描画部品（単体の PDF と同じ） */
+    assets?: PdfAssets;
 }
 
 function escapeHtml(text: string): string {
@@ -78,16 +80,17 @@ export function buildMergedPdfHtml(docs: readonly MergedSource[], css: string, o
 
     const toc = `<nav class="ipreview-toc ipreview-book-toc"><p class="ipreview-toc-title">${escapeHtml(options.tocTitle)}</p><ul>${tocItems.join('')}</ul></nav>`;
     const content = `${toc}\n${sections.join('\n')}`;
+    const { head, scripts } = pdfAssetTags(content, options.assets);
 
     return `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <title>${escapeHtml(options.title)}</title>
-<style>${css}${BOOK_CSS}</style>
+${head}<style>${css}${BOOK_CSS}${options.credit ? `\n${creditCss()}` : ''}</style>
 </head>
 <body class="markdown-body">
-${options.credit ? wrapWithCreditFooter(content) : content}
+${content}${scripts}
 </body>
 </html>`;
 }

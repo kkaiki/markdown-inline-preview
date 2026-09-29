@@ -15,7 +15,7 @@ import { planOutputs } from '../../../src/shared/batchExport/outputPlan';
 import { rewriteImageSources } from '../../../src/shared/batchExport/imagePaths';
 import { buildMergedPdfHtml } from '../../../src/shared/batchExport/mergedDocument';
 import { runPool, summarizeBatchResults } from '../../../src/shared/batchExport/pool';
-import { buildPdfBody, buildPdfHtml } from '../../../src/shared/pdfHtml';
+import { buildPdfBody, buildPdfHtml, PDF_CREDIT_TEXT } from '../../../src/shared/pdfHtml';
 
 const ROOT = path.resolve('/work/docs');
 const p = (rel: string) => path.join(ROOT, rel);
@@ -161,8 +161,8 @@ describe('まとめて書き出し: 1 つの PDF に束ねる HTML', () => {
     });
 
     it('credit: true を渡したときだけクレジット行が入る（判定は呼び出し側の shouldIncludeCredit に一本化）', () => {
-        assert.ok(!html.includes('ipreview-credit'));
-        assert.ok(buildMergedPdfHtml(docs, '', { title: '本', tocTitle: '目次', credit: true }).includes('ipreview-credit'));
+        assert.ok(!html.includes(PDF_CREDIT_TEXT));
+        assert.ok(buildMergedPdfHtml(docs, '', { title: '本', tocTitle: '目次', credit: true }).includes(PDF_CREDIT_TEXT));
     });
 
     it('本文の組み立てを切り出しても、単体の PDF 用 HTML は今までと同じ', () => {

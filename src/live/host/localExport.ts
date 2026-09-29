@@ -2,7 +2,9 @@
  * ローカル PDF エクスポート（local モード）。
  *
  * ユーザーの Chrome / Edge / Chromium をヘッドレスで起動し、
- * Markdown を HTML に変換した一時ファイルを --print-to-pdf で PDF 化する。
+ * Markdown を HTML に変換した一時ファイルを DevTools プロトコルで印刷して PDF 化する（`chromePdf.ts`）。
+ * 数式・Mermaid・コードの色分けは印刷する Chrome の中で描き、描き終えてから印刷する
+ * （docs/specifications/fixes/pdf-output-parity-fix.md）。
  * **文書の内容はサーバーへ一切送らない**（オフラインでも動作する）。
  *
  * HTML の組み立ては `src/shared/pdfHtml.ts`（VS Code 非依存・ユニットテスト対象）。
@@ -19,13 +21,21 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { pathToFileURL } from 'url';
 import { splitFrontmatter } from '../../shared/markdown/frontmatter';
-import { buildPdfHtml } from '../../shared/pdfHtml';
+import { buildPdfHtml, type PdfAssets } from '../../shared/pdfHtml';
 import { DEFAULT_PDF_STYLING, type PdfStyling } from '../../shared/pdfStyling';
+import { launchChromePdf } from './chromePdf';
 
-const execFileAsync = promisify(execFile);
+/** 印刷する Chrome に読み込ませる描画部品（拡張に同梱。scripts/build-lazy-bundles.mjs が out/ に作る） */
+export function pdfAssets(extensionPath: string): PdfAssets {
+    const url = (...parts: string[]) => pathToFileURL(path.join(extensionPath, ...parts)).href;
+    return {
+        runtimeScript: url('out', 'pdfRuntime.js'),
+        katexCss: url('media', 'katex.min.css'),
+        mermaidScript: url('out', 'mermaid.min.js')
+    };
+}
 
 /** OS 別の Chrome / Edge / Chromium 候補パス一覧。 */
 function browserCandidates(): string[] {
@@ -124,6 +134,7 @@ export async function exportToPdfLocal(
 
     const html = buildPdfHtml(body, css, {
         credit: options.credit,
+        assets: pdfAssets(extensionPath),
         styling: options.styling ?? DEFAULT_PDF_STYLING,
         context: {
             title: path.basename(document.uri.fsPath).replace(/\.(md|markdown)$/i, ''),
@@ -140,13 +151,16 @@ export async function exportToPdfLocal(
 /**
  * HTML をローカル Chrome ヘッドレスで PDF にする（PDF 書き出しと Marp スライド書き出しで共用）。
  * 一時 HTML は元の .md と同じフォルダに置く（相対パスの画像を解決するため）。終わったら消す。
+ *
+ * 以前は `--print-to-pdf`（CLI）で印刷していたが、描画スクリプトの完了を待てず、ときどき Chrome が
+ * 終了コード 2 で落ちていたので、まとめて書き出しと同じ DevTools プロトコルの印刷に寄せた（2026-09-29）。
  */
 export async function printHtmlToPdf(
     html: string,
     sourcePath: string,
     outputPdf: string,
     progressTitle: string,
-    timeoutMs = 30_000
+    timeoutMs = 60_000
 ): Promise<void> {
     const browser = findBrowser();
     if (!browser) {
@@ -161,13 +175,14 @@ export async function printHtmlToPdf(
         fs.writeFileSync(tmpHtml, html, 'utf-8');
         await vscode.window.withProgress(
             { location: vscode.ProgressLocation.Notification, title: progressTitle, cancellable: false },
-            () => execFileAsync(browser, [
-                '--headless=new',
-                '--disable-gpu',
-                '--no-pdf-header-footer',
-                `--print-to-pdf=${outputPdf}`,
-                `file://${tmpHtml}`,
-            ], { timeout: timeoutMs })
+            async () => {
+                const session = await launchChromePdf(browser);
+                try {
+                    await session.print(tmpHtml, outputPdf, { timeoutMs });
+                } finally {
+                    await session.close();
+                }
+            }
         );
     } finally {
         try { fs.unlinkSync(tmpHtml); } catch { /* ignore */ }

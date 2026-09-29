@@ -320,6 +320,38 @@ suite('Raw: license', () => {
         });
     });
 
+    suite('37. PDF 書き出し（単体）', () => {
+        test('37.1 数式と Mermaid を含む文書を書き出すと、拡張に同梱した描画部品で描かれた PDF ができる（記号やソースのまま残らない）', async function() {
+            this.timeout(120000);
+            const { exportToPdfLocal } = await import('../../../src/live/host/localExport');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-pdf-'));
+            const file = path.join(dir, 'memo.md');
+            fs.writeFileSync(file, '# 見出し\n\n式 $E = mc^2$ です。\n\n```mermaid\ngraph LR\n  Alpha --> Beta\n```\n');
+            try {
+                const doc = await vscode.workspace.openTextDocument(file);
+                await exportToPdfLocal(doc, extension.extensionPath, { credit: false });
+                const out = path.join(dir, 'memo.pdf');
+                assert.ok(fs.existsSync(out), 'memo.pdf ができていない');
+                let text: string;
+                try {
+                    text = require('child_process').execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' }) as string;
+                } catch {
+                    this.skip();
+                    return;
+                }
+                assert.ok(!text.includes('$E'), `数式が記号のまま: ${text}`);
+                assert.ok(!text.includes('graph LR'), `Mermaid がソースのまま: ${text}`);
+                assert.ok(text.includes('Alpha') && text.includes('Beta'), `図の中の文字が無い: ${text}`);
+            } finally {
+                await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    });
+
     suite('31. 設定の宣言', () => {
 
         test('31.1 export.creditLine は auto が既定', () => {

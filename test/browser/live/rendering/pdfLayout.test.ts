@@ -10,8 +10,8 @@
  *
  * 紙に出せるかどうかは実 DOM のレイアウトでしか分からないので、印刷メディアを
  * エミュレートし、Letter（8.5in = 816px）から Chrome 既定の余白を引いた幅で描画して確かめる。
- * PDF そのものの見た目（tfoot の各ページ繰り返し）は自動化できないので、CSS を変えたら
- * 複数ページの PDF を作って目視すること（docs/testing/spec-test-coverage.md の注記）。
+ * クレジット行が各ページの下端に出ることは、実際の PDF の文字位置で
+ * test/browser/live/rendering/pdfRendering.test.ts が見る（2026-09-29 に tfoot から @page の余白ボックスへ変更）。
  */
 import * as assert from 'assert';
 import * as fs from 'fs';
@@ -20,7 +20,7 @@ import * as path from 'path';
 import { execFileSync } from 'child_process';
 import type { Browser, Page } from 'playwright';
 import { launchBrowser } from '../../liveBrowserHarness';
-import { buildPdfHtml, PDF_CREDIT_TEXT } from '../../../../src/shared/pdfHtml';
+import { buildPdfHtml } from '../../../../src/shared/pdfHtml';
 import { DEFAULT_PDF_STYLING } from '../../../../src/shared/pdfStyling';
 
 /** 印刷時の本文幅（Letter 816px − 既定余白 約 38px × 2）。 */
@@ -183,21 +183,5 @@ describe('PDF 書き出し: 紙幅に収まる（実ブラウザ）', function (
             await p.close();
         }
         assert.strictEqual(sizes[0], sizes[1], `無料版 ${sizes[0]} / 購入者 ${sizes[1]}`);
-    });
-
-    it('無料版のクレジット行は紙の中央に出る（包みの表が紙幅より広がらない）', async function () {
-        if (!browser) { this.skip(); return; }
-        page = await render(true);
-        const center = await page.evaluate<number>(`(() => {
-            const el = document.querySelector('.ipreview-credit');
-            const r = el.getBoundingClientRect();
-            return r.left + r.width / 2;
-        })()`);
-        assert.ok(Math.abs(center - PRINT_WIDTH / 2) < 20, `クレジット行の中心 ${Math.round(center)}px（紙の中心 ${PRINT_WIDTH / 2}px）`);
-        assert.strictEqual(
-            (await page.locator('tfoot .ipreview-credit').textContent())?.trim(),
-            PDF_CREDIT_TEXT,
-            '各ページへ繰り返すための tfoot にクレジット行が無い'
-        );
     });
 });

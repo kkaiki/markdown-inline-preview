@@ -2,58 +2,47 @@
  * PDF 書き出し用 HTML の組み立て（`src/shared/pdfHtml.ts`）を固定する。
  *
  * 無料版の PDF には全ページ下部にクレジット行を入れ、購入者は入らない。
- * 「CSS で消す」のではなく **DOM に要素を出さない** ことが要件なので、
- * 生成される HTML 文字列そのものをこの層で検証する。
+ * 購入者の HTML にはクレジットの文字列を**一切出さない**（CSS で隠すのではない）。
  *
- * ## なぜ table + tfoot なのか
+ * ## クレジット行の置き方（2026-09-29 に変更）
  *
- * 当初は `position: fixed` で各ページ下端に出そうとしたが、実際に複数ページの PDF を
- * 生成して目視したところ **本文と重なった**（2026-08-13）。ページ媒体では
- * `body { padding-bottom }` は文書の末尾に一度きり効くだけで、各ページには効かない。
- * `@page { margin-bottom }` と負の `bottom` を組み合わせる案も試したが、
- * クレジットがページ上部へ回り込んでさらに悪化した。
+ * 以前は本文を `<table>` で包み、印刷時に各ページへ繰り返される `<tfoot>` に入れていた
+ * （`position: fixed` は本文と重なり、`@page` の余白 + 負の bottom は上部へ回り込んだため。2026-08-13）。
+ * しかし tfoot は**最後のページでは本文の直後**に出てしまう（ユーザー指摘 2026-09-29「出力された結果が変」）。
  *
- * **`<tfoot>` は印刷時に各ページの下端へ繰り返される**という古くからの挙動が唯一安定した。
- * 本文はテーブルの `<tbody>` に入る。
+ * いまは **`@page` の余白ボックス（`@bottom-center`）** に置く。ページ番号・フッター（PDF の体裁）と同じ仕組みで、
+ * どのページでも紙の下端に出る。本文の HTML は無料版と購入者で同一になる（違いは CSS の数行だけ）。
+ * 余白ボックスは Chrome / Edge 131 以降で効く。
  *
- * **購入者（credit: false）には table を被せない** — 今までと同一の HTML のままにして、
- * 金を払った人の出力にレイアウト変更のリスクを持ち込まない。
- *
- * 全ページに出ることそのものは実際に PDF を作らないと確かめられない。ここが守るのは
- * 「出す／出さない」と「どの構造で出すか」まで。
+ * 各ページの下端に出ることそのものは test/browser/live/rendering/pdfRendering.test.ts（実 Chrome の PDF）で見る。
  */
 import * as assert from 'assert';
 import { buildPdfHtml, PDF_CREDIT_TEXT } from '../../../src/shared/pdfHtml';
+import { DEFAULT_PDF_STYLING } from '../../../src/shared/pdfStyling';
 
 describe('PDF 書き出し用 HTML の組み立て', () => {
     describe('無料版（credit: true）', () => {
-        it('クレジット行の要素が HTML に含まれる', () => {
+        it('クレジット行は @page の下中央の余白ボックスに入る（最後のページでも紙の下端に出る）', () => {
             const html = buildPdfHtml('# Hello', '', { credit: true });
-            assert.ok(
-                html.includes('<div class="ipreview-credit">'),
-                `クレジット要素が無い: ${html}`
-            );
-            assert.ok(html.includes(PDF_CREDIT_TEXT));
+            assert.match(html, new RegExp(`@bottom-center\\s*\\{[^}]*content:\\s*"${PDF_CREDIT_TEXT}"`), html);
         });
 
-        it('本文が table の tbody に入る', () => {
-            const html = buildPdfHtml('# Hello', '', { credit: true });
-            assert.ok(html.includes('<table class="ipreview-page">'), html);
-            assert.match(html, /<tbody>[\s\S]*<h1[^>]*>Hello<\/h1>[\s\S]*<\/tbody>/);
+        it('本文を table で包まない（無料版と購入者で本文の HTML が同じ）', () => {
+            const free = buildPdfHtml('# Hello\n\n本文', '', { credit: true });
+            const paid = buildPdfHtml('# Hello\n\n本文', '', { credit: false });
+            assert.ok(!free.includes('<table class="ipreview-page">'), free);
+            const body = (html: string) => html.slice(html.indexOf('<body'));
+            assert.strictEqual(body(free), body(paid));
         });
 
-        it('クレジットは tfoot の中に入る（印刷時に各ページ下端へ繰り返されるため）', () => {
-            const html = buildPdfHtml('# Hello', '', { credit: true });
-            assert.match(
-                html,
-                /<tfoot>[\s\S]*<div class="ipreview-credit">[\s\S]*<\/tfoot>/,
-                'クレジットが tfoot の外にある。これだと 1 ページ目にしか出ない'
-            );
-        });
-
-        it('tfoot は tbody より前に置く（ブラウザが各ページへ繰り返すための条件）', () => {
-            const html = buildPdfHtml('# Hello', '', { credit: true });
-            assert.ok(html.indexOf('<tfoot>') < html.indexOf('<tbody>'), html);
+        it('ページ番号（右下）・フッター（左下）と重ならない', () => {
+            const html = buildPdfHtml('# Hello', '', {
+                credit: true,
+                styling: { ...DEFAULT_PDF_STYLING, pageNumbers: true, footerText: 'フッター' },
+                context: { title: 't', date: '2026-09-29' }
+            });
+            assert.ok(html.includes('@bottom-center') && html.includes('@bottom-right') && html.includes('@bottom-left'), html);
+            assert.strictEqual((html.match(/@bottom-center/g) ?? []).length, 1);
         });
 
         it('body には markdown-body クラスが付く', () => {
@@ -63,16 +52,10 @@ describe('PDF 書き出し用 HTML の組み立て', () => {
     });
 
     describe('購入済み（credit: false）', () => {
-        it('クレジット行の要素が HTML に一切含まれない', () => {
+        it('クレジット行の文字列も余白ボックスも HTML に一切含まれない', () => {
             const html = buildPdfHtml('# Hello', '', { credit: false });
-            assert.ok(!html.includes('ipreview-credit'), 'クレジット要素が残っている');
             assert.ok(!html.includes(PDF_CREDIT_TEXT), 'クレジット文字列が残っている');
-        });
-
-        it('table で包まない（払った人の出力にレイアウト変更を持ち込まない）', () => {
-            const html = buildPdfHtml('# Hello', '', { credit: false });
-            assert.ok(!html.includes('ipreview-page'), 'table が被さっている');
-            assert.ok(!html.includes('<tfoot>'), 'tfoot が残っている');
+            assert.ok(!html.includes('@bottom-center'), '余白ボックスが残っている');
         });
 
         it('本文が body 直下に来る（従来と同じ構造）', () => {
@@ -102,7 +85,7 @@ describe('PDF 書き出し用 HTML の組み立て', () => {
             // クレジット要素ではない。credit:false でも本文は消さない。
             const html = buildPdfHtml(PDF_CREDIT_TEXT, '', { credit: false });
             assert.ok(html.includes(PDF_CREDIT_TEXT), '本文が消えている');
-            assert.ok(!html.includes('ipreview-credit'), 'クレジット要素が混入している');
+            assert.ok(!html.includes('@bottom-center'), 'クレジットの余白ボックスが混入している');
         });
     });
 });

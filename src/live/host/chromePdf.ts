@@ -6,6 +6,8 @@
  *   - 印刷ごとに別のブラウザコンテキスト（別プロセス）を作って捨てる（終わらないページが次に波及しない）
  *   - タイムアウトはファイル単位
  *   - 閉じるときは Browser.close → 5 秒待って SIGKILL → 一時プロファイルを消す
+ *   - ページが `window.__ipreviewReady`（Promise）を置いていれば、それが解決するまで待ってから印刷する
+ *     （数式・Mermaid を描き終えてから。docs/specifications/fixes/pdf-output-parity-fix.md）
  * VS Code API には依存しない（実 Chrome のテスト test/browser/live/rendering/pdfBatch.test.ts から直接使う）。
  * 仕様: docs/private/specifications/pro-batch-export.md §4.2
  */
@@ -158,6 +160,11 @@ export async function launchChromePdf(
                 const nav = await send('Page.navigate', { url: pathToFileURL(htmlPath).href }, sessionId);
                 if (typeof nav.errorText === 'string') throw new Error(`${nav.errorText}: ${htmlPath}`);
                 await load.promise;
+                // 描画スクリプト（out/pdfRuntime.js）があれば、数式・図を描き終えるまで待つ。無ければすぐ進む
+                await send('Runtime.evaluate', {
+                    expression: 'Promise.resolve(window.__ipreviewReady)',
+                    awaitPromise: true
+                }, sessionId);
                 const { data } = await send('Page.printToPDF', {
                     // CLI の --print-to-pdf --no-pdf-header-footer と同じ見た目にする
                     printBackground: true,

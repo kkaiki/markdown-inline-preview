@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as zlib from 'zlib';
+import { execFileSync } from 'child_process';
 import { launchChromePdf, type ChromePdfSession } from '../../../../src/live/host/chromePdf';
 import { buildMergedPdfHtml } from '../../../../src/shared/batchExport/mergedDocument';
 import { findChrome } from '../../chromePrint';
@@ -117,6 +118,24 @@ describe('まとめて書き出し: Chrome を 1 回起動して続けて印刷�
         await session.print(html, path.join(dir, 'without.pdf'), { timeoutMs: 60000 });
         assert.ok(count(fs.readFileSync(path.join(dir, 'with.pdf'), 'latin1'), /\/Outlines/g) > 0);
         assert.strictEqual(count(fs.readFileSync(path.join(dir, 'without.pdf'), 'latin1'), /\/Outlines/g), 0);
+    });
+
+    it('ページが window.__ipreviewReady を置いていれば、それが解決する（描画が終わる）まで待ってから印刷する', async function () {
+        const html = write('late.html', `<html><body><p>EARLY</p><script>
+            window.__ipreviewReady = new Promise((resolve) => setTimeout(() => {
+                const p = document.createElement('p'); p.textContent = 'LATEWORD'; document.body.append(p); resolve();
+            }, 1500));
+        </script></body></html>`);
+        const out = path.join(dir, 'late.pdf');
+        await session.print(html, out, { timeoutMs: 60000 });
+        let text: string;
+        try {
+            text = execFileSync('pdftotext', [out, '-'], { encoding: 'utf8' });
+        } catch {
+            this.skip();
+            return;
+        }
+        assert.ok(text.includes('LATEWORD'), `描画の完了を待たずに印刷した: ${text}`);
     });
 
     it('読み込みが終わらないページはそのファイルだけタイムアウトで失敗し、同じ Chrome で次のファイルを印刷できる', async () => {

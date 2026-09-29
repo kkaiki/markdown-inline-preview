@@ -20,7 +20,7 @@ import { rewriteImageSources } from '../../shared/batchExport/imagePaths';
 import { buildMergedPdfHtml } from '../../shared/batchExport/mergedDocument';
 import { runPool, summarizeBatchResults, type BatchResult, type BatchSummary } from '../../shared/batchExport/pool';
 import { launchChromePdf, type ChromePdfSession } from './chromePdf';
-import { findBrowser, offerToOpen, today } from './localExport';
+import { findBrowser, offerToOpen, pdfAssets, today } from './localExport';
 
 /** 1 ファイルの印刷の制限時間 */
 const PER_FILE_TIMEOUT_MS = 60_000;
@@ -132,7 +132,8 @@ export async function runBatchExport(
             const html = buildMergedPdfHtml(docs, `${css}\n${pdfStylingCss(job.styling, context)}`, {
                 title: context.title,
                 tocTitle: vscode.l10n.t('Contents'),
-                credit: job.credit
+                credit: job.credit,
+                assets: pdfAssets(extensionPath)
             });
             const htmlPath = path.join(tmpDir, 'book.html');
             await fs.promises.writeFile(htmlPath, html, 'utf-8');
@@ -162,6 +163,7 @@ export async function runBatchExport(
                 const { body } = splitFrontmatter(await readMarkdown(item.src));
                 const html = rewriteImageSources(buildPdfHtml(body, css, {
                     credit: job.credit,
+                    assets: pdfAssets(extensionPath),
                     styling: job.styling,
                     context: { title: stem(item.src), date: today(), tocTitle: vscode.l10n.t('Contents') }
                 }), path.dirname(item.src));

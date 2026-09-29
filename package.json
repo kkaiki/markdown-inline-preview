@@ -1180,7 +1180,7 @@
     "test": "node ./out-test/test/runTest.js",
     "test:unit": "mocha \"out-test/test/suite/**/*.test.js\" --timeout 15000",
     "build:browser-test": "npx tsc -p tsconfig.browser-test.json",
-    "test:browser": "npm run build:livewebview && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
+    "test:browser": "npm run build:livewebview && npm run build:lazy && npm run build:browser-test && mocha \"out-test/test/browser/**/*.test.js\" --timeout 60000",
     "test:coverage": "c8 --include='out/shared/**/*.js' --include='out/utils/**/*.js' --reporter=text --reporter=html npm run test:unit",
     "test:all": "npm run test:unit && npm run test",
     "docs:test-catalog": "node scripts/generate-test-catalog.mjs",
