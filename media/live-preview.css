@@ -635,6 +635,11 @@ body {
     background: rgba(129, 139, 152, 0.14);
     color: var(--live-fg);
 }
+/* 文字の代わりに線画を描くボタン（リンク）。線は currentColor なので、文字ボタンと同じ色・ホバー変化になる */
+.cm-live-toolbar-icon {
+    display: block;
+    margin: 0 auto;
+}
 .cm-live-toolbar-button:disabled {
     opacity: 0.35;
     cursor: default;

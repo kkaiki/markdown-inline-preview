@@ -27,10 +27,43 @@ import {
     zoomOut
 } from '../shared/liveZoom';
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/**
+ * リンクの線画アイコン（鎖の輪 2 つを斜めに噛み合わせる）。絵文字（🔗）は OS のカラーフォントで描かれ、
+ * 隣の B / I / U / S / <> と色も太さも揃わないので、`currentColor` の線で描く
+ * （ユーザー要望 2026-09-29。requirements.md §4.6.1）。
+ */
+function linkIcon(): SVGElement {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('width', '16');
+    svg.setAttribute('height', '16');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.classList.add('cm-live-toolbar-icon');
+    // 右上の輪と左下の輪。どちらも重なる側を開けて、噛み合って見えるようにする
+    for (const d of [
+        'M6.8 9.2a3 3 0 0 0 4.24 0l2.12-2.12a3 3 0 0 0-4.24-4.24l-1.06 1.06',
+        'M9.2 6.8a3 3 0 0 0-4.24 0L2.84 8.92a3 3 0 0 0 4.24 4.24l1.06-1.06'
+    ]) {
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', 'currentColor');
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(path);
+    }
+    return svg;
+}
+
 /** ツールバーのボタン定義。 */
 interface ToolbarButton {
     /** 表示ラベル。 */
     label: string;
+    /** 文字の代わりに描くアイコン（あれば label は使わない）。 */
+    icon?: () => SVGElement;
     /** 操作名（ホバーのチートシートと `aria-label` に出す）。**英語ソース**で書き、表示時に `t()` で訳す。 */
     name: string;
     /** ブロック変換なら種別。 */
@@ -57,7 +90,7 @@ const BUTTONS: ToolbarButton[] = [
     { label: 'U', name: 'Underline', format: 'underline' },
     { label: 'S', name: 'Strikethrough', format: 'strikethrough' },
     { label: '<>', name: 'Inline code', format: 'code' },
-    { label: '🔗', name: 'Link', format: 'link' }
+    { label: '', name: 'Link', format: 'link', icon: linkIcon }
 ];
 
 /*
@@ -330,7 +363,8 @@ function makeButton(
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'cm-live-toolbar-button';
-    el.textContent = b.label;
+    if (b.icon) el.appendChild(b.icon());
+    else el.textContent = b.label;
     // PDF の書き出し自体は無料。バッジは「クレジット行の除去が有料」の示唆で、ツールチップで併記する
     const pro = b.command === 'exportPdf' && options.showProBadge === true;
     if (pro) {
