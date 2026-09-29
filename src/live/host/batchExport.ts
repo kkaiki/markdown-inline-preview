@@ -70,7 +70,10 @@ export async function listMarkdownFiles(folder: string, recursive: boolean): Pro
 
 /** 開いていて未保存ならエディタの内容、そうでなければファイルの内容（単体書き出しと同じく「見えている内容」） */
 async function readMarkdown(file: string): Promise<string> {
-    const open = vscode.workspace.textDocuments.find((d) => d.uri.scheme === 'file' && d.uri.fsPath === file);
+    // パスの文字列ではなく URI で比べる。Windows は fsPath のドライブ文字が小文字（c:\\）になり、
+    // fs で列挙したパス（C:\\）と一致しなかったため、未保存の内容が入らなかった（2026-09-30、Windows の CI で発見）
+    const target = vscode.Uri.file(file).toString();
+    const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === target);
     return open ? open.getText() : fs.promises.readFile(file, 'utf-8');
 }
 

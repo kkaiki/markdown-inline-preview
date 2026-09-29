@@ -9,7 +9,7 @@
  */
 import assert from "assert";
 import * as vscode from "vscode";
-import { createTestDocument, closeAllEditors } from "../helpers";
+import { createTestDocument, closeAllEditors, waitFor } from "../helpers";
 
 suite('Raw: lists-tables', () => {
 
@@ -98,7 +98,8 @@ suite('Raw: lists-tables', () => {
             editor.selection = new vscode.Selection(6, 0, 6, 0);
 
             await vscode.commands.executeCommand('markdownInline.renumberLists');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // 固定の 500ms 待ちでは Windows の CI で間に合わなかった（2026-09-30）。番号が変わるまで待つ
+            await waitFor(() => doc.lineAt(5).text.startsWith('1. '));
 
             assert.strictEqual(doc.lineAt(0).text, '1. Plan（今日の目標）: 何をしようとしたか');
             assert.strictEqual(doc.lineAt(1).text, '2. Do（やったこと）: 実際の結果は？');

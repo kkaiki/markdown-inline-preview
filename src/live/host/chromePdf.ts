@@ -146,7 +146,8 @@ export async function launchChromePdf(
     };
 
     try {
-        await withTimeout(send('Browser.getVersion'), options.launchTimeoutMs ?? 30_000, 'Timed out starting Chrome');
+        // Windows では PC の起動直後など、初回の起動に 30 秒以上かかることがある（2026-09-30、Windows の CI で発見）
+        await withTimeout(send('Browser.getVersion'), options.launchTimeoutMs ?? 60_000, 'Timed out starting Chrome');
     } catch (err) {
         await close();
         throw err;
