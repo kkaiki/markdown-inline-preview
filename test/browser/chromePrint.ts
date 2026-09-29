@@ -16,7 +16,7 @@ export interface PrintedPdf {
     pages: { width: number; height: number }[];
 }
 
-function findChrome(): string | undefined {
+export function findChrome(): string | undefined {
     return [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/usr/bin/google-chrome-stable',
