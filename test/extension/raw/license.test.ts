@@ -142,6 +142,18 @@ suite('Raw: license', () => {
             assert.ok(entry?.when?.includes('markdownInline.proPlusOnSale'), `when: ${entry?.when}`);
         });
 
+        test('35.4 編集画面の右クリックメニュー（Raw のエディタ・Live の画面）に Word 書き出しがあり、販売開始後だけ出る', () => {
+            // ユーザー要望 2026-09-29:「編集のところを、右クリックで Word 書き出しがあればいいのでは？」
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const menus = extension?.packageJSON?.contributes?.menus ?? {};
+            const raw = (menus['editor/context'] ?? []).find((m: { command: string }) => m.command === 'markdownInline.exportDocx');
+            const live = (menus['webview/context'] ?? []).find((m: { command: string }) => m.command === 'markdownInline.exportDocx');
+            assert.ok(raw, 'Raw（テキストエディタ）の右クリックメニューに無い');
+            assert.ok(live, 'Live の右クリックメニューに無い');
+            assert.ok(raw.when?.includes('markdownInline.proPlusOnSale') && raw.when.includes('editorLangId == markdown'), `Raw when: ${raw.when}`);
+            assert.ok(live.when?.includes('markdownInline.proPlusOnSale') && live.when.includes("webviewId == 'ipreview.live'"), `Live when: ${live.when}`);
+        });
+
         test('35.2 販売前に Word 書き出しを実行しても、docx は作られない', async function() {
             this.timeout(20000);
             const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');

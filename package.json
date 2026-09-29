@@ -385,6 +385,20 @@
       }
     ],
     "menus": {
+      "editor/context": [
+        {
+          "command": "markdownInline.exportDocx",
+          "when": "markdownInline.proPlusOnSale && editorLangId == markdown",
+          "group": "9_export@10"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "markdownInline.exportDocx",
+          "when": "markdownInline.proPlusOnSale && webviewId == 'ipreview.live'",
+          "group": "9_export@10"
+        }
+      ],
       "editor/title": [
         {
           "command": "markdownInline.openLive",
