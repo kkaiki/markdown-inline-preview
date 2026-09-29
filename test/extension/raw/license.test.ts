@@ -154,6 +154,25 @@ suite('Raw: license', () => {
             assert.ok(live.when?.includes('markdownInline.proPlusOnSale') && live.when.includes("webviewId == 'ipreview.live'"), `Live when: ${live.when}`);
         });
 
+        test('35.5 右クリックメニューには PDF・Word・スライドがこの順に並び、PDF（無料）は販売状態に関係なく出て、スライドは販売開始後だけ出る', () => {
+            // ユーザー要望 2026-09-29:「PDF とスライドも右クリックに入れて」
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const menus = extension?.packageJSON?.contributes?.menus ?? {};
+            for (const [where, scope] of [['editor/context', 'editorLangId == markdown'], ['webview/context', "webviewId == 'ipreview.live'"]]) {
+                const items: { command: string; when?: string; group?: string }[] = menus[where] ?? [];
+                const find = (command: string) => items.find((m) => m.command === command);
+                const pdf = find('markdownInline.exportPdf');
+                const marp = find('markdownInline.exportMarp');
+                const docx = find('markdownInline.exportDocx');
+                assert.ok(pdf && marp && docx, `${where} に揃っていない`);
+                assert.ok(pdf.when?.includes(scope) && !pdf.when.includes('proPlusOnSale'), `${where} PDF when: ${pdf.when}`);
+                assert.ok(marp.when?.includes(scope) && marp.when.includes('markdownInline.proPlusOnSale'), `${where} スライド when: ${marp.when}`);
+                const group = (m: { group?: string }) => m.group ?? '';
+                assert.deepStrictEqual([pdf, docx, marp].map(group).sort(), [group(pdf), group(docx), group(marp)], `${where} の並び順`);
+                assert.ok(new Set([pdf, docx, marp].map((m) => group(m).split('@')[0])).size === 1, `${where} で別のグループに分かれている`);
+            }
+        });
+
         test('35.2 販売前に Word 書き出しを実行しても、docx は作られない', async function() {
             this.timeout(20000);
             const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');

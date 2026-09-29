@@ -387,16 +387,36 @@
     "menus": {
       "editor/context": [
         {
+          "command": "markdownInline.exportPdf",
+          "when": "editorLangId == markdown",
+          "group": "9_export@10"
+        },
+        {
           "command": "markdownInline.exportDocx",
           "when": "markdownInline.proPlusOnSale && editorLangId == markdown",
-          "group": "9_export@10"
+          "group": "9_export@20"
+        },
+        {
+          "command": "markdownInline.exportMarp",
+          "when": "markdownInline.proPlusOnSale && editorLangId == markdown",
+          "group": "9_export@30"
         }
       ],
       "webview/context": [
         {
+          "command": "markdownInline.exportPdf",
+          "when": "webviewId == 'ipreview.live'",
+          "group": "9_export@10"
+        },
+        {
           "command": "markdownInline.exportDocx",
           "when": "markdownInline.proPlusOnSale && webviewId == 'ipreview.live'",
-          "group": "9_export@10"
+          "group": "9_export@20"
+        },
+        {
+          "command": "markdownInline.exportMarp",
+          "when": "markdownInline.proPlusOnSale && webviewId == 'ipreview.live'",
+          "group": "9_export@30"
         }
       ],
       "editor/title": [
