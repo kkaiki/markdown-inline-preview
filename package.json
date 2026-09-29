@@ -267,6 +267,11 @@
         "category": "Markdown Inline Preview"
       },
       {
+        "command": "markdownInline.batchExport",
+        "title": "Batch Export to PDF…",
+        "category": "Markdown Inline Preview"
+      },
+      {
         "command": "markdownInline.removePdfCredit",
         "title": "Remove PDF Credit Line (one-time purchase)",
         "category": "Markdown Inline Preview"
@@ -397,6 +402,11 @@
           "command": "markdownInline.openLive",
           "when": "resourceLangId == markdown",
           "group": "navigation@10"
+        },
+        {
+          "command": "markdownInline.batchExport",
+          "when": "markdownInline.proPlusOnSale && (explorerResourceIsFolder || resourceExtname =~ /^\\.(md|markdown)$/i)",
+          "group": "7_modification@90"
         }
       ],
       "editor/title/context": [
@@ -418,6 +428,10 @@
         {
           "command": "markdownInline.exportDocx",
           "when": "markdownInline.proPlusOnSale && (editorLangId == markdown || activeCustomEditorId == 'ipreview.live')"
+        },
+        {
+          "command": "markdownInline.batchExport",
+          "when": "markdownInline.proPlusOnSale"
         }
       ]
     },

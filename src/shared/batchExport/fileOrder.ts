@@ -37,3 +37,24 @@ export function selectMarkdownFiles(files: readonly string[], root: string): str
     }
     return [...rels].sort(compareNaturalPath).map((rel) => path.join(root, rel));
 }
+
+/**
+ * 複数選択の基準フォルダ（出力先を「フォルダを選ぶ」にしたとき、ここからの相対構成で置く）。
+ * フォルダはそのもの、ファイルはその親を候補にし、全部に共通する一番深いフォルダを返す。
+ */
+export function commonDirectory(paths: readonly string[], folders: readonly string[]): string {
+    const folderSet = new Set(folders.map((f) => path.resolve(f)));
+    const dirs = paths.map((p) => {
+        const abs = path.resolve(p);
+        return folderSet.has(abs) ? abs : path.dirname(abs);
+    });
+    // パス区切りごとに比べる（文字列の前方一致だと docs と docs2 を取り違える）
+    const split = dirs.map((d) => d.split(path.sep));
+    const common: string[] = [];
+    for (let i = 0; i < split[0].length; i++) {
+        const part = split[0][i];
+        if (!split.every((s) => s[i] === part)) break;
+        common.push(part);
+    }
+    return common.join(path.sep) || path.sep;
+}

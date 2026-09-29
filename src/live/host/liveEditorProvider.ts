@@ -23,6 +23,7 @@ import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
 import { exportMarpLocal } from './marpExport';
 import { exportDocxLocal } from './docxExport';
+import { runBatchExportCommand } from './batchExport';
 import {
     shouldIncludeCredit,
     shouldShowProBadge,
@@ -31,7 +32,7 @@ import {
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
-import { FEATURE_DOCX_EXPORT, FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
+import { FEATURE_BATCH_EXPORT, FEATURE_DOCX_EXPORT, FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
 import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
 import { showProLockedDialog } from '../../license/proGate';
 import type { LicenseVerifyResult } from '../../shared/license/token';
@@ -406,6 +407,39 @@ async function exportDocx(document: vscode.TextDocument, extensionPath: string):
     }
 }
 
+/**
+ * まとめて書き出し（PRO+）。判定は選択 UI を出す前に行う（買っていない人に質問を重ねてから断らない）。
+ * PDF の体裁は PRO+ に含まれるので、使える人にだけ設定どおりに効かせる（使えなければ黙って既定）。
+ */
+async function batchExport(
+    clicked: vscode.Uri | undefined,
+    selected: vscode.Uri[] | undefined,
+    context: vscode.ExtensionContext
+): Promise<void> {
+    const license = (await licenseStore?.verify()) ?? NO_LICENSE;
+    const access = proFeatureAccess({ license, monetizationEnabled: MONETIZATION_ENABLED, feature: FEATURE_BATCH_EXPORT });
+    if (access === 'unavailable') return; // 販売前（メニューにもコマンドパレットにも出していない）
+    if (access === 'locked') {
+        await showProLockedDialog(vscode.l10n.t('Batch export'));
+        return;
+    }
+    const config = vscode.workspace.getConfiguration('markdownInline');
+    const credit = shouldIncludeCredit({
+        license,
+        monetizationEnabled: MONETIZATION_ENABLED,
+        setting: config.get<CreditLineSetting>('export.creditLine', 'auto')
+    });
+    const stylingAllowed =
+        proFeatureAccess({ license, monetizationEnabled: MONETIZATION_ENABLED, feature: FEATURE_PDF_STYLING }) === 'allowed';
+    const styling = stylingAllowed ? readPdfStyling((key) => config.get(`export.pdf.${key}`)) : DEFAULT_PDF_STYLING;
+    await runBatchExportCommand(clicked, selected, {
+        extensionPath: context.extensionUri.fsPath,
+        state: context.workspaceState,
+        credit,
+        styling
+    });
+}
+
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(
         private readonly extensionUri: vscode.Uri,
@@ -656,7 +690,10 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
                 (await activeMarkdownDocument());
             if (!doc) return;
             await exportDocx(doc, context.extensionUri.fsPath);
-        })
+        }),
+        // エクスプローラからは (右クリックした項目, 選択中の全項目) が渡る。コマンドパレットからは引数なし
+        vscode.commands.registerCommand('markdownInline.batchExport', (clicked?: vscode.Uri, selected?: vscode.Uri[]) =>
+            batchExport(clicked, selected, context))
     );
 
     context.subscriptions.push(

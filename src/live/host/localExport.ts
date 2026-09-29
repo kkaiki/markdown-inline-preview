@@ -91,7 +91,7 @@ export interface LocalExportOptions {
 }
 
 /** 書き出した日（ローカル時刻の YYYY-MM-DD）。ヘッダー・フッターの {date} に入る。 */
-function today(): string {
+export function today(): string {
     const d = new Date();
     const pad = (n: number): string => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

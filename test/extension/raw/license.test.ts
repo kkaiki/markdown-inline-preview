@@ -190,6 +190,136 @@ suite('Raw: license', () => {
         });
     });
 
+    suite('36. まとめて書き出し（PRO+）', () => {
+        const PDF_PAGE = /\/Type\s*\/Page(?!s)/g;
+
+        /** 一時フォルダに .md 群を作る。img/dot.png も置く */
+        function makeFolder(files: Record<string, string>): string {
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-batch-'));
+            for (const [rel, body] of Object.entries(files)) {
+                fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+                fs.writeFileSync(path.join(dir, rel), body);
+            }
+            return dir;
+        }
+
+        test('36.1 まとめて書き出しのコマンドが登録・宣言され、販売開始後だけコマンドパレットとエクスプローラに出る', async () => {
+            const commands = await vscode.commands.getCommands(true);
+            assert.ok(commands.includes('markdownInline.batchExport'), 'batchExport が登録されていない');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const contributes = extension?.packageJSON?.contributes;
+            const declared: { command: string }[] = contributes?.commands ?? [];
+            assert.ok(declared.some((c) => c.command === 'markdownInline.batchExport'), 'package.json に宣言が無い');
+            const palette: { command: string; when?: string }[] = contributes?.menus?.commandPalette ?? [];
+            const explorer: { command: string; when?: string }[] = contributes?.menus?.['explorer/context'] ?? [];
+            const inPalette = palette.find((m) => m.command === 'markdownInline.batchExport');
+            const inExplorer = explorer.find((m) => m.command === 'markdownInline.batchExport');
+            assert.ok(inPalette?.when?.includes('markdownInline.proPlusOnSale'), `palette when: ${inPalette?.when}`);
+            assert.ok(inExplorer?.when?.includes('markdownInline.proPlusOnSale'), `explorer when: ${inExplorer?.when}`);
+            assert.ok(inExplorer?.when?.includes('explorerResourceIsFolder'), `explorer when: ${inExplorer?.when}`);
+        });
+
+        test('36.2 販売前にフォルダを指定して実行しても、PDF は作られない', async function() {
+            this.timeout(20000);
+            const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');
+            if (MONETIZATION_ENABLED) { this.skip(); return; }
+
+            const dir = makeFolder({ 'a.md': '# A\n' });
+            try {
+                const uri = vscode.Uri.file(dir);
+                await vscode.commands.executeCommand('markdownInline.batchExport', uri, [uri]);
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                assert.strictEqual(fs.existsSync(path.join(dir, 'a.pdf')), false, '販売前なのに PDF ができた');
+            } finally {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        test('36.3 フォルダを 1 ファイルずつ隣に書き出すと、サブフォルダの分もでき、既存を「スキップ」にした PDF は元のまま', async function() {
+            this.timeout(180000);
+            const { listMarkdownFiles, runBatchExport } = await import('../../../src/live/host/batchExport');
+            const { DEFAULT_PDF_STYLING } = await import('../../../src/shared/pdfStyling');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = makeFolder({ 'a.md': '# A\n', 'sub/b.md': '# B\n', 'node_modules/x/c.md': '# C\n', 'a.pdf': 'old' });
+            try {
+                const files = await listMarkdownFiles(dir, true);
+                assert.deepStrictEqual(files, [path.join(dir, 'a.md'), path.join(dir, 'sub', 'b.md')]);
+                const outcome = await runBatchExport({
+                    kind: 'each', files, root: dir, outputMode: 'beside', overwrite: 'skip',
+                    credit: false, styling: DEFAULT_PDF_STYLING
+                }, extension.extensionPath);
+                assert.strictEqual(fs.readFileSync(path.join(dir, 'a.pdf'), 'utf8'), 'old', 'スキップしたはずの PDF が変わった');
+                const b = fs.readFileSync(path.join(dir, 'sub', 'b.pdf'));
+                assert.strictEqual(b.subarray(0, 5).toString('latin1'), '%PDF-');
+                assert.deepStrictEqual(
+                    { done: outcome.summary.done, skipped: outcome.summary.skipped, failed: outcome.summary.failed },
+                    { done: 1, skipped: 1, failed: 0 });
+            } finally {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        test('36.4 1 つの PDF にまとめると、目次＋ファイルごとに改ページした 1 冊ができる（開いている未保存の内容も入る）', async function() {
+            this.timeout(180000);
+            const { runBatchExport } = await import('../../../src/live/host/batchExport');
+            const { DEFAULT_PDF_STYLING } = await import('../../../src/shared/pdfStyling');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = makeFolder({ 'a.md': '# A\n', 'b.md': '# B\n' });
+            let doc: vscode.TextDocument | undefined;
+            try {
+                // b.md を未保存のまま長くする（保存済みの内容なら 1 ページに収まる）。
+                // エディタ経由だと Live への切り替えで TextEditor が差し替わるので、文書を直接編集する
+                doc = await vscode.workspace.openTextDocument(path.join(dir, 'b.md'));
+                const edit = new vscode.WorkspaceEdit();
+                edit.insert(doc.uri, new vscode.Position(1, 0), '\n' + 'long line\n\n'.repeat(150));
+                assert.ok(await vscode.workspace.applyEdit(edit));
+                assert.ok(doc.isDirty);
+
+                const out = path.join(dir, 'book.pdf');
+                const outcome = await runBatchExport({
+                    kind: 'merge', files: [path.join(dir, 'a.md'), path.join(dir, 'b.md')], root: dir, mergedOutput: out,
+                    credit: false, styling: DEFAULT_PDF_STYLING
+                }, extension.extensionPath);
+                assert.strictEqual(outcome.summary.failed, 0);
+                const pages = (fs.readFileSync(out, 'latin1').match(PDF_PAGE) ?? []).length;
+                // 目次 1 + a 1 + b（未保存の 150 段落）2 以上
+                assert.ok(pages >= 4, `ページ数: ${pages}`);
+                assert.strictEqual(fs.existsSync(path.join(dir, 'a.pdf')), false, 'まとめる方式なのに個別の PDF ができた');
+            } finally {
+                // 未保存のまま残さない（後のテストで「保存しますか」が出ないように）
+                await doc?.save();
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        test('36.5 始める前にキャンセルされていれば、何も書き出さずに全件キャンセルとして報告する', async function() {
+            this.timeout(60000);
+            const { runBatchExport } = await import('../../../src/live/host/batchExport');
+            const { DEFAULT_PDF_STYLING } = await import('../../../src/shared/pdfStyling');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = makeFolder({ 'a.md': '# A\n', 'b.md': '# B\n' });
+            const cts = new vscode.CancellationTokenSource();
+            cts.cancel();
+            try {
+                const outcome = await runBatchExport({
+                    kind: 'each', files: [path.join(dir, 'a.md'), path.join(dir, 'b.md')], root: dir,
+                    outputMode: 'beside', overwrite: 'overwrite', credit: false, styling: DEFAULT_PDF_STYLING
+                }, extension.extensionPath, undefined, cts.token);
+                assert.strictEqual(outcome.summary.cancelled, 2);
+                assert.ok(!fs.existsSync(path.join(dir, 'a.pdf')) && !fs.existsSync(path.join(dir, 'b.pdf')));
+            } finally {
+                cts.dispose();
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    });
+
     suite('31. 設定の宣言', () => {
 
         test('31.1 export.creditLine は auto が既定', () => {

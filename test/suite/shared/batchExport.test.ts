@@ -10,7 +10,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
-import { compareNaturalPath, selectMarkdownFiles } from '../../../src/shared/batchExport/fileOrder';
+import { commonDirectory, compareNaturalPath, selectMarkdownFiles } from '../../../src/shared/batchExport/fileOrder';
 import { planOutputs } from '../../../src/shared/batchExport/outputPlan';
 import { rewriteImageSources } from '../../../src/shared/batchExport/imagePaths';
 import { buildMergedPdfHtml } from '../../../src/shared/batchExport/mergedDocument';
@@ -43,6 +43,19 @@ describe('まとめて書き出し: 並べ順と対象', () => {
     it('node_modules / .git 配下は含めない', () => {
         const files = [p('a.md'), p('node_modules/pkg/README.md'), p('.git/x.md'), p('sub/.git/y.md')];
         assert.deepStrictEqual(selectMarkdownFiles(files, ROOT), [p('a.md')]);
+    });
+
+    it('複数選択の基準フォルダは、選んだファイル・フォルダに共通する一番深い親になる', () => {
+        assert.strictEqual(commonDirectory([p('a.md'), p('sub/b.md')], []), ROOT);
+        assert.strictEqual(commonDirectory([p('sub/x/a.md'), p('sub/y/b.md')], []), p('sub'));
+        assert.strictEqual(commonDirectory([p('sub/a.md')], []), p('sub'));
+        // フォルダを選んだならそのフォルダ自身が基準（ファイルならその親）
+        assert.strictEqual(commonDirectory([p('sub')], [p('sub')]), p('sub'));
+        assert.strictEqual(commonDirectory([p('sub'), p('sub/x/a.md')], [p('sub')]), p('sub'));
+    });
+
+    it('名前が前方一致するだけの兄弟フォルダ（docs と docs2）を共通の親と取り違えない', () => {
+        assert.strictEqual(commonDirectory([p('docs/a.md'), p('docs2/b.md')], []), ROOT);
     });
 });
 
