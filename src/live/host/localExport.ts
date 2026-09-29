@@ -60,7 +60,7 @@ function browserCandidates(): string[] {
 }
 
 /** 実行可能なブラウザのパスを返す。見つからなければ undefined。 */
-function findBrowser(): string | undefined {
+export function findBrowser(): string | undefined {
     const customPath = vscode.workspace
         .getConfiguration('markdownInline')
         .get<string>('export.browserPath', '')
@@ -132,14 +132,22 @@ export async function exportToPdfLocal(
         }
     });
 
-    // 一時 HTML をドキュメントと同ディレクトリに置く
-    // → relative な画像パス（./image.png 等）が正しく解決される
-    const docDir = path.dirname(document.uri.fsPath);
-    const tmpName = `.ipreview-pdf-${Date.now()}.html`;
-    const tmpHtml = path.join(docDir, tmpName);
-
     const outputPdf = document.uri.fsPath.replace(/\.(md|markdown)$/i, '') + '.pdf';
+    await printHtmlToPdf(html, document.uri.fsPath, outputPdf, vscode.l10n.t('Exporting PDF…'));
+    void offerToOpen(outputPdf, vscode.l10n.t('PDF saved: {0}', path.basename(outputPdf)));
+}
 
+/**
+ * HTML をローカル Chrome ヘッドレスで PDF にする（PDF 書き出しと Marp スライド書き出しで共用）。
+ * 一時 HTML は元の .md と同じフォルダに置く（相対パスの画像を解決するため）。終わったら消す。
+ */
+export async function printHtmlToPdf(
+    html: string,
+    sourcePath: string,
+    outputPdf: string,
+    progressTitle: string,
+    timeoutMs = 30_000
+): Promise<void> {
     const browser = findBrowser();
     if (!browser) {
         throw new Error(vscode.l10n.t(
@@ -148,28 +156,28 @@ export async function exportToPdfLocal(
         ));
     }
 
+    const tmpHtml = path.join(path.dirname(sourcePath), `.ipreview-pdf-${Date.now()}.html`);
     try {
         fs.writeFileSync(tmpHtml, html, 'utf-8');
-
         await vscode.window.withProgress(
-            { location: vscode.ProgressLocation.Notification, title: 'Exporting PDF…', cancellable: false },
+            { location: vscode.ProgressLocation.Notification, title: progressTitle, cancellable: false },
             () => execFileAsync(browser, [
                 '--headless=new',
                 '--disable-gpu',
                 '--no-pdf-header-footer',
                 `--print-to-pdf=${outputPdf}`,
                 `file://${tmpHtml}`,
-            ], { timeout: 30_000 })
+            ], { timeout: timeoutMs })
         );
     } finally {
         try { fs.unlinkSync(tmpHtml); } catch { /* ignore */ }
     }
+}
 
+/** 書き出し完了の通知に「開く」を添える。押されるまで待たないよう、呼び出し側は await しない。 */
+export async function offerToOpen(outputPdf: string, message: string): Promise<void> {
     const openLabel = vscode.l10n.t('Open');
-    const choice = await vscode.window.showInformationMessage(
-        vscode.l10n.t('PDF saved: {0}', path.basename(outputPdf)),
-        openLabel
-    );
+    const choice = await vscode.window.showInformationMessage(message, openLabel);
     if (choice === openLabel) {
         await vscode.env.openExternal(vscode.Uri.file(outputPdf));
     }

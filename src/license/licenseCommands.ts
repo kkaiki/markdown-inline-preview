@@ -186,7 +186,9 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             });
             if (!key?.trim()) return;
             await redeemKey(store, key.trim());
-            void refreshStatusBar();
+            // PRO+ のコマンド（Marp 書き出しなど）は販売開始後だけコマンドパレットに出す
+    void vscode.commands.executeCommand('setContext', 'markdownInline.proPlusOnSale', MONETIZATION_ENABLED);
+    void refreshStatusBar();
         }),
 
         vscode.commands.registerCommand('markdownInline.restorePurchase', async () => {

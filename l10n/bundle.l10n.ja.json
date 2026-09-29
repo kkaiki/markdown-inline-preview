@@ -65,5 +65,10 @@
   "PRO+ is a one-time purchase (¥100 / $1 / €1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.": "PRO+ は買い切り（¥100 / $1 / €1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。",
   "PDF layout options": "PDF の体裁の設定",
   "Export without layout options": "体裁なしで書き出す",
-  "Contents": "目次"
+  "Contents": "目次",
+  "Marp slide export": "Marp スライド書き出し",
+  "Slide export failed: {0}": "スライドの書き出しに失敗しました: {0}",
+  "Exporting slides…": "スライドを書き出しています…",
+  "Slides saved: {0}": "スライドを保存しました: {0}",
+  "Exporting PDF…": "PDF を書き出しています…"
 }

@@ -14,6 +14,9 @@
  * 実行: `node ./out-test/test/runTest.js`
  */
 import assert from "assert";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import * as vscode from "vscode";
 
 const EXTENSION_ID = 'markdown-inline-preview.markdown-inline-preview';
@@ -55,6 +58,72 @@ suite('Raw: license', () => {
                 .filter((id) => /removePdfCredit|upgradeToPro|enterLicenseKey|restorePurchase/.test(id));
 
             assert.strictEqual(licenseCommands.length, 4, '宣言されたライセンスコマンドが4つでない');
+        });
+    });
+
+    suite('34. Marp スライド書き出し（PRO+）', () => {
+        // 設計: docs/private/specifications/pro-marp-export.md §7
+
+        test('34.1 スライド書き出しのコマンドが登録・宣言されている', async () => {
+            const commands = await vscode.commands.getCommands(true);
+            assert.ok(commands.includes('markdownInline.exportMarp'), 'exportMarp が登録されていない');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const declared: { command: string }[] = extension?.packageJSON?.contributes?.commands ?? [];
+            assert.ok(declared.some((c) => c.command === 'markdownInline.exportMarp'), 'package.json に宣言が無い');
+        });
+
+        test('34.2 コマンドパレットに出すのは販売開始後だけ（when に markdownInline.proPlusOnSale）', () => {
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const palette: { command: string; when?: string }[] =
+                extension?.packageJSON?.contributes?.menus?.commandPalette ?? [];
+            const entry = palette.find((m) => m.command === 'markdownInline.exportMarp');
+            assert.ok(entry, 'commandPalette に exportMarp の条件が無い');
+            assert.ok(entry.when?.includes('markdownInline.proPlusOnSale'), `when: ${entry.when}`);
+        });
+
+        test('34.3 販売前にスライド書き出しを実行しても、PDF は作られない', async function() {
+            this.timeout(20000);
+            const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');
+            if (MONETIZATION_ENABLED) { this.skip(); return; }
+
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-marp-'));
+            const file = path.join(dir, 'deck.md');
+            fs.writeFileSync(file, '# A\n\n## B\n');
+            try {
+                const doc = await vscode.workspace.openTextDocument(file);
+                await vscode.window.showTextDocument(doc);
+                await vscode.commands.executeCommand('markdownInline.exportMarp');
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                assert.strictEqual(fs.existsSync(path.join(dir, 'deck.slides.pdf')), false, '販売前なのに PDF ができた');
+            } finally {
+                await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        test('34.4 書き出し処理（課金判定の後）を呼ぶと、<名前>.slides.pdf が文書と同じフォルダにできる', async function() {
+            this.timeout(180000);
+            const { findBrowser } = await import('../../../src/live/host/localExport');
+            if (!findBrowser()) { this.skip(); return; }
+            const { exportMarpLocal } = await import('../../../src/live/host/marpExport');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-marp-'));
+            const file = path.join(dir, 'deck.md');
+            fs.writeFileSync(file, '# 表紙\n\n## 2 枚目\n\n- 箇条書き\n');
+            try {
+                const doc = await vscode.workspace.openTextDocument(file);
+                await exportMarpLocal(doc, extension.extensionPath);
+                const pdf = path.join(dir, 'deck.slides.pdf');
+                assert.ok(fs.existsSync(pdf), 'slides.pdf ができていない');
+                const pages = (fs.readFileSync(pdf, 'latin1').match(/\/MediaBox/g) ?? []).length;
+                assert.strictEqual(pages, 2, `ページ数 ${pages}`);
+                assert.deepStrictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), [], '一時 HTML が残っている');
+            } finally {
+                await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
         });
     });
 

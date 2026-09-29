@@ -21,6 +21,7 @@ import { buildPreviewCsp } from './csp';
 import { changeToRange, createEchoGuard, type DocChange } from '../shared/documentSync';
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
+import { exportMarpLocal } from './marpExport';
 import {
     shouldIncludeCredit,
     shouldShowProBadge,
@@ -29,7 +30,7 @@ import {
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
-import { FEATURE_PDF_STYLING } from '../../shared/license/token';
+import { FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
 import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
 import { showProLockedDialog } from '../../license/proGate';
 import type { LicenseVerifyResult } from '../../shared/license/token';
@@ -370,6 +371,23 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
     }
 }
 
+/** Marp スライド書き出し（PRO+）。未購入なら購入案内だけ出して終わる（「なしで続ける」は無い）。 */
+async function exportMarp(document: vscode.TextDocument, extensionPath: string): Promise<void> {
+    const license = (await licenseStore?.verify()) ?? NO_LICENSE;
+    const access = proFeatureAccess({ license, monetizationEnabled: MONETIZATION_ENABLED, feature: FEATURE_MARP_EXPORT });
+    if (access === 'unavailable') return; // 販売前（コマンドパレットにも出していない）
+    if (access === 'locked') {
+        await showProLockedDialog(vscode.l10n.t('Marp slide export'));
+        return;
+    }
+    try {
+        await exportMarpLocal(document, extensionPath);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(vscode.l10n.t('Slide export failed: {0}', msg));
+    }
+}
+
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(
         private readonly extensionUri: vscode.Uri,
@@ -606,6 +624,13 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
                 (await activeMarkdownDocument());
             if (!doc) return;
             await exportPdf(doc, context.extensionUri.fsPath);
+        }),
+        vscode.commands.registerCommand('markdownInline.exportMarp', async () => {
+            const doc =
+                vscode.window.activeTextEditor?.document ??
+                (await activeMarkdownDocument());
+            if (!doc) return;
+            await exportMarp(doc, context.extensionUri.fsPath);
         })
     );
 

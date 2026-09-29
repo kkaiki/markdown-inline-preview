@@ -257,6 +257,11 @@
         "category": "Markdown Inline Preview"
       },
       {
+        "command": "markdownInline.exportMarp",
+        "title": "Export as Slides (Marp PDF)",
+        "category": "Markdown Inline Preview"
+      },
+      {
         "command": "markdownInline.removePdfCredit",
         "title": "Remove PDF Credit Line (one-time purchase)",
         "category": "Markdown Inline Preview"
@@ -400,6 +405,10 @@
         {
           "command": "markdownInline.noop",
           "when": "false"
+        },
+        {
+          "command": "markdownInline.exportMarp",
+          "when": "markdownInline.proPlusOnSale && (editorLangId == markdown || activeCustomEditorId == 'ipreview.live')"
         }
       ]
     },
@@ -1137,8 +1146,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:livewebview",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:marp && npm run build:livewebview",
     "build:host": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode",
+    "build:marp": "node scripts/build-marp.mjs",
     "watch": "npx tsc --watch",
     "lint": "eslint src test --ext .ts",
     "lint:error": "eslint src test --ext .ts --max-warnings 0",
@@ -1190,6 +1200,7 @@
     "@codemirror/view": "^6.43.8",
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.7.2",
+    "@marp-team/marp-core": "~4.4.0",
     "katex": "^0.17.0",
     "marked": "^18.0.5",
     "mermaid": "^11.15.0"
