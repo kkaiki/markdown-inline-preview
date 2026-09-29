@@ -96,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // PDF のクレジット行除去（買い切り）。購入・キー入力・復元と deep link の受け口。
     // Live 側より後に登録するのは、PDF 書き出しがこのストアを読むため。
     const licenseStore = registerLicenseCommands(context);
-    liveModule.setLicenseStore(licenseStore, context.globalState);
+    liveModule.setLicenseStore(licenseStore);
 
     registerCheckboxCodeLensProvider(context, () => isShowCheckboxCodeLensEnabled());
     registerImageHoverProvider(context, () => isImageHoverPreviewEnabled());

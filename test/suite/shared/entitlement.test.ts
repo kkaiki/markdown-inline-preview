@@ -17,7 +17,6 @@ import {
     proFeatureAccess,
     needsTokenRefresh,
     REFRESH_BEFORE_EXPIRY_SEC,
-    EXPORT_PROMPT_INTERVAL,
     type CreditDecisionInput
 } from '../../../src/shared/license/entitlement';
 import {
@@ -108,54 +107,24 @@ describe('ツールバーの PRO+ バッジを出すかの判定', () => {
 });
 
 describe('PDF 書き出し前に確認ダイアログを出すかの判定', () => {
-    it('購入導線が未出荷（monetizationEnabled=false）なら、何回目でも出さない', () => {
-        assert.strictEqual(
-            shouldPromptBeforeExport({ license: input().license, monetizationEnabled: false, exportCount: 1 }),
-            false
-        );
+    // ユーザー要望 2026-09-29:「毎回、購入を促すポップアップにして欲しい。1 回目だけになっている気がする」
+    // 以前は 1 回目と 5 回に 1 回だけに間引いていた（EXPORT_PROMPT_INTERVAL）。回数は数えなくなった。
+    it('購入導線が未出荷（monetizationEnabled=false）なら出さない', () => {
+        assert.strictEqual(shouldPromptBeforeExport({ license: input().license, monetizationEnabled: false }), false);
     });
 
-    it('購入者には、何回目でも出さない', () => {
-        assert.strictEqual(
-            shouldPromptBeforeExport({ license: validToken(), monetizationEnabled: true, exportCount: 1 }),
-            false
-        );
+    it('購入者には出さない', () => {
+        assert.strictEqual(shouldPromptBeforeExport({ license: validToken(), monetizationEnabled: true }), false);
     });
 
-    it('未購入の1回目は出す', () => {
-        assert.strictEqual(
-            shouldPromptBeforeExport({ license: input().license, monetizationEnabled: true, exportCount: 1 }),
-            true
-        );
-    });
-
-    it('未購入でも、間引き間隔に満たない回は出さない（毎回だと煩わしいため）', () => {
-        for (let n = 2; n < EXPORT_PROMPT_INTERVAL; n++) {
+    it('未購入なら毎回出す（間引かない）', () => {
+        for (let n = 1; n <= 10; n++) {
             assert.strictEqual(
-                shouldPromptBeforeExport({ license: input().license, monetizationEnabled: true, exportCount: n }),
-                false,
+                shouldPromptBeforeExport({ license: input().license, monetizationEnabled: true }),
+                true,
                 `${n} 回目`
             );
         }
-    });
-
-    it('未購入で、間引き間隔ちょうどの回は出す', () => {
-        assert.strictEqual(
-            shouldPromptBeforeExport({
-                license: input().license,
-                monetizationEnabled: true,
-                exportCount: EXPORT_PROMPT_INTERVAL
-            }),
-            true
-        );
-        assert.strictEqual(
-            shouldPromptBeforeExport({
-                license: input().license,
-                monetizationEnabled: true,
-                exportCount: EXPORT_PROMPT_INTERVAL * 2
-            }),
-            true
-        );
     });
 });
 

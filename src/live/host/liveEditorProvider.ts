@@ -272,25 +272,8 @@ const NO_LICENSE: LicenseVerifyResult = { ok: false, reason: 'malformed' };
  */
 let licenseStore: { verify(): Promise<LicenseVerifyResult> } | undefined;
 
-/** 「クレジット行を消す」案内を出した回数の記録先。毎回出すとうるさいので間引く。 */
-let upsellMemento: vscode.Memento | undefined;
-
-export function setLicenseStore(
-    store: { verify(): Promise<LicenseVerifyResult> },
-    memento?: vscode.Memento
-): void {
+export function setLicenseStore(store: { verify(): Promise<LicenseVerifyResult> }): void {
     licenseStore = store;
-    upsellMemento = memento;
-}
-
-const UPSELL_COUNT_KEY = 'markdownInline.export.creditExportCount';
-
-/** クレジット行付きで書き出した回数を1つ進めて返す（`shouldPromptBeforeExport` の間引き判定に使う）。 */
-async function nextCreditExportCount(): Promise<number> {
-    if (!upsellMemento) return 1; // 記録先が無ければ「毎回1回目」扱い（安全側＝出す）
-    const count = (upsellMemento.get<number>(UPSELL_COUNT_KEY) ?? 0) + 1;
-    await upsellMemento.update(UPSELL_COUNT_KEY, count);
-    return count;
 }
 
 /** 書き出し前の確認ダイアログの結果。 */
@@ -352,8 +335,7 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
     }
 
     if (credit && !upsellShown) {
-        const exportCount = await nextCreditExportCount();
-        if (shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED, exportCount })) {
+        if (shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED })) {
             const decision = await confirmExportWithCredit();
             if (decision === 'cancel') return;
             if (decision === 'upgrade') {
