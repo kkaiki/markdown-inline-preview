@@ -111,8 +111,21 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 - **Git 差分ガター** — HEAD との差分（追加=緑 / 変更=青 / 削除=赤三角、`live.showDiffGutter`）
 - **モード記憶** — ファイルごとに最後のモードを覚えて次回もそのモードで開く（`live.rememberMode`）
 - **PDF 書き出し** — `Markdown Inline Preview: Export to PDF`。無料・無制限。各ページ下部に
-  小さなクレジット行が入るが、一度きりの購入（¥100 / $1）で消せる。
-  詳細は [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
+  小さなクレジット行が入る。詳細は [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
+
+### PRO+（買い切り）
+
+**¥100 / $1 / €1 の一度きりの購入**。サブスクではなく、台数の制限もありません。
+上の機能はすべて無料のままで、PRO+ では次が加わります。
+
+- **PDF のクレジット行を消す**
+- **PDF の体裁** — 用紙サイズ・余白・ページ番号・ヘッダー / フッター・目次・テーマ
+- **Word（.docx）書き出し** — Word の見出しスタイル・表・リスト・ローカル画像
+- **まとめて書き出し** — フォルダや複数ファイルを一度に。1 ファイルずつ PDF、または目次付きの 1 冊に
+- **Marp スライド書き出し** — スライドを PDF に（Marp 記法、または見出しごとに 1 枚）
+
+処理はすべてお使いの PC の中で行い、文書をアップロードすることはありません。
+詳細は [docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md)
 
 ---
 
@@ -202,6 +215,7 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 |----------|------|
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | ショートカット早見表 |
 | [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) | PDF 書き出し |
+| [docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md) | PRO+（買い切り） |
 | [CHANGELOG.md](./CHANGELOG.md) | リリースノート |
 
 ---

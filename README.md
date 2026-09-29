@@ -113,8 +113,23 @@ and **only the syntax under the cursor** expands into source form.
 - **Mode memory** per file — reopening a file uses the mode you last used for it
   (`live.rememberMode`)
 - **PDF export** — `Markdown Inline Preview: Export to PDF`. Free and unlimited; a small
-  credit line is printed at the bottom of each page. Removing it is a one-time purchase
-  (¥100 / $1) — see [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
+  credit line is printed at the bottom of each page — see
+  [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
+
+### PRO+ (one-time purchase)
+
+A single one-time purchase — **¥100 / $1 / €1**, no subscription, any number of machines.
+Everything above stays free. PRO+ adds:
+
+- **No credit line** on exported PDFs
+- **PDF layout options** — paper size, margins, page numbers, header / footer, table of contents, themes
+- **Word (.docx) export** — Word heading styles, tables, lists and local images
+- **Batch export** — a folder or several files at once: one PDF per file, or one combined PDF
+  with a table of contents
+- **Marp slide export** — slides as a PDF (Marp syntax, or one slide per heading)
+
+Everything runs on your machine; documents are never uploaded. Details:
+[docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md)
 
 ---
 
@@ -205,6 +220,7 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 |-----|---------|
 | [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) | Keyboard shortcuts |
 | [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) | PDF export |
+| [docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md) | PRO+ (one-time purchase) |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
 
 ---
