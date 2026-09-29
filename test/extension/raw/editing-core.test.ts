@@ -8,7 +8,7 @@
  */
 import assert from "assert";
 import * as vscode from "vscode";
-import { createTestDocument, closeAllEditors } from "../helpers";
+import { createTestDocument, closeAllEditors, waitFor } from "../helpers";
 
 suite('Raw: editing-core', () => {
 
@@ -28,7 +28,8 @@ suite('Raw: editing-core', () => {
             editor.selection = new vscode.Selection(1, 3, 1, 3);
 
             await vscode.commands.executeCommand('markdownInline.increaseIndent');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // 固定の 500ms 待ちでは Windows の CI で間に合わなかった（2026-09-30）。変わるまで待つ
+            await waitFor(() => doc.lineAt(1).text === '  1. アイテム2' && doc.lineAt(2).text === '2. アイテム3');
 
             assert.strictEqual(doc.lineAt(0).text, '1. アイテム1');
             assert.strictEqual(doc.lineAt(1).text, '  1. アイテム2', '2行目がインデントされて番号が1になっていません');
@@ -45,7 +46,7 @@ suite('Raw: editing-core', () => {
             editor.selection = new vscode.Selection(1, 4, 1, 4);
 
             await vscode.commands.executeCommand('markdownInline.decreaseIndent');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await waitFor(() => doc.lineAt(1).text === '2. アイテム2');
 
             assert.strictEqual(doc.lineAt(0).text, '1. アイテム1');
             assert.strictEqual(doc.lineAt(1).text, '2. アイテム2', '2行目のインデントが削除されて番号が2になっていません');

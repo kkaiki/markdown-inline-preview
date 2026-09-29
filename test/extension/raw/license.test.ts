@@ -18,6 +18,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
+import { removeTempDir } from "../helpers";
 
 const EXTENSION_ID = 'markdown-inline-preview.markdown-inline-preview';
 
@@ -97,7 +98,7 @@ suite('Raw: license', () => {
                 assert.strictEqual(fs.existsSync(path.join(dir, 'deck.slides.pdf')), false, '販売前なのに PDF ができた');
             } finally {
                 await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
 
@@ -122,7 +123,7 @@ suite('Raw: license', () => {
                 assert.deepStrictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.html')), [], '一時 HTML が残っている');
             } finally {
                 await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
     });
@@ -201,7 +202,7 @@ suite('Raw: license', () => {
                 assert.strictEqual(fs.existsSync(path.join(dir, 'memo.docx')), false, '販売前なのに docx ができた');
             } finally {
                 await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
 
@@ -228,7 +229,7 @@ suite('Raw: license', () => {
                 assert.ok(zip.includes(Buffer.from('word/media/')), '画像が埋め込まれていない');
             } finally {
                 await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
     });
@@ -274,7 +275,7 @@ suite('Raw: license', () => {
                 await new Promise((resolve) => setTimeout(resolve, 1500));
                 assert.strictEqual(fs.existsSync(path.join(dir, 'a.pdf')), false, '販売前なのに PDF ができた');
             } finally {
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
 
@@ -300,7 +301,7 @@ suite('Raw: license', () => {
                     { done: outcome.summary.done, skipped: outcome.summary.skipped, failed: outcome.summary.failed },
                     { done: 1, skipped: 1, failed: 0 });
             } finally {
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
 
@@ -335,7 +336,7 @@ suite('Raw: license', () => {
             } finally {
                 // 未保存のまま残さない（後のテストで「保存しますか」が出ないように）
                 await doc?.save();
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
 
@@ -358,7 +359,7 @@ suite('Raw: license', () => {
                 assert.ok(!fs.existsSync(path.join(dir, 'a.pdf')) && !fs.existsSync(path.join(dir, 'b.pdf')));
             } finally {
                 cts.dispose();
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
     });
@@ -390,7 +391,7 @@ suite('Raw: license', () => {
                 assert.ok(text.includes('Alpha') && text.includes('Beta'), `図の中の文字が無い: ${text}`);
             } finally {
                 await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-                fs.rmSync(dir, { recursive: true, force: true });
+                removeTempDir(dir);
             }
         });
     });

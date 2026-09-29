@@ -11,7 +11,7 @@
  */
 import assert from "assert";
 import * as vscode from "vscode";
-import { createTestDocument, closeAllEditors, assertSelection, updateMarkdownInlineSetting } from "../helpers";
+import { createTestDocument, closeAllEditors, assertSelection, updateMarkdownInlineSetting, textLF } from "../helpers";
 
 suite('Raw: Notion 準拠のショートカット', () => {
 
@@ -132,7 +132,7 @@ suite('Raw: Notion 準拠のショートカット', () => {
             await vscode.commands.executeCommand('markdownInline.convertToToggleList');
 
             assert.strictEqual(
-                editor.document.getText(),
+                textLF(editor.document),
                 '<details>\n<summary>たたむ</summary>\n\n\n</details>'
             );
         });
@@ -145,7 +145,7 @@ suite('Raw: Notion 準拠のショートカット', () => {
 
             await vscode.commands.executeCommand('markdownInline.convertToCodeBlock');
 
-            assert.strictEqual(editor.document.getText(), '```\nconst a = 1;\n```');
+            assert.strictEqual(textLF(editor.document), '```\nconst a = 1;\n```');
         });
 
         test('21.5 Convert to Quote は行頭に > を付ける', async function() {

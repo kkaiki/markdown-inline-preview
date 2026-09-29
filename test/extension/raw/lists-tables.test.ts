@@ -466,7 +466,7 @@ suite('Raw: lists-tables', () => {
             await pasteText('氏名\t年齢\r\n田中\t30\r\n');
             // 列そろえの空白は見ない。先行テストの「/table normalize on」（メモリ上の上書きで、
             // 設定からは戻せない）が残っていると、既存の自動整形が区切り行を書き直すため。
-            const lines = editor.document.getText().split('\n');
+            const lines = editor.document.getText().split(/\r?\n/);
             const cells = (line: string): string[] => line.split('|').slice(1, -1).map((c) => c.trim());
             assert.strictEqual(lines.length, 3, JSON.stringify(lines));
             assert.deepStrictEqual(cells(lines[0]), ['氏名', '年齢']);

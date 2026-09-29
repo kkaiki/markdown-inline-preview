@@ -23,7 +23,9 @@ async function main() {
         const userDataDir = path.resolve(__dirname, '../../.vscode-test/user-data');
         const userSettings = path.join(userDataDir, 'User', 'settings.json');
         fs.mkdirSync(path.dirname(userSettings), { recursive: true });
-        fs.writeFileSync(userSettings, '{}\n');
+        // VSCODE_TEST_EOL=crlf で新規文書の改行を CRLF にする（Mac で Windows の改行を再現する。2026-09-30）
+        const settings = process.env.VSCODE_TEST_EOL === 'crlf' ? { 'files.eol': '\r\n' } : {};
+        fs.writeFileSync(userSettings, `${JSON.stringify(settings)}\n`);
 
         // Download VS Code, unzip it and run the integration test
         await runTests({

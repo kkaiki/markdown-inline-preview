@@ -61,7 +61,8 @@ describe('ソースの UI 文字列は英語（i18n）', () => {
     it('src 配下に日本語の文字列リテラルを書かない（辞書を除く）', () => {
         const offenders: string[] = [];
         for (const file of tsFiles(path.join(repoRoot, 'src'))) {
-            const rel = path.relative(repoRoot, file);
+            // Windows でも `/` 区切りで比べる（`\\` のままだと辞書ファイルを除外できずに落ちていた。2026-09-30）
+            const rel = path.relative(repoRoot, file).split(path.sep).join('/');
             if (ALLOWED.includes(rel)) continue;
             for (const value of japaneseLiterals(fs.readFileSync(file, 'utf8'))) {
                 offenders.push(`${rel}: ${value.slice(0, 40)}`);

@@ -137,7 +137,12 @@ export async function launchChromePdf(
             proc.kill('SIGKILL');
             await withTimeout(exited, 5000, 'kill').catch(() => undefined);
         }
-        fs.rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+        try {
+            fs.rmSync(profileDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+        } catch {
+            // Windows でウイルス対策ソフト等がファイルを掴んでいると消せないことがある。一時フォルダなので
+            // OS に任せ、書き出しそのものは失敗にしない
+        }
     };
 
     try {
