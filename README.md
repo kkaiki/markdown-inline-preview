@@ -114,7 +114,7 @@ and **only the syntax under the cursor** expands into source form.
   (`live.rememberMode`)
 - **PDF export** — `Markdown Inline Preview: Export to PDF`. Free and unlimited; a small
   credit line is printed at the bottom of each page — see
-  [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md)
+  [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) ([日本語](./docs/user-guide/pdf-export.ja.md))
 
 ### PRO+ (one-time purchase)
 
@@ -129,7 +129,7 @@ Everything above stays free. PRO+ adds:
 - **Marp slide export** — slides as a PDF (Marp syntax, or one slide per heading)
 
 Everything runs on your machine; documents are never uploaded. Details:
-[docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md)
+[docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md) ([日本語](./docs/user-guide/pro-plus.ja.md))
 
 ---
 
@@ -154,7 +154,7 @@ Everything runs on your machine; documents are never uploaded. Details:
 Set `markdownInline.notionKeymap.enabled` to `false` to fall back to VS Code defaults
 (`Cmd+B` = sidebar, etc.) in Raw mode.
 
-More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md)
+More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcuts.md) ([日本語](./docs/user-guide/keyboard-shortcuts.ja.md))
 
 ---
 
@@ -222,6 +222,9 @@ If **Markdown All in One** overrides Enter, remove its `markdown.extension.onEnt
 | [docs/user-guide/pdf-export.md](./docs/user-guide/pdf-export.md) | PDF export |
 | [docs/user-guide/pro-plus.md](./docs/user-guide/pro-plus.md) | PRO+ (one-time purchase) |
 | [CHANGELOG.md](./CHANGELOG.md) | Release notes |
+| [docs/user-guide/keyboard-shortcuts.ja.md](./docs/user-guide/keyboard-shortcuts.ja.md) | キーボードショートカット（日本語） |
+| [docs/user-guide/pdf-export.ja.md](./docs/user-guide/pdf-export.ja.md) | PDF 書き出し（日本語） |
+| [docs/user-guide/pro-plus.ja.md](./docs/user-guide/pro-plus.ja.md) | PRO+（日本語） |
 
 ---
 

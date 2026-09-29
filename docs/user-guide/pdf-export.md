@@ -1,62 +1,66 @@
-# PDF 書き出し
+[日本語](./pdf-export.ja.md)
 
-コマンドパレットから `Markdown Inline Preview: Export to PDF`、または Live モードの
-ツールバーの **PDF** ボタンで、開いている Markdown を PDF に書き出せます。
+# PDF Export
 
-## 仕組み
+You can export your open Markdown file to PDF from the command palette
+(**`Markdown Inline Preview: Export to PDF`**) or the **PDF** button in the Live mode toolbar.
 
-書き出しは**あなたの PC にインストールされている Chrome / Edge / Chromium**を
-ヘッドレスで起動して行います。
+## How it works
 
-- **文書の内容がどこかへ送信されることはありません。** オフラインでも動きます。
-- 保存先は元の `.md` と同じ場所・同じ名前の `.pdf` です。
-- ブラウザが見つからない場合は `markdownInline.export.browserPath` に実行ファイルの
-  パスを設定してください。
-- 数式（`$…$` / `$$…$$`）・Mermaid の図・コールアウト（`> [!NOTE]`）・ハイライト（`==…==`）も
-  エディタと同じように描きます。言語を書いたコードブロックは色分けされます。
-- クレジット行の位置（各ページの下端）には Chrome / Edge 131 以降が必要です。
+The export launches **Chrome / Edge / Chromium installed on your PC** in headless mode.
 
-## クレジット行について
+- **Your document is never sent anywhere.** It works offline.
+- The PDF is saved in the same directory as the `.md` file with the same name but `.pdf` extension.
+- If the browser is not found, set the path to the executable in
+  `markdownInline.export.browserPath`.
+- Equations (`$…$` / `$$…$$`), Mermaid diagrams, callouts (`> [!NOTE]`), highlights (`==…==`),
+  and syntax-colored code blocks render the same way as in the editor.
+- Positioning of the credit line on each page requires Chrome / Edge 131 or later.
 
-PDF 書き出しは**無料で無制限**に使えます。ページ数の制限も、内容の欠落もありません。
+## About the credit line
 
-無料で書き出した PDF には、各ページの下端に小さなクレジット行が 1 行入ります。
+PDF export is **free and unlimited**—no page limit, nothing is omitted.
+
+Free exports include a small credit line at the bottom of each page:
 
 ```
                      Made with Markdown Inline Preview
 ```
 
-これは **PRO+**（一度きりの購入 ¥100 / $1 / €1）で消せます。購入すると台数の制限なく、以後ずっと
-クレジット行なしで書き出せます。PRO+ には、PDF の体裁（用紙・余白・ページ番号など）、Word 書き出し、
-まとめて書き出し、Marp スライド書き出しも含まれます。詳細は [pro-plus.md](./pro-plus.md)。
+This can be removed with **PRO+** (a one-time purchase: **¥100 / $1 / €1**). After purchase,
+you can export without the credit line on any number of machines. PRO+ also includes PDF layout
+options (paper size, margins, page numbers, etc.), Word export, batch export, and Marp slide
+export. See [pro-plus.md](./pro-plus.md) for details.
 
-| コマンド | 内容 |
+| Command | Action |
 |---|---|
-| `Get PRO+ (one-time purchase)` / `Remove PDF Credit Line (one-time purchase)` | ブラウザで購入ページを開きます |
-| `Enter License Key` | 購入時に表示されたライセンスキーを貼り付けます |
-| `Restore Purchase (sign in with Google)` | 別の PC・再インストール後に購入を復元します |
+| `Get PRO+ (one-time purchase)` / `Remove PDF Credit Line (one-time purchase)` | Opens your browser to the purchase page |
+| `Enter License Key` | Paste your license key (shown at purchase) |
+| `Restore Purchase (sign in with Google)` | Restore your purchase on another PC or after reinstalling |
 
-### 設定
+### Settings
 
-| 設定 | 既定 | 内容 |
+| Setting | Default | Description |
 |---|---|---|
-| `markdownInline.export.creditLine` | `auto` | `always` にすると、購入後もあえてクレジット行を残せます |
-| `markdownInline.license.serverUrl` | （空） | 上級者向け。ライセンスサーバーの URL を上書きします |
+| `markdownInline.export.creditLine` | `auto` | Set to `always` to keep the credit line even after purchase |
+| `markdownInline.license.serverUrl` | (empty) | Advanced: override the license server URL |
 
-### よくある質問
+### FAQ
 
-**購入しないと PDF が作れないのですか？**
-いいえ。PDF 書き出しは無料・無制限です。ページ数の制限も、内容の欠落もありません。
-有料（PRO+）なのは、クレジット行を消すこと・PDF の体裁・Word 書き出し・まとめて書き出し・Marp スライド書き出しです。
+**Do I need to buy to export PDFs?**
+No. PDF export is free and unlimited—no page limits, nothing omitted.
+The paid features (PRO+) are only: removing the credit line, PDF layout options, Word export,
+batch export, and Marp slide export.
 
-**購入した PC 以外でも使えますか？**
-使えます。台数の制限はありません。ライセンスキーを貼り付けるか、購入時と同じ
-Google アカウントでログインして復元してください。
+**Can I use my purchase on other PCs?**
+Yes. There is no machine limit. You can enter your license key or sign in with the same Google
+account you used at purchase to restore it.
 
-**オフラインでも購入した状態は保たれますか？**
-保たれます。ライセンスは端末内に保存され、判定にネットワークは使いません。
-30 日ごとにバックグラウンドで自動更新しますが、失敗しても書き出しは止まりません。
+**Does my license stay valid offline?**
+Yes. Your license is stored locally and does not require the network to verify.
+It auto-updates in the background every 30 days, but even if the update fails, export keeps working.
 
-**返金できますか？**
-理由を問わず全額返金します。購入ページの問い合わせ先へご連絡ください。
-返金後はクレジット行が再び表示され、PRO+ の機能も使えなくなりますが、**拡張機能自体は引き続き無料で使えます**。
+**Can I get a refund?**
+Yes, full refund with no questions asked. Contact the support link on the purchase page.
+After a refund, the credit line appears again and PRO+ features stop working, but **the
+extension itself stays free and usable**.

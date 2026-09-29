@@ -686,6 +686,14 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
             await rememberMode(context, uri, 'live');
             await closeOppositeTabs(uri, 'live');
             await vscode.commands.executeCommand('vscode.openWith', uri, LIVE_VIEW_TYPE);
+        }),
+        // Live の本文の右クリック「Raw モードで開く」。ツールバーの Raw ボタン（switchMode）と同じ動き
+        vscode.commands.registerCommand('markdownInline.openRaw', async (resource?: vscode.Uri) => {
+            const uri = resource instanceof vscode.Uri ? resource : activeMarkdownUri();
+            if (!uri) return;
+            await rememberMode(context, uri, 'raw');
+            await closeOppositeTabs(uri, 'raw');
+            await vscode.commands.executeCommand('vscode.openWith', uri, 'default');
         })
     );
 

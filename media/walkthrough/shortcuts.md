@@ -1,11 +1,11 @@
-# 覚えておくと速いショートカット
+# Shortcuts worth learning
 
-| 操作 | Mac | Windows / Linux |
-|------|-----|------------------|
-| Preview ⇔ Raw | `Cmd+Shift+.` | `Ctrl+Shift+.` |
-| 見出し H1 / H2 / H3 | `⌥⌘1` / `⌥⌘2` / `⌥⌘3` | `Alt+Ctrl+1/2/3` |
-| チェックボックス | `⌥⌘4` | `Alt+Ctrl+4` |
-| 箇条書き / 番号付き | `⌥⌘5` / `⌥⌘6` | `Alt+Ctrl+5/6` |
-| テーブル整形 | コマンド: Format Markdown Table | 同左 |
+| Action | Mac | Windows / Linux |
+|--------|-----|-----------------|
+| Live ⇔ Raw | `Cmd+Shift+.` | `Ctrl+Shift+.` |
+| Heading 1 / 2 / 3 | `⌥⌘1` / `⌥⌘2` / `⌥⌘3` | `Ctrl+Shift+1/2/3` |
+| Checkbox | `⌥⌘4` | `Ctrl+Shift+4` |
+| Bullet / numbered list | `⌥⌘5` / `⌥⌘6` | `Ctrl+Shift+5/6` |
+| Format a table | Command: Format Markdown Table | Same |
 
-Preview のツールバーの各ボタンにマウスを乗せると、対応するショートカットが表示されます。
+Hover over a toolbar button in Live to see its shortcut.

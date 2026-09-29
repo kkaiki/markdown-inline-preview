@@ -78,167 +78,167 @@
     "commands": [
       {
         "command": "markdownInline.smartEnter",
-        "title": "Smart Enter: Continue/Exit List",
+        "title": "%command.smartEnter%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.toggleCheckbox",
-        "title": "Toggle Markdown Checkbox",
+        "title": "%command.toggleCheckbox%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.clickCheckbox",
-        "title": "Click Checkbox",
+        "title": "%command.clickCheckbox%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.toggleCheckboxAtLine",
-        "title": "Toggle Checkbox at Specific Line",
+        "title": "%command.toggleCheckboxAtLine%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatTable",
-        "title": "Format Markdown Table",
+        "title": "%command.formatTable%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.increaseIndent",
-        "title": "Increase List/Checkbox Indent",
+        "title": "%command.increaseIndent%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.decreaseIndent",
-        "title": "Decrease List/Checkbox Indent",
+        "title": "%command.decreaseIndent%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartMoveLeft",
-        "title": "Smart Move Left (Move cursor after Markdown element)",
+        "title": "%command.smartMoveLeft%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartSelectLeft",
-        "title": "Smart Select Left (Select from element to end of line)",
+        "title": "%command.smartSelectLeft%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartMoveRight",
-        "title": "Smart Move Right (Move cursor in table cells)",
+        "title": "%command.smartMoveRight%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.tableNavigateRight",
-        "title": "Navigate to Next Table Cell",
+        "title": "%command.tableNavigateRight%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.tableNavigateLeft",
-        "title": "Navigate to Previous Table Cell",
+        "title": "%command.tableNavigateLeft%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartMoveDown",
-        "title": "Smart Move Down (Table cell navigation)",
+        "title": "%command.smartMoveDown%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartMoveUp",
-        "title": "Smart Move Up (Table cell navigation)",
+        "title": "%command.smartMoveUp%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.smartSelectAll",
-        "title": "Smart Select All in Table Cell or Code Block",
+        "title": "%command.smartSelectAll%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.moveLineUp",
-        "title": "Move Line/Selection Up",
+        "title": "%command.moveLineUp%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.moveLineDown",
-        "title": "Move Line/Selection Down",
+        "title": "%command.moveLineDown%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.renumberLists",
-        "title": "Renumber Ordered Lists",
+        "title": "%command.renumberLists%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToBullet",
-        "title": "Convert to Bullet List",
+        "title": "%command.convertToBullet%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToNumbered",
-        "title": "Convert to Numbered List",
+        "title": "%command.convertToNumbered%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToCheckbox",
-        "title": "Convert to Checkbox",
+        "title": "%command.convertToCheckbox%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToNormal",
-        "title": "Convert to Normal Text",
+        "title": "%command.convertToNormal%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToHeading1",
-        "title": "Convert to Heading 1",
+        "title": "%command.convertToHeading1%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToHeading2",
-        "title": "Convert to Heading 2",
+        "title": "%command.convertToHeading2%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToHeading3",
-        "title": "Convert to Heading 3",
+        "title": "%command.convertToHeading3%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.openRaw",
-        "title": "Raw",
-        "shortTitle": "Raw",
+        "title": "%command.openRaw%",
+        "shortTitle": "%command.openRaw.short%",
         "icon": "$(code)",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.toggleLineNumbers",
-        "title": "Toggle Line Numbers",
+        "title": "%command.toggleLineNumbers%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.repairNestedCodeFences",
-        "title": "Repair Double-Fenced Code Blocks",
+        "title": "%command.repairNestedCodeFences%",
         "category": "Markdown Inline Preview"
       },
       {
@@ -253,119 +253,119 @@
       },
       {
         "command": "markdownInline.exportPdf",
-        "title": "Export to PDF",
+        "title": "%command.exportPdf%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.exportMarp",
-        "title": "Export as Slides (Marp PDF)",
+        "title": "%command.exportMarp%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.exportDocx",
-        "title": "Export to Word (.docx)",
+        "title": "%command.exportDocx%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.batchExport",
-        "title": "Batch Export to PDF…",
+        "title": "%command.batchExport%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.removePdfCredit",
-        "title": "Remove PDF Credit Line (one-time purchase)",
+        "title": "%command.removePdfCredit%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.upgradeToPro",
-        "title": "Get PRO+ (one-time purchase)",
+        "title": "%command.upgradeToPro%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.enterLicenseKey",
-        "title": "Enter License Key",
+        "title": "%command.enterLicenseKey%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.restorePurchase",
-        "title": "Restore Purchase (sign in with Google)",
+        "title": "%command.restorePurchase%",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatBold",
-        "title": "Bold",
+        "title": "%command.formatBold%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatItalic",
-        "title": "Italic",
+        "title": "%command.formatItalic%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatUnderline",
-        "title": "Underline",
+        "title": "%command.formatUnderline%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatStrikethrough",
-        "title": "Strikethrough",
+        "title": "%command.formatStrikethrough%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatCode",
-        "title": "Inline Code",
+        "title": "%command.formatCode%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatLink",
-        "title": "Link",
+        "title": "%command.formatLink%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatComment",
-        "title": "Comment (HTML comment)",
+        "title": "%command.formatComment%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.formatHighlight",
-        "title": "Highlight",
+        "title": "%command.formatHighlight%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.duplicateBlock",
-        "title": "Duplicate Block",
+        "title": "%command.duplicateBlock%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToToggleList",
-        "title": "Convert to Toggle List",
+        "title": "%command.convertToToggleList%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToCodeBlock",
-        "title": "Convert to Code Block",
+        "title": "%command.convertToCodeBlock%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.convertToQuote",
-        "title": "Convert to Quote",
+        "title": "%command.convertToQuote%",
         "enablement": "editorLangId == markdown",
         "category": "Markdown Inline Preview"
       },
       {
         "command": "markdownInline.noop",
-        "title": "No-op (internal)",
+        "title": "%command.noop%",
         "category": "Markdown Inline Preview"
       }
     ],
@@ -387,6 +387,11 @@
     "menus": {
       "editor/context": [
         {
+          "command": "markdownInline.openLive",
+          "when": "editorLangId == markdown",
+          "group": "navigation@0"
+        },
+        {
           "command": "markdownInline.exportPdf",
           "when": "editorLangId == markdown",
           "group": "9_export@10"
@@ -403,6 +408,11 @@
         }
       ],
       "webview/context": [
+        {
+          "command": "markdownInline.openRaw",
+          "when": "webviewId == 'ipreview.live'",
+          "group": "navigation@0"
+        },
         {
           "command": "markdownInline.exportPdf",
           "when": "webviewId == 'ipreview.live'",

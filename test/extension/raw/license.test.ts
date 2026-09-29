@@ -173,6 +173,18 @@ suite('Raw: license', () => {
             }
         });
 
+        test('35.6 本文の右クリックの先頭に、Raw では「Live モードで開く」、Live では「Raw モードで開く」がある', () => {
+            // ユーザー要望 2026-09-29（A）: 本文の右クリックから Raw / Live を行き来できるようにする
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const menus = extension?.packageJSON?.contributes?.menus ?? {};
+            const raw = (menus['editor/context'] ?? []).find((m: { command: string }) => m.command === 'markdownInline.openLive');
+            const live = (menus['webview/context'] ?? []).find((m: { command: string }) => m.command === 'markdownInline.openRaw');
+            assert.ok(raw?.when?.includes('editorLangId == markdown'), `Raw when: ${raw?.when}`);
+            assert.ok(live?.when?.includes("webviewId == 'ipreview.live'"), `Live when: ${live?.when}`);
+            // 書き出し（9_export）より上の navigation グループに置く
+            assert.ok(raw.group?.startsWith('navigation') && live.group?.startsWith('navigation'), `${raw.group} / ${live.group}`);
+        });
+
         test('35.2 販売前に Word 書き出しを実行しても、docx は作られない', async function() {
             this.timeout(20000);
             const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');

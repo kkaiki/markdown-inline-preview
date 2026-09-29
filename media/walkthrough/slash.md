@@ -1,12 +1,12 @@
-# スラッシュメニューで挿入
+# Insert with the slash menu
 
-行頭で `/` を入力すると、見出し・リスト・チェックボックス・テーブル・コードブロックなどをすばやく挿入できます（Raw / Preview 共通）。
+Type `/` at the start of a line to insert headings, lists, checkboxes, tables, code blocks and more (in both Live and Raw).
 
-例:
-- `/h1` `/h2` `/h3` … 見出し
-- `/todo` … チェックボックス
-- `/numbered` … 番号付きリスト
-- `/table` … テーブル
-- `/code` … コードブロック
+Examples:
+- `/h1` `/h2` `/h3` … headings
+- `/todo` … checkbox
+- `/numbered` … numbered list
+- `/table` … table
+- `/code` … code block
 
-Preview 上部のツールバーからも同じ操作ができます。
+The toolbar at the top of Live has the same actions.

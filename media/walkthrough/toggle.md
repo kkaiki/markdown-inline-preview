@@ -1,9 +1,10 @@
-# Preview ⇔ Raw を切り替える
+# Switch between Live and Raw
 
-Markdown を **Preview（WYSIWYG / 整形表示）** と **Raw（ソース編集）** で行き来できます。
+Edit Markdown in **Live** (formatting shown as you type, like Obsidian) or **Raw** (the plain Markdown source).
 
-- ショートカット: `Cmd+Shift+.`（Windows/Linux は `Ctrl+Shift+.`）
-- エディタ右上のトグルアイコン
-- Preview 上部ツールバー右端の `Preview | Raw`
+- Shortcut: `Cmd+Shift+.` (Windows / Linux: `Ctrl+Shift+.`)
+- The button at the top right of the editor
+- Right-click in the text: **Open in Live mode** / **Open in Raw mode**
+- The **Raw** button at the right end of the Live toolbar
 
-Preview では Notion のように見たまま編集でき、Raw では Markdown の素のソースを編集できます。
+Each file remembers the mode you used last and reopens in it.

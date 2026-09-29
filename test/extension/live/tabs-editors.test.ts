@@ -174,6 +174,22 @@ suite('Live モード: モード記憶とタブ制御（実 VS Code）', () => {
         );
     });
 
+    test('openRaw（Live の右クリック「Raw モードで開く」）で Raw に切り替わり、Live タブは残らない', async () => {
+        // ユーザー要望 2026-09-29: 本文の右クリックから Raw / Live を行き来できるようにする。
+        // openRaw は以前から package.json に宣言だけあって実体が無かった（実行すると「コマンドが見つからない」）。
+        const uri = makeFile('live7.md', '# G\n');
+        await vscode.commands.executeCommand('markdownInline.openLive', uri);
+        await wait(1200);
+        await vscode.commands.executeCommand('markdownInline.openRaw');
+        await wait(1500);
+        const tabs = openTabs().filter((t) => t.uri === uri.toString());
+        assert.ok(tabs.length > 0, `タブが無い: ${JSON.stringify(openTabs())}`);
+        assert.ok(
+            tabs.every((t) => t.viewType !== LIVE_VIEW_TYPE),
+            `Raw に切り替わっていない: ${JSON.stringify(tabs)}`
+        );
+    });
+
     test('明示的に Live を指定したときは記憶より優先される（逃げ道）', async () => {
         // 通常の open は記憶に従う（別テストで担保）。
         // 一方 `openLive` コマンドは「今 Live で見たい」という明示指定なので、

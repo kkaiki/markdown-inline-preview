@@ -62,6 +62,55 @@ describe('package.json の多言語化', () => {
         assert.deepStrictEqual(wrong, []);
     });
 
+    it('コマンド名（title / shortTitle）はすべて %key% で、日本語の VS Code では日本語で出る', () => {
+        // ユーザー要望 2026-09-29（C）: 以前は Live / Raw 切り替えの 2 つ以外が英語のベタ書きで、
+        // 日本語の VS Code でも右クリックやコマンドパレットに「Export to PDF」のように英語で出ていた
+        const commands = ((pkg.contributes as { commands: Record<string, string>[] }).commands);
+        const literal = commands.flatMap((c) =>
+            (['title', 'shortTitle'] as const)
+                .filter((k) => typeof c[k] === 'string' && !/^%.+%$/.test(c[k]))
+                .map((k) => `${c.command}.${k}: ${c[k]}`)
+        );
+        assert.deepStrictEqual(literal, []);
+    });
+
+    it('日本語のコマンド名は英語と別の文字列になっている（訳し忘れて英語をそのまま入れていない）', () => {
+        const commands = ((pkg.contributes as { commands: Record<string, string>[] }).commands);
+        const same = commands
+            .map((c) => /^%(.+)%$/.exec(c.title ?? '')?.[1])
+            .filter((k): k is string => k !== undefined && en[k] === ja[k])
+            // ブランド名・記号だけの名前は訳さない
+            .filter((k) => !/^(Raw|Live|PRO\+.*)$/.test(en[k] as string));
+        assert.deepStrictEqual(same, []);
+    });
+
+    it('ウォークスルー等の説明文に書いたコマンドリンク（command:…）は、実在するコマンドを指す', () => {
+        const declared = new Set(((pkg.contributes as { commands: { command: string }[] }).commands).map((c) => c.command));
+        const broken: string[] = [];
+        for (const dict of [en, ja]) {
+            for (const [key, value] of Object.entries(dict)) {
+                for (const m of (typeof value === 'string' ? value : '').matchAll(/command:([\w.]+)/g)) {
+                    if (!declared.has(m[1])) broken.push(`${key}: ${m[1]}`);
+                }
+            }
+        }
+        assert.deepStrictEqual(broken, []);
+    });
+
+    it('ウォークスルーの説明ファイル（media/walkthrough/*.md）は英語で、削除した Preview モードに触れない', () => {
+        // 説明ファイルは言語で切り替えられないので、既定（英語）で書く。以前は日本語だけで、
+        // 英語の VS Code でも日本語が出ていた。内容も Preview 時代のままだった（2026-09-29）
+        const dir = path.join(repoRoot, 'media', 'walkthrough');
+        const wrong = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).flatMap((f) => {
+            const text = fs.readFileSync(path.join(dir, f), 'utf8');
+            return [
+                ...(hasJapanese(text) ? [`${f}: 日本語`] : []),
+                ...(/\bPreview\b/.test(text.replace(/Markdown Inline Preview/g, '')) ? [`${f}: Preview`] : [])
+            ];
+        });
+        assert.deepStrictEqual(wrong, []);
+    });
+
     it('日本語辞書と英語辞書のキーが揃っている', () => {
         assert.deepStrictEqual(Object.keys(en).sort(), Object.keys(ja).sort());
     });

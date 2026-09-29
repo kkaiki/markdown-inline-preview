@@ -1,75 +1,85 @@
-# PRO+（買い切り）
+[日本語](./pro-plus.ja.md)
 
-**¥100 / $1 / €1 の一度きりの購入**で、次の 5 つが使えるようになります。
-サブスクではありません。台数の制限もありません。
+# PRO+ (one-time purchase)
 
-| 機能 | コマンド・設定 |
+A one-time purchase of **¥100 / $1 / €1** unlocks these five features.
+It's not a subscription. There's no machine limit.
+
+| Feature | Command / Setting |
 |---|---|
-| PDF のクレジット行を消す | 購入すると、以後の PDF に自動で入らなくなります |
-| PDF の体裁 | 設定 `markdownInline.export.pdf.*`（下記） |
-| Word（.docx）書き出し | `Markdown Inline Preview: Export to Word (.docx)` |
-| まとめて書き出し | エクスプローラの右クリック、または `Markdown Inline Preview: Batch Export to PDF…` |
-| Marp スライド書き出し | `Markdown Inline Preview: Export as Slides (Marp PDF)` |
+| Remove PDF credit line | Automatically omitted from PDFs after purchase |
+| PDF layout options | Setting `markdownInline.export.pdf.*` (see below) |
+| Word (.docx) export | `Markdown Inline Preview: Export to Word (.docx)` |
+| Batch export | Right-click in Explorer, or `Markdown Inline Preview: Batch Export to PDF…` |
+| Marp slide export | `Markdown Inline Preview: Export as Slides (Marp PDF)` |
 
-エディタの機能と PDF 書き出しそのものは、これまでどおり無料・無制限です。
-未購入のまま PRO+ の機能を実行すると、購入の案内が出ます（書き出しは行いません）。
+The editor itself and basic PDF export remain free and unlimited.
+Running a PRO+ feature without a license shows a purchase prompt (no export happens).
 
-**すべてお使いの PC の中で処理します。** PDF は PC にインストールされている Chrome / Edge / Chromium で、
-Word ファイルは拡張の中で作ります。文書がどこかへ送信されることはなく、オフラインでも動きます。
+**Everything runs on your PC.** PDFs are rendered using Chrome / Edge / Chromium installed on
+your machine; Word files are created by the extension. No documents are uploaded anywhere, and
+it works offline.
 
-## PDF の体裁
+## PDF layout options
 
-設定（`markdownInline.export.pdf.*`）で変えられます。すべて既定のままなら、今までと同じ PDF になります。
+Controlled by settings (`markdownInline.export.pdf.*`). If you leave everything at default,
+your PDFs look the same as before.
 
-| 設定 | 既定 | 内容 |
+| Setting | Default | Description |
 |---|---|---|
-| `paperSize` | `default` | 用紙: `A4` / `Letter` / `Legal` / `A5` / `B5` |
-| `margins` | `default` | 余白: `narrow` / `normal` / `wide` |
-| `pageNumbers` | `false` | ページ番号（「n / 全ページ数」） |
-| `headerText` / `footerText` | （空） | ヘッダー / フッターの文字。`{title}`（ファイル名）と `{date}`（書き出した日）が使えます |
-| `tableOfContents` | `false` | 先頭に目次（見出し 1〜3） |
-| `theme` | `default` | `serif`（明朝体・広めの行間）/ `compact`（小さめの文字・詰めた行間） |
+| `paperSize` | `default` | Paper size: `A4` / `Letter` / `Legal` / `A5` / `B5` |
+| `margins` | `default` | Margins: `narrow` / `normal` / `wide` |
+| `pageNumbers` | `false` | Page numbers (format: "n / total") |
+| `headerText` / `footerText` | (empty) | Header / footer text. Supports `{title}` (file name) and `{date}` (export date) |
+| `tableOfContents` | `false` | Table of contents at the start (headings 1–3) |
+| `theme` | `default` | `serif` (serif font, loose line spacing) / `compact` (smaller font, tight spacing) |
 
-ページ番号・ヘッダー・フッターには Chrome / Edge 131 以降が必要です。
+Page numbers, headers, and footers require Chrome / Edge 131 or later.
 
-## Word（.docx）書き出し
+## Word (.docx) export
 
-開いている Markdown を、同じ場所の `<名前>.docx` に書き出します。
+Exports your open Markdown to `<filename>.docx` in the same directory.
 
-- 見出しは Word の「見出し 1〜6」スタイルになるので、ナビゲーションウィンドウや目次機能がそのまま使えます
-- 太字・斜体・取り消し線・コード・リンク・入れ子のリスト・チェックリスト・表・引用・コードブロック・ローカル画像に対応
-- ネット上の画像はダウンロードしません。数式と Mermaid は文字のまま入ります
-- 同じ名前の `.docx` がすでにあるときは、上書きする前に確認します
+- Headings become Word's "Heading 1–6" styles, so you can use the Navigator pane and
+  auto-generated tables of contents
+- Supports bold, italic, strikethrough, code, links, nested lists, checklists, tables, quotes,
+  code blocks, and local images
+- Internet images are not downloaded. Equations and Mermaid diagrams are pasted as text
+- If a `.docx` with the same name exists, you're prompted before overwriting
 
-## まとめて書き出し
+## Batch export
 
-エクスプローラでフォルダ、または複数の `.md` を選んで右クリック →「Batch Export to PDF…」。
+Right-click a folder or multiple `.md` files in Explorer → **Batch Export to PDF…**.
 
-- **1 ファイルずつ PDF にする** — 保存先は「各ファイルの隣」か「選んだフォルダ（元のフォルダ構成のまま）」。
-  同じ名前の PDF があるときは、上書き・スキップ・別名保存から選べます
-- **1 つの PDF にまとめる** — 先頭に目次、ファイルごとに改ページ、PDF のしおり付き。
-  入れるファイルと順番を選べます。`.md` 同士のリンクは PDF の中で飛べるリンクになります
-- 並び順は自然順です（`2-intro.md` が `10-intro.md` より前）
-- 開いていて未保存のファイルは、画面に見えている内容で書き出します
-- 途中でキャンセルしても、書き出し済みの PDF は残ります。失敗した理由は出力パネル
-  「Markdown Inline Preview: Export」に出ます
+- **Export each file as a separate PDF** — choose save location (next to each file, or a
+  designated folder preserving folder structure). If a PDF with the same name exists, choose
+  overwrite / skip / save as
+- **Combine into one PDF** — table of contents at the start, page break between files, and
+  bookmarks. Choose which files to include and their order. Links between `.md` files become
+  clickable links in the PDF
+- Files are sorted naturally (`2-intro.md` comes before `10-intro.md`)
+- Open unsaved files are exported with their current on-screen content
+- You can cancel mid-export; already-exported PDFs are kept. Errors are logged to the
+  "Markdown Inline Preview: Export" output panel
 
-## Marp スライド書き出し
+## Marp slide export
 
-開いている Markdown を、同じ場所の `<名前>.slides.pdf`（1 ページ 1 スライド、16:9）に書き出します。
+Exports your open Markdown to `<filename>.slides.pdf` (one page per slide, 16:9 aspect).
 
-- front-matter に `marp: true` がある文書は Marp の記法どおり（`---` で区切る・テーマ default / gaia / uncover・`size: 4:3` など）
-- それ以外の普通のメモは、`#` / `##` の見出しごとに 1 枚になります
-- 外部から何も取得しません（数式のフォントは同梱、絵文字は OS のフォント）。生の HTML は表示しません
+- If the front-matter contains `marp: true`, your document follows Marp syntax
+  (slides separated by `---`, themes like default / gaia / uncover, `size: 4:3`, etc.)
+- Otherwise, plain notes become one slide per `#` / `##` heading
+- No external fetches (equation fonts are bundled; emoji use your OS font). Raw HTML is not rendered
 
-## 購入・復元
+## Purchase & restore
 
-| コマンド | 内容 |
+| Command | Action |
 |---|---|
-| `Get PRO+ (one-time purchase)` | ブラウザで購入ページを開きます（ステータスバーの「PRO+」からも開けます） |
-| `Enter License Key` | 購入時に表示されたライセンスキーを貼り付けます |
-| `Restore Purchase (sign in with Google)` | 別の PC・再インストール後に購入を復元します |
+| `Get PRO+ (one-time purchase)` | Opens your browser to the purchase page (also available from the "PRO+" link in the status bar) |
+| `Enter License Key` | Paste your license key (shown at purchase) |
+| `Restore Purchase (sign in with Google)` | Restore your purchase on another PC or after reinstalling |
 
-- ライセンスは PC の中に保存され、機能を使うたびにネットワークへは出ません。
-  30 日ごとにバックグラウンドで自動更新しますが、失敗しても機能は止まりません
-- 返金は理由を問わず全額行います。返金後は PRO+ の機能が使えなくなりますが、拡張機能自体は引き続き無料で使えます
+- Your license is stored locally and never contacts the network to verify. It auto-updates
+  in the background every 30 days, but if the update fails, your features keep working
+- Refunds are full and no-questions-asked. After refund, PRO+ features stop working, but the
+  extension itself remains free and usable
