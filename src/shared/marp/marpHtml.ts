@@ -7,7 +7,7 @@
  *   - 1 スライド 1 ページで印刷できる @page を付ける
  * まで。仕様: docs/private/specifications/pro-marp-export.md §3.2・§3.4・§4
  *
- * 拡張本体からは `out/marp.js`（scripts/build-marp.mjs が作る別バンドル）経由で、書き出し時にだけ読む。
+ * 拡張本体からは `out/marp.js`（scripts/build-lazy-bundles.mjs が作る別バンドル）経由で、書き出し時にだけ読む。
  */
 import { Marp } from '@marp-team/marp-core';
 

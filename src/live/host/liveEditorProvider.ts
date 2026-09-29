@@ -22,6 +22,7 @@ import { changeToRange, createEchoGuard, type DocChange } from '../shared/docume
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
 import { exportToPdfLocal } from './localExport';
 import { exportMarpLocal } from './marpExport';
+import { exportDocxLocal } from './docxExport';
 import {
     shouldIncludeCredit,
     shouldShowProBadge,
@@ -30,7 +31,7 @@ import {
     MONETIZATION_ENABLED,
     type CreditLineSetting
 } from '../../shared/license/entitlement';
-import { FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
+import { FEATURE_DOCX_EXPORT, FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
 import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
 import { showProLockedDialog } from '../../license/proGate';
 import type { LicenseVerifyResult } from '../../shared/license/token';
@@ -388,6 +389,23 @@ async function exportMarp(document: vscode.TextDocument, extensionPath: string):
     }
 }
 
+/** Word（.docx）書き出し（PRO+）。未購入なら購入案内だけ出して終わる（「なしで続ける」は無い）。 */
+async function exportDocx(document: vscode.TextDocument, extensionPath: string): Promise<void> {
+    const license = (await licenseStore?.verify()) ?? NO_LICENSE;
+    const access = proFeatureAccess({ license, monetizationEnabled: MONETIZATION_ENABLED, feature: FEATURE_DOCX_EXPORT });
+    if (access === 'unavailable') return; // 販売前（コマンドパレットにも出していない）
+    if (access === 'locked') {
+        await showProLockedDialog(vscode.l10n.t('Word (.docx) export'));
+        return;
+    }
+    try {
+        await exportDocxLocal(document, extensionPath);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(vscode.l10n.t('Word export failed: {0}', msg));
+    }
+}
+
 class LiveEditorProvider implements vscode.CustomTextEditorProvider {
     constructor(
         private readonly extensionUri: vscode.Uri,
@@ -631,6 +649,13 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
                 (await activeMarkdownDocument());
             if (!doc) return;
             await exportMarp(doc, context.extensionUri.fsPath);
+        }),
+        vscode.commands.registerCommand('markdownInline.exportDocx', async () => {
+            const doc =
+                vscode.window.activeTextEditor?.document ??
+                (await activeMarkdownDocument());
+            if (!doc) return;
+            await exportDocx(doc, context.extensionUri.fsPath);
         })
     );
 

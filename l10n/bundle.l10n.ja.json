@@ -70,5 +70,14 @@
   "Slide export failed: {0}": "スライドの書き出しに失敗しました: {0}",
   "Exporting slides…": "スライドを書き出しています…",
   "Slides saved: {0}": "スライドを保存しました: {0}",
-  "Exporting PDF…": "PDF を書き出しています…"
+  "Exporting PDF…": "PDF を書き出しています…",
+  "Word (.docx) export": "Word (.docx) 書き出し",
+  "Exporting Word…": "Word に書き出しています…",
+  "Word file saved: {0}": "Word ファイルを保存しました: {0}",
+  "Word export failed: {0}": "Word への書き出しに失敗しました: {0}",
+  "{0} already exists.": "{0} は既にあります。",
+  "Replace": "上書き",
+  "Save As…": "別名で保存…",
+  "Close the file in Word and try again.": "Word で開いているファイルを閉じてから、もう一度実行してください。",
+  "Word export requires a saved file. Please save the document first.": "Word に書き出すには、先にファイルを保存してください。"
 }

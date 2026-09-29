@@ -127,6 +127,69 @@ suite('Raw: license', () => {
         });
     });
 
+    suite('35. Word（.docx）書き出し（PRO+）', () => {
+        // 設計: docs/private/specifications/pro-docx-export.md §3
+
+        test('35.1 Word 書き出しのコマンドが登録・宣言され、販売開始後だけコマンドパレットに出る', async () => {
+            const commands = await vscode.commands.getCommands(true);
+            assert.ok(commands.includes('markdownInline.exportDocx'), 'exportDocx が登録されていない');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            const declared: { command: string }[] = extension?.packageJSON?.contributes?.commands ?? [];
+            assert.ok(declared.some((c) => c.command === 'markdownInline.exportDocx'), 'package.json に宣言が無い');
+            const palette: { command: string; when?: string }[] =
+                extension?.packageJSON?.contributes?.menus?.commandPalette ?? [];
+            const entry = palette.find((m) => m.command === 'markdownInline.exportDocx');
+            assert.ok(entry?.when?.includes('markdownInline.proPlusOnSale'), `when: ${entry?.when}`);
+        });
+
+        test('35.2 販売前に Word 書き出しを実行しても、docx は作られない', async function() {
+            this.timeout(20000);
+            const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');
+            if (MONETIZATION_ENABLED) { this.skip(); return; }
+
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-docx-'));
+            const file = path.join(dir, 'memo.md');
+            fs.writeFileSync(file, '# A\n');
+            try {
+                const doc = await vscode.workspace.openTextDocument(file);
+                await vscode.window.showTextDocument(doc);
+                await vscode.commands.executeCommand('markdownInline.exportDocx');
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                assert.strictEqual(fs.existsSync(path.join(dir, 'memo.docx')), false, '販売前なのに docx ができた');
+            } finally {
+                await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+
+        test('35.3 書き出し処理（課金判定の後）を呼ぶと、<名前>.docx が文書と同じフォルダにでき、相対パスの画像も入る', async function() {
+            this.timeout(60000);
+            const { exportDocxLocal } = await import('../../../src/live/host/docxExport');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ipreview-docx-'));
+            fs.mkdirSync(path.join(dir, 'img'));
+            // 1×1 の PNG
+            fs.writeFileSync(path.join(dir, 'img', 'dot.png'), Buffer.from(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+            const file = path.join(dir, 'memo.md');
+            fs.writeFileSync(file, '# 見出し\n\n![点](./img/dot.png)\n');
+            try {
+                const doc = await vscode.workspace.openTextDocument(file);
+                await exportDocxLocal(doc, extension.extensionPath);
+                const out = path.join(dir, 'memo.docx');
+                assert.ok(fs.existsSync(out), 'memo.docx ができていない');
+                const zip = fs.readFileSync(out);
+                assert.strictEqual(zip.subarray(0, 2).toString('latin1'), 'PK', 'zip（docx）になっていない');
+                assert.ok(zip.includes(Buffer.from('word/media/')), '画像が埋め込まれていない');
+            } finally {
+                await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
+        });
+    });
+
     suite('31. 設定の宣言', () => {
 
         test('31.1 export.creditLine は auto が既定', () => {

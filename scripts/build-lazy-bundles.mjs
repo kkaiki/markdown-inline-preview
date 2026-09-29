@@ -1,10 +1,11 @@
-// Marp スライド書き出し（PRO+）用の別バンドル out/marp.js を作る。
+// 書き出し時にだけ読む別バンドルを作る（拡張本体 out/extension.js に入れると起動のたびに読むため）。
+//   - out/marp.js       … Marp スライド書き出し（PRO+）。設計 docs/private/specifications/pro-marp-export.md
+//   - out/docxExport.js … Word 書き出し（PRO+）。設計 docs/private/specifications/pro-docx-export.md §4.2
+// 大きさの上限は test/suite/shared/marpBundle.test.ts / docxBundle.test.ts が守る。
 //
-// 拡張本体（out/extension.js）に入れると起動のたびに 1 MB を読むので、書き出し時にだけ require する別ファイルにする。
 // marp-core をそのまま入れると MathJax と highlight.js の全言語で 3.9 MB になるため:
 //   - mathjax-full を空モジュールに差し替える（数式は同梱の KaTeX で描く）
 //   - highlight.js の言語を主要なものに絞る（ほかの言語のコードはハイライトなしで表示）
-// 設計: docs/private/specifications/pro-marp-export.md §2・§3.3（上限は test/suite/shared/marpBundle.test.ts）
 import * as esbuild from 'esbuild';
 import fs from 'fs';
 import path from 'path';
@@ -36,17 +37,21 @@ const slim = {
     }
 };
 
-const outfile = path.join(root, 'out', 'marp.js');
-await esbuild.build({
-    entryPoints: [path.join(root, 'src', 'shared', 'marp', 'marpHtml.ts')],
+const common = {
     bundle: true,
     platform: 'node',
     format: 'cjs',
     // VS Code 1.74 の拡張ホスト（Node 16）でも読めるように下げる
     target: 'node16',
     minify: true,
-    outfile,
-    plugins: [slim],
     logLevel: 'warning'
-});
-console.log(`out/marp.js ${(fs.statSync(outfile).size / 1024).toFixed(0)} KB`);
+};
+
+for (const [entry, name, plugins] of [
+    [path.join(root, 'src', 'shared', 'marp', 'marpHtml.ts'), 'marp.js', [slim]],
+    [path.join(root, 'src', 'shared', 'docx', 'docxExportEntry.ts'), 'docxExport.js', []]
+]) {
+    const outfile = path.join(root, 'out', name);
+    await esbuild.build({ ...common, entryPoints: [entry], outfile, plugins });
+    console.log(`out/${name} ${(fs.statSync(outfile).size / 1024).toFixed(0)} KB`);
+}

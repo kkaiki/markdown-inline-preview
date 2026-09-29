@@ -262,6 +262,11 @@
         "category": "Markdown Inline Preview"
       },
       {
+        "command": "markdownInline.exportDocx",
+        "title": "Export to Word (.docx)",
+        "category": "Markdown Inline Preview"
+      },
+      {
         "command": "markdownInline.removePdfCredit",
         "title": "Remove PDF Credit Line (one-time purchase)",
         "category": "Markdown Inline Preview"
@@ -408,6 +413,10 @@
         },
         {
           "command": "markdownInline.exportMarp",
+          "when": "markdownInline.proPlusOnSale && (editorLangId == markdown || activeCustomEditorId == 'ipreview.live')"
+        },
+        {
+          "command": "markdownInline.exportDocx",
           "when": "markdownInline.proPlusOnSale && (editorLangId == markdown || activeCustomEditorId == 'ipreview.live')"
         }
       ]
@@ -1146,9 +1155,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run lint:error && npm run compile && npx tsx build.ts",
-    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:marp && npm run build:livewebview",
+    "compile": "npx tsc && npx tsc -p tsconfig.test.json && npx tsx build.ts && npm run build:host && npm run build:lazy && npm run build:livewebview",
     "build:host": "esbuild src/extension.ts --bundle --outfile=out/extension.js --format=cjs --platform=node --external:vscode",
-    "build:marp": "node scripts/build-marp.mjs",
+    "build:lazy": "node scripts/build-lazy-bundles.mjs",
     "watch": "npx tsc --watch",
     "lint": "eslint src test --ext .ts",
     "lint:error": "eslint src test --ext .ts --max-warnings 0",
@@ -1184,6 +1193,7 @@
     "glob": "^8.0.0",
     "highlight.js": "^11.11.1",
     "jsdom": "^29.1.1",
+    "jszip": "^3.10.2",
     "mocha": "^10.2.0",
     "playwright": "^1.61.1",
     "tsx": "^4.22.4",
@@ -1201,6 +1211,7 @@
     "@lezer/highlight": "^1.2.3",
     "@lezer/markdown": "^1.7.2",
     "@marp-team/marp-core": "~4.4.0",
+    "docx": "9.8.1",
     "katex": "^0.17.0",
     "marked": "^18.0.5",
     "mermaid": "^11.15.0"

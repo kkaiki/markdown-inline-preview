@@ -2,7 +2,7 @@
  * Marp スライド書き出し（PRO+）の host 側。開いている .md を 1 スライド 1 ページの PDF（`<名前>.slides.pdf`）にする。
  *
  * HTML の組み立ては `src/shared/marp/marpHtml.ts`（純関数）。marp-core は 1 MB あるので拡張本体には入れず、
- * 別バンドル `out/marp.js`（scripts/build-marp.mjs）を書き出し時にだけ require する。
+ * 別バンドル `out/marp.js`（scripts/build-lazy-bundles.mjs）を書き出し時にだけ require する。
  * PDF 化は PDF 書き出しと同じローカル Chrome（`printHtmlToPdf`）。課金の判定は呼び出し側で済ませてから呼ぶ。
  * 設計: docs/private/specifications/pro-marp-export.md
  */

@@ -1,5 +1,5 @@
 /**
- * Marp スライド書き出し用の別バンドル（`out/marp.js`、`scripts/build-marp.mjs` が作る）を検査する。
+ * Marp スライド書き出し用の別バンドル（`out/marp.js`、`scripts/build-lazy-bundles.mjs` が作る）を検査する。
  *
  * marp-core をそのままバンドルすると MathJax と highlight.js の全言語を抱えて 3.9 MB（zip 後 1.2 MB）になる。
  * 設計（docs/private/specifications/pro-marp-export.md §2・R2）どおり MathJax を外し、言語を絞って
@@ -19,7 +19,7 @@ const BUNDLE = path.join(repoRoot, 'out', 'marp.js');
 
 describe('Marp 用の別バンドル（out/marp.js）', () => {
     it('ビルドされている（拡張の起動時には読まず、書き出し時に読む）', () => {
-        assert.ok(fs.existsSync(BUNDLE), `${BUNDLE} が無い（npm run build:marp）`);
+        assert.ok(fs.existsSync(BUNDLE), `${BUNDLE} が無い（npm run build:lazy）`);
     });
 
     it('1.5 MB を超えない（MathJax・不要な言語を外したまま）', () => {
