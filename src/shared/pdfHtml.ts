@@ -61,7 +61,7 @@ function wrapTaskLabels(html: string): string {
  * `<tfoot>` は `<tbody>` より**前**に書く必要がある（HTML の規定であり、
  * ブラウザが各ページへ繰り返す条件でもある）。
  */
-function wrapWithCreditFooter(htmlBody: string): string {
+export function wrapWithCreditFooter(htmlBody: string): string {
     return `<table class="ipreview-page">
 <tfoot><tr><td><div class="ipreview-credit">${PDF_CREDIT_TEXT}</div></td></tr></tfoot>
 <tbody><tr><td>
@@ -70,14 +70,18 @@ ${htmlBody}
 </table>`;
 }
 
+/** Markdown 本文を PDF 用の本文 HTML にする（まとめて書き出しの「1 冊に束ねる」でも使う）。 */
+export function buildPdfBody(markdownBody: string): string {
+    return wrapTaskLabels(marked.parse(markdownBody) as string);
+}
+
 /** Markdown 本文 + CSS から PDF 用の完全 HTML 文字列を組み立てる。 */
 export function buildPdfHtml(
     markdownBody: string,
     css: string,
     options: BuildPdfHtmlOptions
 ): string {
-    const rawHtml = marked.parse(markdownBody) as string;
-    let htmlBody = wrapTaskLabels(rawHtml);
+    let htmlBody = buildPdfBody(markdownBody);
     const context = options.context ?? { title: '', date: '' };
     if (options.styling?.tableOfContents) {
         htmlBody = addTableOfContents(htmlBody, context.tocTitle ?? 'Contents');
