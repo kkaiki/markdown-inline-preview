@@ -9,7 +9,7 @@ interface TaskInfo {
     isChecked: boolean;
 }
 
-function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number): void {
+function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number): Thenable<unknown> {
     const document = editor.document;
     const currentLine = document.lineAt(lineNumber).text;
     const indentMatch = currentLine.match(/^\s*/);
@@ -75,7 +75,7 @@ function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number
     }
 
     if (targetLine !== -1 && targetLine !== lineNumber) {
-        editor.edit(editBuilder => {
+        return editor.edit(editBuilder => {
             const textToMove = currentLine + '\n';
 
             if (targetLine < lineNumber) {
@@ -96,9 +96,11 @@ function moveCompletedTaskToBottom(editor: vscode.TextEditor, lineNumber: number
             debugLog(`[moveCompletedTaskToBottom] Moved ${action} task from line ${lineNumber} to ${targetLine}`);
         });
     }
+    return Promise.resolve();
 }
 
-export function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): void {
+/** チェックボックスを切り替える。完了タスクの移動まで終えて解決する Thenable を返す */
+export function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): Thenable<unknown> {
     const line = editor.document.lineAt(lineNumber).text;
     let newLine: string;
     let shouldMoveToBottom = false;
@@ -122,10 +124,10 @@ export function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): v
         }
         debugLog('[toggleCheckbox] Unchecking checkbox');
     } else {
-        return;
+        return Promise.resolve();
     }
 
-    editor.edit(editBuilder => {
+    return editor.edit(editBuilder => {
         const range = new vscode.Range(
             lineNumber, 0,
             lineNumber, line.length
@@ -137,11 +139,10 @@ export function toggleCheckbox(editor: vscode.TextEditor, lineNumber: number): v
             editor.selection = new vscode.Selection(newPosition, newPosition);
         }
 
-        if (shouldMoveToBottom) {
-            moveCompletedTaskToBottom(editor, lineNumber);
-        }
+        const moved = shouldMoveToBottom ? moveCompletedTaskToBottom(editor, lineNumber) : Promise.resolve();
 
         debugLog('[toggleCheckbox] Edit complete, updating decorations');
         updateAllDecorations(editor);
+        return moved;
     });
 }

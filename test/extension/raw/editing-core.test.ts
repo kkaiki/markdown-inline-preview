@@ -107,4 +107,42 @@ suite('Raw: editing-core', () => {
             assert.strictEqual(editor.document.getText(), content, '正常なファイルを書き換えてしまった');
         });
     });
+    suite('41. コマンドは編集を終えてから戻る', () => {
+        // Windows の CI（遅い環境）で、実行直後に内容を見るテストが毎回違う箇所で落ちた（14.1・1.4・6.3、2026-09-30）。
+        // 原因はコマンドが editor.edit の完了を待たずに戻っていたこと。executeCommand の完了＝編集の完了にする
+        // （キーバインドやほかの拡張からコマンドを続けて呼んだときに、前の編集と競合しないためにも要る）。
+        // ここでは実行後に一切待たずに内容を見る。
+
+        test('41.1 番号の振り直し（renumberLists）', async function() {
+            this.timeout(5000);
+            const editor = await createTestDocument('3. a\n5. b\n9. c');
+            editor.selection = new vscode.Selection(1, 0, 1, 0);
+            await vscode.commands.executeCommand('markdownInline.renumberLists');
+            assert.strictEqual(editor.document.getText().replace(/\r\n/g, '\n'), '1. a\n2. b\n3. c');
+        });
+
+        test('41.2 インデント（increaseIndent）は、続く番号の振り直しまで終えてから戻る', async function() {
+            this.timeout(5000);
+            const editor = await createTestDocument('1. a\n2. b\n3. c');
+            editor.selection = new vscode.Selection(1, 3, 1, 3);
+            await vscode.commands.executeCommand('markdownInline.increaseIndent');
+            assert.strictEqual(editor.document.getText().replace(/\r\n/g, '\n'), '1. a\n  1. b\n2. c');
+        });
+
+        test('41.3 番号付きリストへの変換（convertToNumbered）は、続く番号の振り直しまで終えてから戻る', async function() {
+            this.timeout(5000);
+            const editor = await createTestDocument('a\nb\nc');
+            editor.selection = new vscode.Selection(0, 0, 2, 1);
+            await vscode.commands.executeCommand('markdownInline.convertToNumbered');
+            assert.strictEqual(editor.document.getText().replace(/\r\n/g, '\n'), '1. a\n2. b\n3. c');
+        });
+
+        test('41.4 チェックボックスの切り替え（toggleCheckbox）', async function() {
+            this.timeout(5000);
+            const editor = await createTestDocument('- [ ] a');
+            editor.selection = new vscode.Selection(0, 3, 0, 3);
+            await vscode.commands.executeCommand('markdownInline.toggleCheckbox');
+            assert.strictEqual(editor.document.lineAt(0).text, '- [x] a');
+        });
+    });
 });

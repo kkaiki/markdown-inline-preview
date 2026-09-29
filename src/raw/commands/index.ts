@@ -33,7 +33,7 @@ export function setDebugLog(logFn: DebugLogFunction): void {
 function safeRegister(
     context: vscode.ExtensionContext,
     commandId: string,
-    handler: () => void | Promise<void>,
+    handler: (...args: never[]) => unknown,
     conflicts: string[]
 ): void {
     try {

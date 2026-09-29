@@ -2,7 +2,11 @@ import * as vscode from 'vscode';
 
 import { getIndentLevel } from '../../shared/structure/list';
 
-export function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = null): void {
+/**
+ * 番号付きリストの番号を振り直す。編集の完了で解決する Thenable を返す（コマンドが編集を終えてから戻るため。
+ * docs/specifications/fixes/raw-commands-await-edits.md）。
+ */
+export function renumberLists(editor: vscode.TextEditor, lineNumber: number | null = null): Thenable<unknown> {
     const document = editor.document;
     const selection = editor.selection;
     const currentLine = lineNumber ?? selection.active.line;
@@ -11,7 +15,7 @@ export function renumberLists(editor: vscode.TextEditor, lineNumber: number | nu
     const match = lineText.match(/^(\s*)(\d+)([\.)])\s*/);
 
     if (!match) {
-        return;
+        return Promise.resolve();
     }
 
     let startLine = currentLine;
@@ -66,7 +70,7 @@ export function renumberLists(editor: vscode.TextEditor, lineNumber: number | nu
     const indentCounters = new Map<number, number>();
     let previousLevel = -1;
 
-    editor.edit(editBuilder => {
+    return editor.edit(editBuilder => {
         for (let i = startLine; i <= endLine; i++) {
             const line = document.lineAt(i).text;
 

@@ -4,13 +4,14 @@ import type { ConvertType } from '../../types';
 import { convertLineToType as convertLineTextToType } from '../../shared/structure/list';
 import { renumberLists } from './renumberLists';
 
-export function convertLineToType(editor: vscode.TextEditor, targetType: ConvertType): void {
+/** 選択行を変換する。続く番号の振り直しまで終えて解決する Thenable を返す */
+export function convertLineToType(editor: vscode.TextEditor, targetType: ConvertType): Thenable<unknown> {
     const document = editor.document;
     const selection = editor.selection;
     const startLine = selection.start.line;
     const endLine = selection.end.line;
 
-    editor.edit(editBuilder => {
+    return editor.edit(editBuilder => {
         for (let i = startLine; i <= endLine; i++) {
             const line = document.lineAt(i).text;
             const newLine = convertLineTextToType(line, targetType);
@@ -23,10 +24,11 @@ export function convertLineToType(editor: vscode.TextEditor, targetType: Convert
     }).then(() => {
         if (targetType === 'numbered') {
             try {
-                renumberLists(editor);
+                return renumberLists(editor);
             } catch {
                 // ignore renumber failures on partial edits
             }
         }
+        return undefined;
     });
 }

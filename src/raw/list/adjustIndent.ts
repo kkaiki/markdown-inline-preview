@@ -3,7 +3,8 @@ import * as vscode from 'vscode';
 import { getAllTableCells, getTableCellInfo } from '../table';
 import { renumberLists } from './renumberLists';
 
-export function adjustIndent(editor: vscode.TextEditor, increase: boolean): void {
+/** インデントを増減する。続く番号の振り直しまで終えて解決する Thenable を返す */
+export function adjustIndent(editor: vscode.TextEditor, increase: boolean): Thenable<unknown> {
     const selection = editor.selection;
     const document = editor.document;
     const indentStr = '  ';
@@ -46,7 +47,7 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): void
                     }
                 }
             }
-            return;
+            return Promise.resolve();
         }
     }
 
@@ -54,7 +55,7 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): void
         const startLine = selection.start.line;
         const endLine = selection.end.line;
 
-        editor.edit(editBuilder => {
+        return editor.edit(editBuilder => {
             for (let i = startLine; i <= endLine; i++) {
                 const line = document.lineAt(i).text;
                 const range = new vscode.Range(i, 0, i, line.length);
@@ -75,18 +76,18 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): void
             }
         }).then(() => {
             try {
-                renumberLists(editor);
+                return renumberLists(editor);
             } catch {
                 // ignore renumber failures
+                return undefined;
             }
         });
-        return;
     }
 
     const line = document.lineAt(selection.active.line).text;
     const cursorPos = selection.active.character;
 
-    editor.edit(editBuilder => {
+    return editor.edit(editBuilder => {
         const range = new vscode.Range(
             selection.active.line, 0,
             selection.active.line, line.length
@@ -117,9 +118,10 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): void
             editor.selection = new vscode.Selection(newPosition, newPosition);
         }
         try {
-            renumberLists(editor);
+            return renumberLists(editor);
         } catch {
             // ignore renumber failures
+            return undefined;
         }
     });
 }

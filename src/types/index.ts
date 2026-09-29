@@ -135,10 +135,11 @@ export interface HeadingInfo {
 export interface CommandHandlers {
     // リスト操作
     smartEnterCommand: () => Promise<void>;
-    renumberLists: (editor: vscode.TextEditor) => void;
-    convertLineToType: (editor: vscode.TextEditor, type: ConvertType) => void;
-    toggleCheckbox: (editor: vscode.TextEditor, line: number) => void;
-    adjustIndent: (editor: vscode.TextEditor, increase: boolean) => void;
+    // 編集の完了で解決する（コマンドを編集の完了まで待たせる。docs/specifications/fixes/raw-commands-await-edits.md）
+    renumberLists: (editor: vscode.TextEditor) => Thenable<unknown>;
+    convertLineToType: (editor: vscode.TextEditor, type: ConvertType) => Thenable<unknown>;
+    toggleCheckbox: (editor: vscode.TextEditor, line: number) => Thenable<unknown>;
+    adjustIndent: (editor: vscode.TextEditor, increase: boolean) => Thenable<unknown>;
 
     // テーブル操作
     formatTableAtLine: (editor: vscode.TextEditor, line: number) => void;
