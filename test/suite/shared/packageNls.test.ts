@@ -111,6 +111,47 @@ describe('package.json の多言語化', () => {
         assert.deepStrictEqual(wrong, []);
     });
 
+    it('右クリックなどのメニューに出るコマンドは、見出しが「Markdown Inline Preview: 」で始まる（ほかの拡張の項目と見分けられる）', () => {
+        // ユーザー要望 2026-10-01:「Open in Live mode ではなく、Markdown Inline Preview: Open Live mode となるようにして欲しい」
+        // メニューは category を表示しないので、見出し自体に拡張名を入れる。category を残すとコマンドパレットで
+        // 「Markdown Inline Preview: Markdown Inline Preview: …」と二重になるので外す。
+        const contributes = pkg.contributes as {
+            commands: Record<string, string>[];
+            menus: Record<string, { command: string }[]>;
+        };
+        const inMenus = new Set(Object.entries(contributes.menus)
+            .filter(([where]) => !['commandPalette', 'editor/title'].includes(where))
+            .flatMap(([, items]) => items.map((m) => m.command)));
+        const wrong: string[] = [];
+        for (const c of contributes.commands.filter((x) => inMenus.has(x.command))) {
+            const key = /^%(.+)%$/.exec(c.title ?? '')?.[1] ?? '';
+            for (const [lang, dict] of [['en', en], ['ja', ja]] as const) {
+                const title = dict[key];
+                if (typeof title !== 'string' || !title.startsWith('Markdown Inline Preview: ')) wrong.push(`${c.command} ${lang}: ${JSON.stringify(title)}`);
+            }
+            if (c.category) wrong.push(`${c.command}: category が残っている`);
+        }
+        assert.deepStrictEqual(wrong, []);
+    });
+
+    it('エディタ右上のボタン（editor/title）には、拡張名の付かない短い見出し（shortTitle）を出す', () => {
+        // 右上のボタンは shortTitle を表示する（VS Code の editor title は renderShortTitle）。長い見出しでボタンを広げない
+        const contributes = pkg.contributes as {
+            commands: Record<string, string>[];
+            menus: Record<string, { command: string }[]>;
+        };
+        const titleBar = new Set((contributes.menus['editor/title'] ?? []).map((m) => m.command));
+        const wrong: string[] = [];
+        for (const c of contributes.commands.filter((x) => titleBar.has(x.command))) {
+            const label = /^%(.+)%$/.exec(c.shortTitle ?? c.title ?? '')?.[1] ?? '';
+            for (const dict of [en, ja]) {
+                const text = dict[label];
+                if (typeof text !== 'string' || text.startsWith('Markdown Inline Preview')) wrong.push(`${c.command}: ${JSON.stringify(text)}`);
+            }
+        }
+        assert.deepStrictEqual(wrong, []);
+    });
+
     it('日本語辞書と英語辞書のキーが揃っている', () => {
         assert.deepStrictEqual(Object.keys(en).sort(), Object.keys(ja).sort());
     });

@@ -228,8 +228,7 @@
         "command": "markdownInline.openRaw",
         "title": "%command.openRaw%",
         "shortTitle": "%command.openRaw.short%",
-        "icon": "$(code)",
-        "category": "Markdown Inline Preview"
+        "icon": "$(code)"
       },
       {
         "command": "markdownInline.toggleLineNumbers",
@@ -244,7 +243,7 @@
       {
         "command": "markdownInline.openLive",
         "title": "%command.openLive%",
-        "category": "Markdown Inline Preview"
+        "shortTitle": "%command.openLive.short%"
       },
       {
         "command": "markdownInline.toggleLive",
@@ -253,23 +252,19 @@
       },
       {
         "command": "markdownInline.exportPdf",
-        "title": "%command.exportPdf%",
-        "category": "Markdown Inline Preview"
+        "title": "%command.exportPdf%"
       },
       {
         "command": "markdownInline.exportMarp",
-        "title": "%command.exportMarp%",
-        "category": "Markdown Inline Preview"
+        "title": "%command.exportMarp%"
       },
       {
         "command": "markdownInline.exportDocx",
-        "title": "%command.exportDocx%",
-        "category": "Markdown Inline Preview"
+        "title": "%command.exportDocx%"
       },
       {
         "command": "markdownInline.batchExport",
-        "title": "%command.batchExport%",
-        "category": "Markdown Inline Preview"
+        "title": "%command.batchExport%"
       },
       {
         "command": "markdownInline.removePdfCredit",

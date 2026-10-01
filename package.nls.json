@@ -20,8 +20,8 @@
   "config.live.wrapTabs": "Wrap the tab bar onto multiple rows when there are many tabs (workbench.editor.wrapTabs)",
   "config.enablePreview": "Enable Markdown decorations (headings, checkboxes, and so on)",
   "config.notionKeymap.enabled": "Enable Notion-compatible keybindings (⌘B bold, ⌘E code, ⌘K link, ⌥⌘digits block conversion). Turning it off restores the VS Code defaults",
-  "command.openLive": "Open in Live mode",
-  "command.openRaw": "Open in Raw mode",
+  "command.openLive": "Markdown Inline Preview: Open in Live mode",
+  "command.openRaw": "Markdown Inline Preview: Open in Raw mode",
   "command.toggleLive": "Toggle Live / Raw",
   "command.smartEnter": "Smart Enter: Continue/Exit List",
   "command.toggleCheckbox": "Toggle Markdown Checkbox",
@@ -51,10 +51,10 @@
   "command.openRaw.short": "Raw",
   "command.toggleLineNumbers": "Toggle Line Numbers",
   "command.repairNestedCodeFences": "Repair Double-Fenced Code Blocks",
-  "command.exportPdf": "Export to PDF",
-  "command.exportMarp": "Export as Slides (Marp PDF)",
-  "command.exportDocx": "Export to Word (.docx)",
-  "command.batchExport": "Batch Export to PDF…",
+  "command.exportPdf": "Markdown Inline Preview: Export to PDF",
+  "command.exportMarp": "Markdown Inline Preview: Export as Slides (Marp PDF)",
+  "command.exportDocx": "Markdown Inline Preview: Export to Word (.docx)",
+  "command.batchExport": "Markdown Inline Preview: Batch Export to PDF…",
   "command.removePdfCredit": "Remove PDF Credit Line (one-time purchase)",
   "command.upgradeToPro": "Get PRO+ (one-time purchase)",
   "command.enterLicenseKey": "Enter License Key",
@@ -71,5 +71,6 @@
   "command.convertToToggleList": "Convert to Toggle List",
   "command.convertToCodeBlock": "Convert to Code Block",
   "command.convertToQuote": "Convert to Quote",
-  "command.noop": "No-op (internal)"
+  "command.noop": "No-op (internal)",
+  "command.openLive.short": "Open in Live mode"
 }

@@ -20,8 +20,8 @@
   "config.live.wrapTabs": "タブが多いときにタブバーを複数行へ折り返す（workbench.editor.wrapTabs）",
   "config.enablePreview": "Markdown の装飾（見出し・チェックボックス等のデコレーション）を有効にする",
   "config.notionKeymap.enabled": "Notion と同じキー割り当て（⌘B 太字・⌘E コード・⌘K リンク・⌥⌘数字 ブロック変換など）を有効にする。切ると Raw モードでは VS Code 既定のキーに戻る",
-  "command.openLive": "Live モードで開く",
-  "command.openRaw": "Raw モードで開く",
+  "command.openLive": "Markdown Inline Preview: Live モードで開く",
+  "command.openRaw": "Markdown Inline Preview: Raw モードで開く",
   "command.toggleLive": "Live / Raw を切り替え",
   "command.smartEnter": "スマート Enter: リストを続ける／抜ける",
   "command.toggleCheckbox": "チェックボックスを切り替え",
@@ -51,10 +51,10 @@
   "command.openRaw.short": "Raw",
   "command.toggleLineNumbers": "行番号の表示を切り替え",
   "command.repairNestedCodeFences": "二重に囲まれたコードブロックを修復",
-  "command.exportPdf": "PDF に書き出す",
-  "command.exportMarp": "スライドとして書き出す（Marp PDF）",
-  "command.exportDocx": "Word（.docx）に書き出す",
-  "command.batchExport": "まとめて PDF に書き出す…",
+  "command.exportPdf": "Markdown Inline Preview: PDF に書き出す",
+  "command.exportMarp": "Markdown Inline Preview: スライドとして書き出す（Marp PDF）",
+  "command.exportDocx": "Markdown Inline Preview: Word（.docx）に書き出す",
+  "command.batchExport": "Markdown Inline Preview: まとめて PDF に書き出す…",
   "command.removePdfCredit": "PDF のクレジット行を消す（買い切り）",
   "command.upgradeToPro": "PRO+ を購入する（買い切り）",
   "command.enterLicenseKey": "ライセンスキーを入力",
@@ -71,5 +71,6 @@
   "command.convertToToggleList": "トグルリストに変換",
   "command.convertToCodeBlock": "コードブロックに変換",
   "command.convertToQuote": "引用に変換",
-  "command.noop": "何もしない（内部用）"
+  "command.noop": "何もしない（内部用）",
+  "command.openLive.short": "Live モードで開く"
 }
