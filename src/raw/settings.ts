@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { setContextKey } from '../contextKeys';
 
 import {
     debugLog,
@@ -44,11 +45,7 @@ export function isNotionKeymapEnabled(): boolean {
 
 /** 上記の設定値をコンテキストキー `markdownInline.notionKeymap` へ反映する。 */
 export function applyNotionKeymapContext(): void {
-    void vscode.commands.executeCommand(
-        'setContext',
-        'markdownInline.notionKeymap',
-        isNotionKeymapEnabled()
-    );
+    void setContextKey('markdownInline.notionKeymap', isNotionKeymapEnabled());
 }
 
 export function isAutoTableFormattingEnabled(): boolean {

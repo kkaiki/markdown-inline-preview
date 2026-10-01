@@ -11,6 +11,7 @@
  */
 
 import * as vscode from 'vscode';
+import { setContextKey } from '../contextKeys';
 import {
     buildPurchaseUrl,
     buildRestoreUrl,
@@ -186,9 +187,7 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             });
             if (!key?.trim()) return;
             await redeemKey(store, key.trim());
-            // PRO+ のコマンド（Marp 書き出しなど）は販売開始後だけコマンドパレットに出す
-    void vscode.commands.executeCommand('setContext', 'markdownInline.proPlusOnSale', MONETIZATION_ENABLED);
-    void refreshStatusBar();
+            void refreshStatusBar();
         }),
 
         vscode.commands.registerCommand('markdownInline.restorePurchase', async () => {
@@ -213,6 +212,9 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
         context.secrets.onDidChange(() => void refreshStatusBar())
     );
 
+    // PRO+ のコマンド・メニュー（Word・スライド・まとめて書き出し）は販売開始後だけ出す。起動時に必ず立てる
+    // （以前は誤って「ライセンスキーを入力」の中にあり、キーを入れるまで出なかった。docs/specifications/fixes/pro-plus-context-key.md）
+    void setContextKey('markdownInline.proPlusOnSale', MONETIZATION_ENABLED);
     void refreshStatusBar();
     // 起動時に一度だけ静かに更新する。失敗しても何も起きない。
     void refreshLicenseQuietly(store).then(() => refreshStatusBar());

@@ -20,6 +20,7 @@ import {
 } from './list';
 import * as liveModule from '../live/activate';
 import { registerLicenseCommands } from '../license/licenseCommands';
+import { appliedContextKeys } from '../contextKeys';
 import { registerCheckboxCodeLensProvider } from './providers/checkboxCodeLens';
 import { showWhatsNewIfUpdated } from './whatsNew';
 import { registerImageHoverProvider } from './providers/imageHover';
@@ -53,7 +54,12 @@ import {
     getTableCellInfo
 } from './table';
 
-export function activate(context: vscode.ExtensionContext): void {
+/** 拡張の公開 API（テストがコンテキストキーの値を確かめるために使う） */
+export interface ExtensionApi {
+    contextKeys(): Record<string, unknown>;
+}
+
+export function activate(context: vscode.ExtensionContext): ExtensionApi {
     rawRuntime.debugChannel = vscode.window.createOutputChannel('Markdown Inline Preview');
     debugLog('=== Markdown Inline Preview Extension Activated ===');
 
@@ -141,6 +147,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showWhatsNewIfUpdated(context, licenseStore);
 
     debugLog('=== Extension activation completed successfully ===');
+    return { contextKeys: appliedContextKeys };
 }
 
 export function deactivate(): void {

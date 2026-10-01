@@ -459,6 +459,21 @@ suite('Raw: license', () => {
         });
     });
 
+    suite('38. 販売中かどうかのフラグ', () => {
+        test('38.1 起動しただけで markdownInline.proPlusOnSale が MONETIZATION_ENABLED と同じ値になる（ライセンスキーを入れなくても）', async () => {
+            // 2026-10-01 にユーザーが「Word はどこから出せる？」と気づいた不具合: このフラグを立てる行が
+            // 誤って「ライセンスキーを入力」コマンドの中に入っており（5b9e91d）、キーを入れるまで
+            // Word・スライド・まとめて書き出しが右クリックにもコマンドパレットにも出なかった。
+            // メニューの when 句の宣言テスト（34.2・35.x・36.1）だけでは、フラグが立たないことに気づけなかった。
+            // VS Code にはコンテキストキーを読む API が無いので、拡張が立てた値を activate() の戻り値から読む（src/contextKeys.ts）
+            const { MONETIZATION_ENABLED } = await import('../../../src/shared/license/entitlement');
+            const extension = vscode.extensions.getExtension(EXTENSION_ID);
+            assert.ok(extension);
+            const api = (await extension.activate()) as { contextKeys(): Record<string, unknown> };
+            assert.strictEqual(api.contextKeys()['markdownInline.proPlusOnSale'], MONETIZATION_ENABLED);
+        });
+    });
+
     suite('33. 出荷前の安全弁', () => {
 
         test('33.1 購入導線が未完成のあいだは、PDF にクレジット行を入れない', async () => {
