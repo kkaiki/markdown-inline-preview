@@ -15,6 +15,7 @@ import type { RevealScope } from './revealScope';
 import { parseLinePrefix, parseQuotePrefix } from './liveEditing';
 import { isTableDelimiterRow } from './tableCells';
 import { findFenceBlocks } from './fenceBlocks';
+import { matchInlineHtml, type InlineHtml } from './inlineHtml';
 
 export type SyntaxKind =
     | 'heading'
@@ -37,7 +38,8 @@ export type SyntaxKind =
     | 'frontmatter'
     | 'mathBlock'
     | 'callout'
-    | 'inlineMath';
+    | 'inlineMath'
+    | 'html';
 
 /** 収縮時に隠す文字の範囲。 */
 export interface HiddenRange {
@@ -65,6 +67,8 @@ export interface SyntaxRange {
      * codeFence: 言語 / mathBlock・inlineMath: 数式本体 / callout: 種別 / image: URL。
      */
     info?: string;
+    /** インライン HTML のタグと無害化済み style（kind === 'html' のときだけ）。 */
+    html?: InlineHtml;
 }
 
 /** 対になるインライン記法の定義（開き記号 = 閉じ記号のもの）。 */
@@ -254,6 +258,44 @@ function scanInline(text: string, base: number, out: SyntaxRange[]): void {
         }
 
         i += 1;
+    }
+}
+
+/**
+ * 1行ぶんのインライン HTML（許可したタグだけ）を走査して `out` へ積む。
+ *
+ * 他のインライン記法とは別の走査にしている。`**<span>…</span>**` のように記法の中に
+ * タグがあっても、`scanInline` は記法の中身を読み飛ばすため見つけられないから。
+ * インラインコード・インライン数式の中と、`\<` でエスケープしたものは対象外。
+ * 中身の記法は `scanInline` が別に拾うので、ここでは開き・閉じタグだけを隠す。
+ *
+ * @param lineRanges この行について `scanInline` が積んだ範囲
+ */
+function scanInlineHtml(text: string, base: number, lineRanges: SyntaxRange[], out: SyntaxRange[]): void {
+    const opaque = lineRanges
+        .filter((r) => r.kind === 'code' || r.kind === 'inlineMath')
+        .map((r) => ({ from: r.revealFrom - base, to: r.revealTo - base }));
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === '\\') {
+            i += 1;
+            continue;
+        }
+        if (text[i] !== '<' || opaque.some((o) => i >= o.from && i < o.to)) continue;
+        const m = matchInlineHtml(text, i);
+        if (!m) continue;
+        out.push({
+            kind: 'html',
+            scope: 'token',
+            hidden: [
+                { from: base + i, to: base + m.openEnd },
+                { from: base + m.closeFrom, to: base + m.closeTo }
+            ],
+            revealFrom: base + i,
+            revealTo: base + m.closeTo,
+            markFrom: base + m.openEnd,
+            markTo: base + m.closeFrom,
+            html: { tag: m.tag, style: m.style }
+        });
     }
 }
 
@@ -557,7 +599,9 @@ export function scanSyntaxRanges(doc: string): SyntaxRange[] {
         }
 
         pushListPrefix(body, bodyOffset, out);
+        const lineStart = out.length;
         scanInline(line, offset, out);
+        scanInlineHtml(line, offset, out.slice(lineStart), out);
     }
     return out;
 }

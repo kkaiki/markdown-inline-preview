@@ -22,6 +22,7 @@ import { scanSyntaxRanges, type SyntaxKind, type SyntaxRange } from '../shared/s
 import { isRevealed } from '../shared/revealScope';
 import { parseTableCells } from '../shared/tableCells';
 import { inlineSegments } from '../shared/inlineSegments';
+import type { InlineHtml } from '../shared/inlineHtml';
 import { cellsInRect, selectionToMarkdown, type CellPos } from '../shared/tableSelection';
 import { normalizeWidths, resizeColumn } from '../shared/tableColumnWidths';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
@@ -599,15 +600,31 @@ function rawOf(view: EditorView, cell: HTMLElement): string {
 function renderCell(cell: HTMLElement, raw: string): void {
     cell.textContent = '';
     for (const seg of inlineSegments(raw)) {
+        let node: Node;
         if (seg.classes === '') {
-            cell.appendChild(document.createTextNode(seg.text));
+            node = document.createTextNode(seg.text);
         } else {
             const span = document.createElement('span');
             span.className = seg.classes;
             span.textContent = seg.text;
-            cell.appendChild(span);
+            node = span;
         }
+        // インライン HTML は内側から順に包む（タグ名・style は許可リストで無害化済み）
+        for (const h of [...(seg.html ?? [])].reverse()) {
+            const el = createHtmlElement(h);
+            el.appendChild(node);
+            node = el;
+        }
+        cell.appendChild(node);
     }
+}
+
+/** インライン HTML の要素を作る。属性は style だけ（無害化済み）を付ける。 */
+function createHtmlElement(h: InlineHtml): HTMLElement {
+    const el = document.createElement(h.tag);
+    el.className = 'cm-live-html';
+    if (h.style) el.setAttribute('style', h.style);
+    return el;
 }
 
 /**
@@ -701,6 +718,25 @@ function markDeco(cls: string): Decoration {
     if (!d) {
         d = Decoration.mark({ class: cls });
         MARK_DECO.set(cls, d);
+    }
+    return d;
+}
+
+/**
+ * インライン HTML の中身を、そのタグの要素で包む decoration。
+ * タグ名・style は許可リストで無害化済み（inlineHtml.ts）。属性は style だけを付ける。
+ */
+const HTML_DECO = new Map<string, Decoration>();
+function htmlDeco(h: InlineHtml): Decoration {
+    const key = `${h.tag}\u0000${h.style}`;
+    let d = HTML_DECO.get(key);
+    if (!d) {
+        d = Decoration.mark({
+            tagName: h.tag,
+            class: 'cm-live-html',
+            attributes: h.style ? { style: h.style } : undefined
+        });
+        HTML_DECO.set(key, d);
     }
     return d;
 }
@@ -953,6 +989,12 @@ function pushRange(
     }
     if (r.kind === 'task' && r.checked && r.markTo > r.markFrom) {
         decos.push(markDeco('cm-live-task-done').range(r.markFrom, r.markTo));
+    }
+
+    if (r.kind === 'html') {
+        // 展開中は生のタグだけを見せる（style は当てない）
+        if (!revealed && r.html && r.markTo > r.markFrom) decos.push(htmlDeco(r.html).range(r.markFrom, r.markTo));
+        return;
     }
 
     const cls = MARK_CLASS[r.kind];
