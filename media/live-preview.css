@@ -758,9 +758,21 @@ body {
     font-size: 0.9em;
 }
 
-/* セルをまたぐ範囲選択（Phase 4b の追補）。ブラウザの選択はセルを越えられないので自前で描く。 */
-.cm-live-table .cm-live-cell-selected {
-    background: rgba(9, 105, 218, 0.14);
+/* セルをまたぐ範囲選択（Phase 4b の追補）。ブラウザの選択はセルを越えられないので自前で描く。
+ * 選択中は行ホバーとフォーカス枠を消し、選択セルはすべて同じ色で塗る
+ * （docs/specifications/fixes/table-range-select-look.md）。行ホバーのほうが詳細度が高く、
+ * マウスが乗った行だけ選択色が抜けて見えていた。 */
+.cm-live-table:has(.cm-live-cell-selected) tbody tr:hover td:not(.cm-live-cell-selected) {
+    background: none;
+}
+.cm-live-table:has(.cm-live-cell-selected) [contenteditable='true']:focus:not(.cm-live-cell-selected) {
+    box-shadow: none;
+}
+.cm-live-table .cm-live-cell-selected,
+.cm-live-table tbody tr:hover td.cm-live-cell-selected,
+.cm-live-table [contenteditable='true'].cm-live-cell-selected:focus {
+    background: var(--live-selection);
+    box-shadow: none;
 }
 
 /* 表の右クリックメニュー（requirements.md §2.7.2）。body 直下に固定配置する。 */
