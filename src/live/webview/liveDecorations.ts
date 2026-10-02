@@ -378,7 +378,7 @@ class TableWidget extends WidgetType {
             requestAnimationFrame(() => layoutColumnResizers(wrap));
         }
 
-        attachRangeSelection(wrap);
+        attachRangeSelection(wrap, view);
         wrap.addEventListener('input', () => this.onInput(wrap, view));
         wrap.addEventListener('keydown', (e) => this.onKeyDown(e, wrap, view));
         wrap.addEventListener('contextmenu', (e) => this.onContextMenu(e, wrap, view));
@@ -505,7 +505,7 @@ class TableWidget extends WidgetType {
  * ドラッグ（と Shift+クリック）でアンカー〜フォーカスの矩形を持ち、
  * 選択セルにクラスを付けてハイライトし、コピーはタブ/改行区切りで書き出す。
  */
-function attachRangeSelection(wrap: HTMLElement): void {
+function attachRangeSelection(wrap: HTMLElement, view: EditorView): void {
     let anchor: CellPos | null = null;
     let dragging = false;
 
@@ -576,7 +576,9 @@ function attachRangeSelection(wrap: HTMLElement): void {
             const r = Number(el.dataset.row);
             const c = Number(el.dataset.col);
             rows[r] = rows[r] ?? [];
-            rows[r][c] = el.textContent ?? '';
+            // 描画後の文字ではなくソースの生 Markdown を載せる（requirements.md §4.5）。
+            // textContent だと装飾のあるセルは記法が落ち、フォーカス中のセルだけ生のまま残る。
+            rows[r][c] = rawOf(view, el);
         }
         const cells = selected.map(posOf);
         e.clipboardData?.setData('text/plain', selectionToMarkdown(rows, cells));
