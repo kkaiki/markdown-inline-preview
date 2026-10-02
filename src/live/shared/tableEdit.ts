@@ -43,13 +43,13 @@ const NEW_COLUMN_WIDTH = 5;
  * パイプが2本未満の行（`a | b` のような両端パイプ無しの行）は、この機能では
  * 触らずそのまま残す（null を返す）。壊れた表を壊し返さないための保険。
  */
-interface RowParts {
+export interface RowParts {
     head: string;
     segments: string[];
     tail: string;
 }
 
-function splitRow(line: string): RowParts | null {
+export function splitRow(line: string): RowParts | null {
     const pipes: number[] = [];
     for (let i = 0; i < line.length; i++) {
         if (line[i] === '\\') {
@@ -70,7 +70,7 @@ function splitRow(line: string): RowParts | null {
     };
 }
 
-function joinRow(parts: RowParts): string {
+export function joinRow(parts: RowParts): string {
     return parts.head + parts.segments.join('|') + parts.tail;
 }
 
@@ -88,7 +88,7 @@ function delimiterWidths(lines: string[]): number[] {
  * 無い行はあちらがセル無しとして飛ばすので、ここでも行として数えない。ズレると
  * 1つ下の行を消してしまう。
  */
-function contentLineIndexes(lines: string[]): number[] {
+export function contentLineIndexes(lines: string[]): number[] {
     const out: number[] = [];
     lines.forEach((line, i) => {
         if (!isTableDelimiterRow(line) && splitRow(line) !== null) out.push(i);
@@ -97,7 +97,7 @@ function contentLineIndexes(lines: string[]): number[] {
 }
 
 /** 対象セルから見た列数（＝その表の最大列数）。 */
-function columnCount(lines: string[]): number {
+export function columnCount(lines: string[]): number {
     let max = 0;
     for (const line of lines) {
         const parts = splitRow(line);

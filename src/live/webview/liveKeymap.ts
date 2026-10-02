@@ -29,6 +29,7 @@ import type { SelectionRange } from '../shared/hostSelectAll';
 import { getNotionBlockAction, type NotionBlockAction } from '../../shared/notionBlockKeymap';
 import { applyInlineFormat, type InlineFormat } from '../../shared/inlineFormat';
 import { duplicateBlock, moveBlock, toggleTaskLine, type BlockEdit } from '../../shared/blockOps';
+import { enterAdjacentTable } from './liveDecorations';
 
 /**
  * host（拡張本体）へ用があるキー操作の受け口。
@@ -326,6 +327,9 @@ export const liveKeymap: KeyBinding[] = [
     { key: 'Mod-Shift-.', run: liveSwitchToRaw },
     { key: 'Enter', run: liveEnter },
     { key: 'Home', run: liveHome },
+    // 表はブロックウィジェットなので、既定の移動だと表を丸ごと飛ばす。すぐ下 / 上が表ならセルへ入る
+    { key: 'ArrowDown', run: (view) => enterAdjacentTable(view, 'down') },
+    { key: 'ArrowUp', run: (view) => enterAdjacentTable(view, 'up') },
     { key: 'Tab', run: liveIndent },
     { key: 'Shift-Tab', run: liveOutdent }
 ];

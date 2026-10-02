@@ -25,7 +25,19 @@ import { inlineSegments } from '../shared/inlineSegments';
 import type { InlineHtml } from '../shared/inlineHtml';
 import { cellsInRect, selectionToMarkdown, type CellPos } from '../shared/tableSelection';
 import { normalizeWidths, resizeColumn } from '../shared/tableColumnWidths';
+import {
+    clearCellsChanges,
+    edgeCell,
+    extendFocus,
+    parseClipboardGrid,
+    pasteGrid,
+    sanitizeCellText,
+    shapeOf,
+    verticalTarget,
+    type Direction
+} from '../shared/tableGrid';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
+import { applyTableCommand } from '../shared/tableEdit';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
 const HIDE = Decoration.replace({});
@@ -378,8 +390,12 @@ class TableWidget extends WidgetType {
             requestAnimationFrame(() => layoutColumnResizers(wrap));
         }
 
-        attachRangeSelection(wrap, view);
+        // 本文から ↑↓ で表に入るときに、この表の DOM を探す目印（liveTableKeymap）
+        wrap.dataset.from = String(this.from);
+        attachRangeSelection(wrap, view, this.from, this.from + this.source.length);
         wrap.addEventListener('input', () => this.onInput(wrap, view));
+        wrap.addEventListener('paste', (e) => this.onPaste(e, wrap, view));
+        wrap.addEventListener('cut', (e) => this.onCut(e, wrap, view));
         wrap.addEventListener('keydown', (e) => this.onKeyDown(e, wrap, view));
         wrap.addEventListener('contextmenu', (e) => this.onContextMenu(e, wrap, view));
         /*
@@ -457,7 +473,7 @@ class TableWidget extends WidgetType {
 
         // パイプと改行はセルに入れられない（表のソースが壊れるため）
         const raw = cell.textContent ?? '';
-        const text = raw.replace(/[|\n]/g, '');
+        const text = raw.replace(/\n/g, '').replace(/(?<!\\)\|/g, '');
         if (text !== raw) {
             cell.textContent = text;
             placeCaretAtEnd(cell);
@@ -467,7 +483,8 @@ class TableWidget extends WidgetType {
     }
 
     private onKeyDown(e: KeyboardEvent, wrap: HTMLElement, view: EditorView): void {
-        if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && (e.key === 'a' || e.key === 'A')) {
             // セル → その行 → 表全体 → 文書全体、と押すたびに広げる
             e.preventDefault();
             selectAllStepInTable(wrap, view, this.from, this.source);
@@ -488,51 +505,367 @@ class TableWidget extends WidgetType {
             if (target) {
                 target.focus();
                 placeCaretAtEnd(target);
+            } else if (!e.shiftKey) {
+                // 最後のセルで Tab: 空の行を足してその最初のセルへ（Notion・Obsidian と同じ）
+                const last = cellPos(cells[i]);
+                const source = applyTableCommand(this.source, last, 'insertRowBelow');
+                if (source === null) return;
+                view.dispatch({
+                    changes: { from: this.from, to: this.from + this.source.length, insert: source },
+                    userEvent: 'input'
+                });
+                restoreRange(view, this.from, null, { row: last.row + 1, col: 0 });
             }
             return;
         }
         if (e.key === 'Escape') {
             e.preventDefault();
             view.focus();
+            return;
+        }
+
+        const api = rangeApis.get(wrap);
+        const cell = document.activeElement as HTMLElement | null;
+        if (!api || !cell || !wrap.contains(cell) || cell.contentEditable !== 'true') return;
+        const range = api.range();
+
+        const dir = ARROW_DIR[e.key];
+        if (dir && !e.altKey) {
+            this.onArrow(e, dir, mod, cell, range, wrap, view);
+            return;
+        }
+
+        if (range && (e.key === 'Backspace' || e.key === 'Delete') && !mod) {
+            e.preventDefault();
+            this.clearRange(range, view);
+            return;
+        }
+        if (range && e.key.length === 1 && !mod) {
+            // 文字を打ったら範囲は解除し、起点のセルの中身をその文字で置き換える（表計算ソフトと同じ）
+            api.clear();
+            const sel = window.getSelection();
+            const r = document.createRange();
+            r.selectNodeContents(cell);
+            sel?.removeAllRanges();
+            sel?.addRange(r);
         }
     }
+
+    /** 矢印キー。セル間の移動・表の出入り・範囲の伸縮（requirements.md §2.7）。 */
+    private onArrow(
+        e: KeyboardEvent,
+        dir: Direction,
+        mod: boolean,
+        cell: HTMLElement,
+        range: CellRange | null,
+        wrap: HTMLElement,
+        view: EditorView
+    ): void {
+        const api = rangeApis.get(wrap);
+        if (!api) return;
+        const shape = shapeOf(this.source);
+        const pos = cellPos(cell);
+
+        if (e.shiftKey) {
+            const vertical = dir === 'up' || dir === 'down';
+            // 横方向は、範囲がまだ無ければセル内の文字選択を優先する（端に来たときだけ隣のセルへ）
+            if (!vertical && !range && (mod || !caretAtCellEdge(cell, dir))) return;
+            e.preventDefault();
+            const base = range ?? { anchor: pos, focus: pos };
+            api.set(base.anchor, extendFocus(shape, base.focus, dir, mod));
+            return;
+        }
+
+        if (range) {
+            // 範囲を解除して、伸ばした側のセルから1つ動く
+            e.preventDefault();
+            api.clear();
+            const target =
+                dir === 'up' || dir === 'down'
+                    ? verticalTarget(shape, range.focus, dir)
+                    : extendFocus(shape, range.focus, dir, false);
+            this.moveTo(target, wrap, view);
+            return;
+        }
+
+        if (dir === 'left' || dir === 'right') return; // セルの端で隣のセルへ移るのはブラウザ既定
+        e.preventDefault();
+        this.moveTo(mod ? edgeCell(shape, pos, dir) : verticalTarget(shape, pos, dir), wrap, view);
+    }
+
+    /** セルへ、または表の直前 / 直後の行へフォーカスを移す。 */
+    private moveTo(target: CellPos | 'above' | 'below', wrap: HTMLElement, view: EditorView): void {
+        if (target === 'above' || target === 'below') {
+            const to = this.from + this.source.length;
+            const head = target === 'above' ? Math.max(0, this.from - 1) : Math.min(view.state.doc.length, to + 1);
+            view.focus();
+            view.dispatch({ selection: { anchor: head }, scrollIntoView: true });
+            return;
+        }
+        const el = cellElement(wrap, target);
+        if (!el) return;
+        el.focus();
+        placeCaretAtEnd(el);
+    }
+
+    /** 範囲のセルを空にし、作り直された表で同じ範囲を選び直す。 */
+    private clearRange(range: CellRange, view: EditorView): void {
+        const changes = clearCellsChanges(this.source, this.from, cellsInRect(range.anchor, range.focus));
+        if (changes.length > 0) view.dispatch({ changes, userEvent: 'delete' });
+        restoreRange(view, this.from, range);
+    }
+
+    /** ⌘X: 範囲をコピーと同じ形で載せてから空にする。範囲が無ければブラウザ既定。 */
+    private onCut(e: ClipboardEvent, wrap: HTMLElement, view: EditorView): void {
+        const range = rangeApis.get(wrap)?.range();
+        if (!range || !e.clipboardData) return;
+        e.preventDefault();
+        writeRangeToClipboard(e.clipboardData, wrap, view, range);
+        this.clearRange(range, view);
+    }
+
+    /**
+     * 貼り付け。タブ区切り・表計算ソフトの表・表の範囲コピーは格子としてセルへ流し込み、
+     * それ以外は1セルへ（改行は空白に、`|` はエスケープして）入れる。
+     */
+    private onPaste(e: ClipboardEvent, wrap: HTMLElement, view: EditorView): void {
+        const cd = e.clipboardData;
+        const cell = document.activeElement as HTMLElement | null;
+        if (!cd || !cell || !wrap.contains(cell) || cell.contentEditable !== 'true') return;
+        const text = cd.getData('text/plain');
+        const own = cd.getData(TABLE_CELLS_MIME);
+        const isGrid = own !== '' || text.includes('\t') || /<table/i.test(cd.getData('text/html'));
+
+        if (isGrid) {
+            e.preventDefault();
+            const range = rangeApis.get(wrap)?.range();
+            const start = range ? topLeft(range) : cellPos(cell);
+            const next = pasteGrid(this.source, start, parseClipboardGrid(own || text));
+            if (next !== this.source) {
+                view.dispatch({
+                    changes: { from: this.from, to: this.from + this.source.length, insert: next },
+                    userEvent: 'input.paste'
+                });
+            }
+            restoreRange(view, this.from, null, start);
+            return;
+        }
+
+        const clean = sanitizeCellText(text);
+        if (clean === text) return; // 普通の文字列はブラウザ既定の貼り付けに任せる
+        e.preventDefault();
+        document.execCommand('insertText', false, clean);
+    }
+}
+
+/** 矢印キー → 向き。 */
+const ARROW_DIR: Record<string, Direction | undefined> = {
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right'
+};
+
+/** 表の範囲コピー（⌘C / ⌘X）を、表のセルへ貼るときに格子として扱うための目印。 */
+const TABLE_CELLS_MIME = 'application/x-live-table-cells';
+
+/** セル範囲（起点と、伸ばした側）。 */
+interface CellRange {
+    anchor: CellPos;
+    focus: CellPos;
+}
+
+/** 表ごとの範囲選択の操作口（キー操作・切り取り・貼り付けから使う）。 */
+interface RangeApi {
+    /** 2セル以上の範囲があればそれを返す。 */
+    range(): CellRange | null;
+    /** 範囲を選ぶ（1セルなら範囲は無し）。 */
+    set(anchor: CellPos, focus: CellPos): void;
+    clear(): void;
+}
+
+const rangeApis = new WeakMap<HTMLElement, RangeApi>();
+
+function cellPos(cell: HTMLElement): CellPos {
+    return { row: Number(cell.dataset.row), col: Number(cell.dataset.col) };
+}
+
+function cellElement(wrap: HTMLElement, pos: CellPos): HTMLElement | null {
+    return wrap.querySelector<HTMLElement>(`[data-row="${pos.row}"][data-col="${pos.col}"]`);
+}
+
+function topLeft(range: CellRange): CellPos {
+    return {
+        row: Math.min(range.anchor.row, range.focus.row),
+        col: Math.min(range.anchor.col, range.focus.col)
+    };
+}
+
+/** キャレットがセルの端（その向きにそれ以上文字を選べない位置）にあるか。 */
+function caretAtCellEdge(cell: HTMLElement, dir: Direction): boolean {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !sel.focusNode || !cell.contains(sel.focusNode)) return true;
+    const r = document.createRange();
+    r.selectNodeContents(cell);
+    if (dir === 'right') r.setStart(sel.focusNode, sel.focusOffset);
+    else r.setEnd(sel.focusNode, sel.focusOffset);
+    return r.toString() === '';
+}
+
+/** 文書内でその位置から始まる表のウィジェット。 */
+function tableWrapAt(view: EditorView, from: number): HTMLElement | null {
+    return view.dom.querySelector<HTMLElement>(`.cm-live-table-wrap[data-from="${from}"]`);
+}
+
+/**
+ * 表を書き換えるとウィジェットは作り直される。新しい DOM で起点のセルへフォーカスを戻し、
+ * 範囲があれば選び直す（続けて Backspace やコピーができるように）。
+ */
+function restoreRange(view: EditorView, tableFrom: number, range: CellRange | null, at?: CellPos): void {
+    const wrap = tableWrapAt(view, tableFrom);
+    if (!wrap) return;
+    const target = range ? range.anchor : at;
+    const el = target ? cellElement(wrap, target) : null;
+    if (el) {
+        el.focus();
+        placeCaretAtEnd(el);
+    }
+    if (range) rangeApis.get(wrap)?.set(range.anchor, range.focus);
+}
+
+/** 範囲の生 Markdown をタブ / 改行区切りでクリップボードへ載せる（⌘C・⌘X 共通）。 */
+function writeRangeToClipboard(cd: DataTransfer, wrap: HTMLElement, view: EditorView, range: CellRange): void {
+    const rows: string[][] = [];
+    for (const el of editableCells(wrap)) {
+        const p = cellPos(el);
+        rows[p.row] = rows[p.row] ?? [];
+        // 描画後の文字ではなくソースの生 Markdown を載せる（requirements.md §4.5）。
+        // textContent だと装飾のあるセルは記法が落ち、フォーカス中のセルだけ生のまま残る。
+        rows[p.row][p.col] = rawOf(view, el);
+    }
+    const text = selectionToMarkdown(rows, cellsInRect(range.anchor, range.focus));
+    cd.setData('text/plain', text);
+    cd.setData(TABLE_CELLS_MIME, text);
+}
+
+/**
+ * 本文から ↑ / ↓ で、すぐ下 / 上の表に入る（requirements.md §2.7「矢印キー」）。
+ * 表はブロックウィジェットなので、CodeMirror の既定の移動は表を丸ごと飛ばしてしまう。
+ */
+export function enterAdjacentTable(view: EditorView, dir: 'up' | 'down'): boolean {
+    const sel = view.state.selection.main;
+    if (!sel.empty) return false;
+    const line = view.state.doc.lineAt(sel.head);
+    const n = line.number + (dir === 'down' ? 1 : -1);
+    if (n < 1 || n > view.state.doc.lines) return false;
+    const next = view.state.doc.line(n);
+    const table = scanCached(view.state.doc.toString()).find(
+        (r) => r.kind === 'table' && (dir === 'down' ? r.revealFrom === next.from : r.revealTo === next.to)
+    );
+    if (!table) return false;
+    const wrap = tableWrapAt(view, table.revealFrom);
+    if (!wrap) return false;
+    const cells = editableCells(wrap);
+    const lastRow = Math.max(...cells.map((c) => Number(c.dataset.row)));
+    const target = cellElement(wrap, { row: dir === 'down' ? 0 : lastRow, col: 0 });
+    if (!target) return false;
+    target.focus();
+    placeCaretAtEnd(target);
+    return true;
 }
 
 /**
  * セルをまたぐ範囲選択を付ける。
  *
  * セルは個別の contenteditable なので、ブラウザの選択は1セルで止まる。
- * ドラッグ（と Shift+クリック）でアンカー〜フォーカスの矩形を持ち、
+ * ドラッグ（と Shift+クリック・Shift+矢印）でアンカー〜フォーカスの矩形を持ち、
  * 選択セルにクラスを付けてハイライトし、コピーはタブ/改行区切りで書き出す。
+ * セルから表の外の本文へドラッグしたら、本文の選択（CodeMirror）に切り替える。
  */
-function attachRangeSelection(wrap: HTMLElement, view: EditorView): void {
+function attachRangeSelection(wrap: HTMLElement, view: EditorView, tableFrom: number, tableTo: number): void {
     let anchor: CellPos | null = null;
+    let focus: CellPos | null = null;
     let dragging = false;
+    /** ドラッグが表の外へ出て、本文の選択に切り替わったか。 */
+    let outside = false;
 
     const cellAt = (target: EventTarget | null): HTMLElement | null =>
         (target as HTMLElement | null)?.closest<HTMLElement>('[contenteditable="true"]') ?? null;
 
-    const posOf = (cell: HTMLElement): CellPos => ({
-        row: Number(cell.dataset.row),
-        col: Number(cell.dataset.col)
-    });
+    const selectedEls = (): HTMLElement[] => [...wrap.querySelectorAll<HTMLElement>('.cm-live-cell-selected')];
 
     const clear = (): void => {
-        for (const el of wrap.querySelectorAll('.cm-live-cell-selected')) {
-            el.classList.remove('cm-live-cell-selected');
-        }
+        for (const el of selectedEls()) el.classList.remove('cm-live-cell-selected');
     };
 
-    const highlight = (focus: CellPos): void => {
+    const highlight = (to: CellPos): void => {
         clear();
+        focus = to;
         if (!anchor) return;
-        const cells = cellsInRect(anchor, focus);
+        const cells = cellsInRect(anchor, to);
         if (cells.length <= 1) return; // 単一セルは通常のテキスト選択に任せる
-        for (const c of cells) {
-            wrap
-                .querySelector(`[data-row="${c.row}"][data-col="${c.col}"]`)
-                ?.classList.add('cm-live-cell-selected');
+        // 崩れたブラウザ選択は捨てて矩形選択に切り替える
+        window.getSelection()?.removeAllRanges();
+        for (const c of cells) cellElement(wrap, c)?.classList.add('cm-live-cell-selected');
+    };
+
+    rangeApis.set(wrap, {
+        range(): CellRange | null {
+            const els = selectedEls();
+            if (els.length === 0) return null;
+            // ドラッグ・キー操作で選んだ範囲はそのまま。⌘A・メニューで付いた範囲は外接矩形にする
+            if (anchor && focus && cellsInRect(anchor, focus).length === els.length) return { anchor, focus };
+            const ps = els.map(cellPos);
+            const rows = ps.map((p) => p.row);
+            const cols = ps.map((p) => p.col);
+            return {
+                anchor: { row: Math.min(...rows), col: Math.min(...cols) },
+                focus: { row: Math.max(...rows), col: Math.max(...cols) }
+            };
+        },
+        set(a: CellPos, f: CellPos): void {
+            anchor = a;
+            highlight(f);
+        },
+        clear(): void {
+            clear();
+            anchor = null;
+            focus = null;
         }
+    });
+
+    /** 表の外へ出たドラッグを、表の端からの本文の選択として追う。 */
+    const onDocMove = (e: MouseEvent): void => {
+        if (!dragging) return;
+        if (e.buttons === 0) {
+            stopDrag();
+            return;
+        }
+        if (wrap.contains(e.target as Node)) return;
+        const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+        if (pos === null) return;
+        if (!outside) {
+            outside = true;
+            clear();
+        }
+        // セル内のブラウザ選択が伸びないように毎回捨てる
+        window.getSelection()?.removeAllRanges();
+        const below = pos >= tableTo;
+        view.dispatch({ selection: { anchor: below ? tableFrom : tableTo, head: pos } });
+    };
+    const stopDrag = (): void => {
+        if (outside) {
+            // ボタンを押している間はセルがフォーカスを手放さないので、離してから本文へ移す
+            // （セルに残ると ⌘C がセルへ行き、本文の選択がコピーされない）
+            const sel = view.state.selection.main;
+            (document.activeElement as HTMLElement | null)?.blur();
+            view.focus();
+            view.dispatch({ selection: { anchor: sel.anchor, head: sel.head } });
+        }
+        dragging = false;
+        outside = false;
+        document.removeEventListener('mousemove', onDocMove);
+        document.removeEventListener('mouseup', stopDrag);
     };
 
     wrap.addEventListener('mousedown', (e) => {
@@ -541,52 +874,43 @@ function attachRangeSelection(wrap: HTMLElement, view: EditorView): void {
         if (!cell) return;
         if (e.shiftKey && anchor) {
             e.preventDefault();
-            highlight(posOf(cell));
+            highlight(cellPos(cell));
             return;
         }
-        anchor = posOf(cell);
+        anchor = cellPos(cell);
+        focus = anchor;
         dragging = true;
         clear();
+        // ドラッグ中だけ document を見る（表の外へ出たかを知るため）。mouseup で必ず外す
+        document.addEventListener('mousemove', onDocMove);
+        document.addEventListener('mouseup', stopDrag);
     });
 
     wrap.addEventListener('mouseover', (e) => {
-        // ウィジェットは作り直されるので window へリスナーを足さない（漏れる）。
-        // ボタンが離されていたらドラッグ終了とみなす。
         if (e.buttons === 0) dragging = false;
-        if (!dragging) return;
+        if (!dragging || outside) return;
         const cell = cellAt(e.target);
         if (!cell) return;
-        const focus = posOf(cell);
-        if (anchor && (focus.row !== anchor.row || focus.col !== anchor.col)) {
-            // セルをまたいだ時点で、崩れたブラウザ選択は捨てて矩形選択に切り替える
-            window.getSelection()?.removeAllRanges();
-        }
-        highlight(focus);
-    });
-
-    wrap.addEventListener('mouseup', () => {
-        dragging = false;
+        highlight(cellPos(cell));
     });
 
     wrap.addEventListener('copy', (e) => {
-        const selected = [...wrap.querySelectorAll<HTMLElement>('.cm-live-cell-selected')];
-        if (selected.length === 0) return; // 単一セルは既定のコピーに任せる
-        const rows: string[][] = [];
-        for (const el of wrap.querySelectorAll<HTMLElement>('[contenteditable="true"]')) {
-            const r = Number(el.dataset.row);
-            const c = Number(el.dataset.col);
-            rows[r] = rows[r] ?? [];
-            // 描画後の文字ではなくソースの生 Markdown を載せる（requirements.md §4.5）。
-            // textContent だと装飾のあるセルは記法が落ち、フォーカス中のセルだけ生のまま残る。
-            rows[r][c] = rawOf(view, el);
-        }
-        const cells = selected.map(posOf);
-        e.clipboardData?.setData('text/plain', selectionToMarkdown(rows, cells));
+        const range = rangeApis.get(wrap)?.range();
+        if (!range || !e.clipboardData) return; // 単一セルは既定のコピーに任せる
+        writeRangeToClipboard(e.clipboardData, wrap, view, range);
         e.preventDefault();
     });
 
     wrap.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') clear();
+    });
+
+    // フォーカスが表の外へ出たら（本文をクリック等）範囲のハイライトを消す
+    wrap.addEventListener('focusout', (e) => {
+        const next = e.relatedTarget as Node | null;
+        if (next && wrap.contains(next)) return;
+        if (document.querySelector('.cm-live-table-menu')) return; // 右クリックメニューの操作中は残す
+        clear();
     });
 }
 
