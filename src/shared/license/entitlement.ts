@@ -26,7 +26,7 @@ import {
  * どれか 1 つでも欠けたまま true にすると、「クレジット行が出るのに消す手段が無い」
  * という最悪の状態で出荷される。
  */
-export const MONETIZATION_ENABLED = false;
+export const MONETIZATION_ENABLED = true;
 
 /** 失効の何秒前から更新を試み始めるか（7 日）。 */
 export const REFRESH_BEFORE_EXPIRY_SEC = 7 * 86_400;
