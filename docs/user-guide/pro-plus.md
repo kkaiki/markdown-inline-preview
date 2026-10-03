@@ -2,7 +2,7 @@
 
 # PRO+ (one-time purchase)
 
-A one-time purchase of **¥100 / $1 / €1** unlocks these five features.
+A one-time purchase of **¥150 / $1** unlocks these five features.
 It's not a subscription. There's no machine limit.
 
 | Feature | Command / Setting |

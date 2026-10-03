@@ -27,7 +27,7 @@ Free exports include a small credit line at the bottom of each page:
                      Made with Markdown Inline Preview
 ```
 
-This can be removed with **PRO+** (a one-time purchase: **¥100 / $1 / €1**). After purchase,
+This can be removed with **PRO+** (a one-time purchase: **¥150 / $1**). After purchase,
 you can export without the credit line on any number of machines. PRO+ also includes PDF layout
 options (paper size, margins, page numbers, etc.), Word export, batch export, and Marp slide
 export. See [pro-plus.md](./pro-plus.md) for details.

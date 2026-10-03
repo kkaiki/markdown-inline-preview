@@ -30,7 +30,7 @@ export const FEATURE_BATCH_EXPORT = 'batch-export';
 export const FEATURE_MARP_EXPORT = 'marp-export';
 
 /**
- * PRO+（買い切り ¥100 / $1 / €1）で解放される機能。サーバー
+ * PRO+（買い切り ¥150 / $1）で解放される機能。サーバー
  * （ipreview-license/lib/licenseToken.ts の同名定数）と同じ文字列・同じ並びにする契約。
  */
 export const PRO_PLUS_FEATURES: readonly string[] = [

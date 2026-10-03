@@ -118,7 +118,7 @@ and **only the syntax under the cursor** expands into source form.
 
 ### PRO+ (one-time purchase)
 
-A single one-time purchase — **¥100 / $1 / €1**, no subscription, any number of machines.
+A single one-time purchase — **¥150 / $1**, no subscription, any number of machines.
 Everything above stays free. PRO+ adds:
 
 - **No credit line** on exported PDFs

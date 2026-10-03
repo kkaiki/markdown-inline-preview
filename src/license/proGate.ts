@@ -24,7 +24,7 @@ export async function showProLockedDialog(featureLabel: string, continueLabel?: 
         {
             modal: true,
             detail: vscode.l10n.t(
-                'PRO+ is a one-time purchase (¥100 / $1 / €1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.'
+                'PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.'
             )
         },
         getLabel,
