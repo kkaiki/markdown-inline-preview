@@ -50,11 +50,17 @@ export function registerSpreadsheetPasteProvider(context: vscode.ExtensionContex
     // 貼り付けプロバイダは VS Code 1.97 で確定した API。古い本体では登録しない（通常の貼り付けのまま）
     // （DocumentDropOrPasteEditKind も同じ版からなので、存在を確かめてから触る）
     if (typeof vscode.languages.registerDocumentPasteEditProvider !== 'function') return;
-    const kind = vscode.DocumentDropOrPasteEditKind.Empty.append('markdown', 'table');
-    context.subscriptions.push(
-        vscode.languages.registerDocumentPasteEditProvider({ language: 'markdown' }, createProvider(kind), {
-            providedPasteEditKinds: [kind],
-            pasteMimeTypes: ['text/plain', 'text/html']
-        })
-    );
+    // 1.96 以前でも関数は存在するが、提案段階の API なので**呼ぶと例外になる**。
+    // ここで落ちると activate 全体が失敗して拡張が丸ごと使えなくなるので、登録できなければ黙ってやめる。
+    try {
+        const kind = vscode.DocumentDropOrPasteEditKind.Empty.append('markdown', 'table');
+        context.subscriptions.push(
+            vscode.languages.registerDocumentPasteEditProvider({ language: 'markdown' }, createProvider(kind), {
+                providedPasteEditKinds: [kind],
+                pasteMimeTypes: ['text/plain', 'text/html']
+            })
+        );
+    } catch {
+        // 古い本体: 表への貼り付け変換だけ無効（通常の貼り付けはそのまま動く）
+    }
 }
