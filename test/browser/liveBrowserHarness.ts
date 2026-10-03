@@ -116,6 +116,8 @@ export interface LiveSettings {
     locale?: string;
     /** PDF ボタンに PRO+ バッジを出すか（host が「販売中かつ未購入」のときだけ true にする）。 */
     showProBadge?: boolean;
+    /** ツールバーに Word 書き出しボタンを出すか（host が「PRO+ 販売中」のときだけ true にする）。 */
+    proPlusOnSale?: boolean;
 }
 
 /**

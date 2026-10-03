@@ -59,6 +59,9 @@ function linkIcon(): SVGElement {
 }
 
 /** ツールバーのボタン定義。 */
+/** ホスト側で実行するコマンド。 */
+type HostCommand = 'exportPdf' | 'exportDocx' | 'exportMarp';
+
 interface ToolbarButton {
     /** 表示ラベル。 */
     label: string;
@@ -73,7 +76,7 @@ interface ToolbarButton {
     /** モード切替なら遷移先。 */
     mode?: 'raw';
     /** その他のホスト側コマンド。 */
-    command?: 'exportPdf';
+    command?: HostCommand;
 }
 
 const BUTTONS: ToolbarButton[] = [
@@ -103,6 +106,15 @@ const EXTRAS: ToolbarButton[] = [
     { label: 'PDF', name: 'Export to PDF (free)', command: 'exportPdf' }
 ];
 
+/**
+ * PRO+ の Word / スライド（Marp）書き出し。PRO+ の販売中（`proPlusOnSale`）だけ PDF の右隣に出す。
+ * 未購入なら「PRO+」バッジとツールチップで購入が要ることを伝える（押すと host が購入案内を出す）。
+ */
+const PRO_BUTTONS: ToolbarButton[] = [
+    { label: 'Word', name: 'Export to Word (.docx)', command: 'exportDocx' },
+    { label: 'Slides', name: 'Export as Slides (Marp PDF)', command: 'exportMarp' }
+];
+
 /** 右端に固定するモード系。 */
 const MODES: ToolbarButton[] = [
     { label: 'Raw', name: 'Open in Raw mode', mode: 'raw' }
@@ -124,12 +136,14 @@ export interface ToolbarHandlers {
     /** 別モードで開き直す。 */
     switchMode(mode: 'raw'): void;
     /** ホスト側のコマンドを実行する。 */
-    runCommand(command: 'exportPdf'): void;
+    runCommand(command: HostCommand): void;
 }
 
 export interface ToolbarOptions {
     /** PDF ボタンの右上に PRO+ バッジを出す（クレジット行の除去が有料であることの示唆）。 */
     showProBadge?: boolean;
+    /** PRO+ が販売中か。true のとき PDF の隣に Word ボタンを出す。 */
+    proPlusOnSale?: boolean;
 }
 
 /** ツールバーの DOM を作って `parent` の先頭に差し込む。 */
@@ -162,7 +176,8 @@ export function mountLiveToolbar(
     const extras = document.createElement('div');
     extras.className = 'cm-live-toolbar-group';
     extras.appendChild(makeZoomControl(view, tip));
-    for (const b of EXTRAS) {
+    const extraButtons = options.proPlusOnSale === true ? [...EXTRAS, ...PRO_BUTTONS] : EXTRAS;
+    for (const b of extraButtons) {
         extras.appendChild(makeButton(b, view, handlers, tip, options));
     }
     scroll.appendChild(extras);
@@ -366,7 +381,7 @@ function makeButton(
     if (b.icon) el.appendChild(b.icon());
     else el.textContent = b.label;
     // PDF の書き出し自体は無料。バッジは「クレジット行の除去が有料」の示唆で、ツールチップで併記する
-    const pro = b.command === 'exportPdf' && options.showProBadge === true;
+    const pro = b.command !== undefined && options.showProBadge === true;
     if (pro) {
         el.classList.add('cm-live-toolbar-button-pro');
         const badge = document.createElement('span');
@@ -379,7 +394,12 @@ function makeButton(
     if (b.format) el.dataset.format = b.format;
     if (b.mode) el.dataset.mode = b.mode;
     if (b.command) el.dataset.command = b.command;
-    tip.attach(el, t(pro ? 'Export to PDF (free; PRO+ removes the credit line)' : b.name), shortcutOf(b));
+    const tipName = !pro
+        ? b.name
+        : b.command === 'exportPdf'
+          ? 'Export to PDF (free; PRO+ removes the credit line)'
+          : `${b.name} (PRO+: purchase required)`;
+    tip.attach(el, t(tipName), shortcutOf(b));
     // ボタンを押してもエディタのフォーカス・選択を失わないようにする
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', () => {

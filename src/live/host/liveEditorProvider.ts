@@ -498,7 +498,8 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                     enableSlashMenu: vscode.workspace
                         .getConfiguration('markdownInline')
                         .get<boolean>('live.enableSlashMenu', true),
-                    showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED })
+                    showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED }),
+                    proPlusOnSale: MONETIZATION_ENABLED
                 }
             });
         };
@@ -518,6 +519,14 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (msg.type === 'exportPdf') {
                 await exportPdf(document, extensionPath);
+                return;
+            }
+            if (msg.type === 'exportMarp') {
+                await exportMarp(document, extensionPath);
+                return;
+            }
+            if (msg.type === 'exportDocx') {
+                await exportDocx(document, extensionPath);
                 return;
             }
             if (msg.type === 'switchMode') {
