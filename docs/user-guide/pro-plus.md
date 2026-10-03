@@ -75,7 +75,7 @@ Exports your open Markdown to `<filename>.slides.pdf` (one page per slide, 16:9 
 
 | Command | Action |
 |---|---|
-| `Get PRO+ (one-time purchase)` | Opens your browser to the purchase page (also available from the "PRO+" link in the status bar) |
+| `Get PRO+ (one-time purchase)` | Opens your browser: sign in with Google, then pay (also available from the "PRO+" link in the status bar). Checkout uses your Google email, so you can restore the purchase later with the same account |
 | `Enter License Key` | Paste your license key (shown at purchase) |
 | `Restore Purchase (sign in with Google)` | Restore your purchase on another PC or after reinstalling |
 
