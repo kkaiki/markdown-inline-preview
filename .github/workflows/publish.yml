@@ -82,6 +82,9 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    # Release を作るには contents: write が要る（既定の GITHUB_TOKEN は読み取りのみで 403 になる）
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout code
