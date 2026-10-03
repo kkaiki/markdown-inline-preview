@@ -105,6 +105,10 @@ describe('ライセンスサーバーへの問い合わせ', () => {
             assert.deepStrictEqual(outcome, { kind: 'invalid-request' });
         });
 
+        it('429（レート制限）は「キー不正」ではなく判定不能として扱う', async () => {
+            assert.strictEqual((await call(respondWith({ error: 'too_many_requests' }, 429))).kind, 'unavailable');
+        });
+
         it('404 も invalid-request', async () => {
             assert.strictEqual((await call(respondWith({}, 404))).kind, 'invalid-request');
         });

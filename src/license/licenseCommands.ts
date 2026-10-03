@@ -15,6 +15,7 @@ import { setContextKey } from '../contextKeys';
 import {
     buildPurchaseUrl,
     buildRestoreUrl,
+    generateNonce,
     parseActivationUri
 } from '../shared/license/activationUri';
 import { fetchEntitlement } from '../shared/license/client';
@@ -42,11 +43,6 @@ function baseUrl(): string {
         .get<string>('license.serverUrl', '')
         .trim();
     return configured || DEFAULT_BASE_URL;
-}
-
-/** 購入・復元 URL に付ける使い捨て値。 */
-function newNonce(): string {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 /**
@@ -162,7 +158,7 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
         await openInBrowser(
             buildPurchaseUrl({
                 baseUrl: baseUrl(),
-                nonce: newNonce(),
+                nonce: generateNonce(),
                 uriScheme: vscode.env.uriScheme,
                 language: vscode.env.language
             })
@@ -194,7 +190,7 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             await openInBrowser(
                 buildRestoreUrl({
                     baseUrl: baseUrl(),
-                    nonce: newNonce(),
+                    nonce: generateNonce(),
                     uriScheme: vscode.env.uriScheme
                 })
             );
@@ -204,7 +200,13 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
             handleUri(uri) {
                 const parsed = parseActivationUri({ path: uri.path, query: uri.query });
                 if (!parsed) return; // 知らない deep link は黙って無視する
-                void acceptToken(store, parsed.token).then(() => refreshStatusBar());
+                const { key } = parsed;
+                void acceptToken(store, parsed.token)
+                    .then(async (accepted) => {
+                        // 検証に通ったときだけキーも覚える（30 日後の静かな更新に使う）
+                        if (accepted && key) await store.storeLicenseKey(key);
+                    })
+                    .then(() => refreshStatusBar());
             }
         }),
 

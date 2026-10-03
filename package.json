@@ -1080,6 +1080,7 @@
         "markdownInline.license.serverUrl": {
           "type": "string",
           "default": "",
+          "scope": "machine",
           "description": "Advanced: override the license server URL. Leave empty to use the default."
         },
         "markdownInline.export.browserPath": {

@@ -54,6 +54,8 @@ export async function fetchEntitlement(
         return { kind: 'unavailable' };
     }
 
+    // 429 は混み合っているだけ。キーの問題ではないので、保存済みトークンを維持する。
+    if (response.status === 429) return { kind: 'unavailable' };
     // 4xx は「こちらの送り方が悪い」。再試行しても直らないので区別する。
     if (response.status >= 400 && response.status < 500) return { kind: 'invalid-request' };
     if (response.status !== 200) return { kind: 'unavailable' };

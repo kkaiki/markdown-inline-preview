@@ -8,6 +8,8 @@
  * deep link は外部から来る文字列なので、想定した path / query 以外は必ず null を返す。
  */
 
+import { randomBytes } from 'crypto';
+
 /** `package.json` の `publisher`.`name`。deep link のホスト部になる。 */
 export const EXTENSION_ID = 'markdown-inline-preview.markdown-inline-preview';
 
@@ -55,19 +57,35 @@ export function buildRestoreUrl(options: RestoreUrlOptions): string {
  * サーバーがブラウザから拡張へ戻すための deep link。
  * サーバー側の実装と食い違わないよう、組み立ての定義をここに置いて共有する。
  */
-export function buildActivationRedirect(options: { uriScheme: string; token: string }): string {
-    return `${options.uriScheme}://${EXTENSION_ID}/activate?token=${encodeURIComponent(options.token)}`;
+export function buildActivationRedirect(options: { uriScheme: string; token: string; key?: string }): string {
+    const base = `${options.uriScheme}://${EXTENSION_ID}/activate?token=${encodeURIComponent(options.token)}`;
+    // key は 30 日後の静かな更新に要る（トークンだけでは取り直せない）
+    return options.key ? `${base}&key=${encodeURIComponent(options.key)}` : base;
+}
+
+/** `IPVW-XXXX-XXXX-XXXX`（サーバーの `isLicenseKeyShape` と同じ形）。 */
+const LICENSE_KEY_SHAPE = /^IPVW(-[0-9A-F]{4}){3}$/;
+
+/**
+ * 購入・復元 URL に付ける使い捨て値。128bit の暗号論的乱数。
+ * nonce だけで購入のライセンスキーが見えるページがあるので、推測できる値にしてはいけない。
+ */
+export function generateNonce(random: (size: number) => Buffer = randomBytes): string {
+    return random(16).toString('base64url');
 }
 
 /**
  * `vscode.window.registerUriHandler` が受け取った URI を解釈する。
  * `/activate?token=…` 以外は null（無視する）。
  */
-export function parseActivationUri(uri: { path: string; query: string }): { token: string } | null {
+export function parseActivationUri(uri: { path: string; query: string }): { token: string; key?: string } | null {
     if (uri.path.replace(/^\/+/, '') !== 'activate') return null;
 
-    const token = new URLSearchParams(uri.query).get('token');
+    const params = new URLSearchParams(uri.query);
+    const token = params.get('token');
     if (!token) return null;
 
-    return { token };
+    const key = params.get('key');
+    // 形の違う key は捨てる（外から来る文字列を SecretStorage に入れない）
+    return key && LICENSE_KEY_SHAPE.test(key) ? { token, key } : { token };
 }

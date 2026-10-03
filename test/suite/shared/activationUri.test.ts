@@ -14,6 +14,7 @@ import {
     buildRestoreUrl,
     buildActivationRedirect,
     parseActivationUri,
+    generateNonce,
     EXTENSION_ID
 } from '../../../src/shared/license/activationUri';
 
@@ -113,4 +114,49 @@ describe('deep link の解釈', () => {
             assert.strictEqual(parseActivationUri(input), null);
         });
     }
+});
+
+describe('deep link でライセンスキーも受け取る（30 日後の静かな更新に必要）', () => {
+    const KEY = 'IPVW-A1B2-C3D4-E5F6';
+
+    it('key を付けて組み立てると &key=… が載る', () => {
+        const link = buildActivationRedirect({ uriScheme: 'vscode', token: 'tok.sig', key: KEY });
+        assert.strictEqual(link, `vscode://${EXTENSION_ID}/activate?token=tok.sig&key=${KEY}`);
+    });
+
+    it('key を渡さなければ従来どおり token だけ', () => {
+        const link = buildActivationRedirect({ uriScheme: 'vscode', token: 'tok.sig' });
+        assert.ok(!link.includes('key='), link);
+    });
+
+    it('token と key の両方を取り出せる', () => {
+        assert.deepStrictEqual(
+            parseActivationUri({ path: '/activate', query: `token=abc.def&key=${KEY}` }),
+            { token: 'abc.def', key: KEY }
+        );
+    });
+
+    it('形式が違う key は捨てる（token だけ受け付ける）', () => {
+        assert.deepStrictEqual(
+            parseActivationUri({ path: '/activate', query: 'token=abc.def&key=not-a-key' }),
+            { token: 'abc.def' }
+        );
+    });
+});
+
+describe('nonce の生成', () => {
+    it('呼ぶたびに違う値になる', () => {
+        const seen = new Set(Array.from({ length: 200 }, () => generateNonce()));
+        assert.strictEqual(seen.size, 200);
+    });
+
+    it('URL にそのまま載せられる文字だけで、128bit 以上のエントロピーがある', () => {
+        const nonce = generateNonce();
+        assert.match(nonce, /^[A-Za-z0-9_-]+$/);
+        assert.ok(Buffer.from(nonce, 'base64url').length >= 16, nonce);
+    });
+
+    it('乱数源は注入でき、その値から作られる（Math.random や時刻に頼らない）', () => {
+        assert.strictEqual(generateNonce(() => Buffer.alloc(16, 0xff)), '_____________________w');
+    });
 });
