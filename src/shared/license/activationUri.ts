@@ -29,9 +29,14 @@ export interface PurchaseUrlOptions {
     language: string;
 }
 
-/** 購入ページ（`/buy`）の URL。ブラウザで開く。 */
+/**
+ * 購入の入口の URL。ブラウザで開く。
+ * `/buy` ではなくホームページ（`/`）を開く。`/buy` は未ログインだと Google ログインへ直送するので、
+ * 開いた直後にログインを求められてしまう。ホームの購入ボタンを押して初めてログインに進む。
+ * nonce と uri_scheme はホームが購入ボタンへ引き継ぐ。
+ */
 export function buildPurchaseUrl(options: PurchaseUrlOptions): string {
-    const url = joinUrl(options.baseUrl, 'buy');
+    const url = joinUrl(options.baseUrl, '');
     url.searchParams.set('nonce', options.nonce);
     url.searchParams.set('uri_scheme', options.uriScheme);
     url.searchParams.set('lang', options.language);

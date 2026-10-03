@@ -21,12 +21,12 @@ import {
 const BASE = 'https://ipreview.app';
 
 describe('購入・復元 URL の組み立て', () => {
-    it('購入 URL に nonce・URI スキーム・言語が載る', () => {
+    it('購入 URL はホームページ（/）を指し、nonce・URI スキーム・言語が載る', () => {
         const url = new URL(buildPurchaseUrl({
             baseUrl: BASE, nonce: 'n-123', uriScheme: 'vscode', language: 'ja'
         }));
 
-        assert.strictEqual(url.origin + url.pathname, 'https://ipreview.app/buy');
+        assert.strictEqual(url.origin + url.pathname, 'https://ipreview.app/');
         assert.strictEqual(url.searchParams.get('nonce'), 'n-123');
         assert.strictEqual(url.searchParams.get('uri_scheme'), 'vscode');
         assert.strictEqual(url.searchParams.get('lang'), 'ja');
@@ -43,7 +43,7 @@ describe('購入・復元 URL の組み立て', () => {
         const url = buildPurchaseUrl({
             baseUrl: 'https://ipreview.app/', nonce: 'n', uriScheme: 'vscode', language: 'en'
         });
-        assert.ok(url.startsWith('https://ipreview.app/buy?'), url);
+        assert.ok(url.startsWith('https://ipreview.app/?'), url);
     });
 
     it('nonce に URL 予約文字が入ってもエスケープされる', () => {
