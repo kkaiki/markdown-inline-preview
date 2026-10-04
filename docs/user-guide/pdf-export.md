@@ -61,6 +61,5 @@ Yes. Your license is stored locally and does not require the network to verify.
 It auto-updates in the background every 30 days, but even if the update fails, export keeps working.
 
 **Can I get a refund?**
-Yes, full refund with no questions asked. Contact the support link on the purchase page.
-After a refund, the credit line appears again and PRO+ features stop working, but **the
-extension itself stays free and usable**.
+No. PRO+ is a digital product, so purchases are not refundable. Please try the free PDF export
+(with the credit line) before you buy. **The extension itself stays free and usable** either way.
