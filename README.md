@@ -57,6 +57,8 @@ Raw mode keeps full Markdown syntax visible and adds editing helpers on top.
 - **Format** column widths (CJK-aware width calculation)
 - **Cell navigation** — `Cmd+←/→`, arrow keys
 - **Smart select all** — line → document; in tables cell → row → table → document (`Cmd+A`)
+- **Line break in a cell** (Live) — `Shift+Enter` inserts `<br>`, shown as a line break when the cell is not focused
+- **Select cells** (Live) — drag, `Shift`+arrows, or `Cmd+Shift`+arrows to the row / column edge, then copy as raw Markdown
 - **Inline wrap preview** — `↳` hint at line end + hover popup
 
 ### Headings, code & decorations

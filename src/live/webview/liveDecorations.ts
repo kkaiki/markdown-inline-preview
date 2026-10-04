@@ -37,6 +37,7 @@ import {
     type Direction
 } from '../shared/tableGrid';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
+import { keepCopyableSelection } from './tableCopySelection';
 import { applyTableCommand } from '../shared/tableEdit';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
@@ -482,6 +483,13 @@ class TableWidget extends WidgetType {
         view.dispatch({ changes: { from, to, insert: text }, userEvent: 'input' });
     }
 
+    /** 編集中のセルのキャレット位置へ `<br>` を入れる（input 経由でソースへ反映）。 */
+    private insertCellBreak(wrap: HTMLElement): void {
+        const cell = document.activeElement as HTMLElement | null;
+        if (!cell || !wrap.contains(cell) || cell.contentEditable !== 'true') return;
+        document.execCommand('insertText', false, '<br>');
+    }
+
     private onKeyDown(e: KeyboardEvent, wrap: HTMLElement, view: EditorView): void {
         const mod = e.metaKey || e.ctrlKey;
         if (mod && (e.key === 'a' || e.key === 'A')) {
@@ -491,8 +499,9 @@ class TableWidget extends WidgetType {
             return;
         }
         if (e.key === 'Enter') {
-            // セル内に改行は入れない（表を壊す）
             e.preventDefault();
+            // 生の改行は表を壊すので入れない。Shift+Enter だけ `<br>` でセル内改行する。
+            if (e.shiftKey && !mod) this.insertCellBreak(wrap);
             return;
         }
         if (e.key === 'Tab') {
@@ -568,8 +577,8 @@ class TableWidget extends WidgetType {
 
         if (e.shiftKey) {
             const vertical = dir === 'up' || dir === 'down';
-            // 横方向は、範囲がまだ無ければセル内の文字選択を優先する（端に来たときだけ隣のセルへ）
-            if (!vertical && !range && (mod || !caretAtCellEdge(cell, dir))) return;
+            // 横方向は、範囲がまだ無ければセル内の文字選択を優先する（端に来たときだけ隣のセルへ。⌘ でも同じ）
+            if (!vertical && !range && !caretAtCellEdge(cell, dir)) return;
             e.preventDefault();
             const base = range ?? { anchor: pos, focus: pos };
             api.set(base.anchor, extendFocus(shape, base.focus, dir, mod));
@@ -804,9 +813,9 @@ function attachRangeSelection(wrap: HTMLElement, view: EditorView, tableFrom: nu
         if (!anchor) return;
         const cells = cellsInRect(anchor, to);
         if (cells.length <= 1) return; // 単一セルは通常のテキスト選択に任せる
-        // 崩れたブラウザ選択は捨てて矩形選択に切り替える
-        window.getSelection()?.removeAllRanges();
         for (const c of cells) cellElement(wrap, c)?.classList.add('cm-live-cell-selected');
+        // 崩れたブラウザ選択は捨てて、コピー可能な選択に置き換える
+        keepCopyableSelection(wrap);
     };
 
     rangeApis.set(wrap, {
@@ -861,6 +870,10 @@ function attachRangeSelection(wrap: HTMLElement, view: EditorView, tableFrom: nu
             (document.activeElement as HTMLElement | null)?.blur();
             view.focus();
             view.dispatch({ selection: { anchor: sel.anchor, head: sel.head } });
+        }
+        else if (selectedEls().length > 1) {
+            // ドラッグ中にブラウザが選択を伸ばし直していることがあるので、離したところで整える
+            keepCopyableSelection(wrap);
         }
         dragging = false;
         outside = false;
@@ -925,6 +938,17 @@ function rawOf(view: EditorView, cell: HTMLElement): string {
 /** セルにインライン記法を描画する（記法文字は隠す）。 */
 function renderCell(cell: HTMLElement, raw: string): void {
     cell.textContent = '';
+    // `<br>` はセル内の改行。区切って描画し、間に実 <br> を挟む（タグ文字は見せない）
+    raw.split(CELL_BREAK).forEach((part, i) => {
+        if (i > 0) cell.appendChild(document.createElement('br'));
+        renderCellPart(cell, part);
+    });
+}
+
+/** セル内改行のタグ（`<br>` `<br/>` `<br />`）。 */
+const CELL_BREAK = /<br\s*\/?>/i;
+
+function renderCellPart(cell: HTMLElement, raw: string): void {
     for (const seg of inlineSegments(raw)) {
         let node: Node;
         if (seg.classes === '') {
@@ -978,6 +1002,7 @@ function selectAllStepInTable(
     // 段階2 → 表全体
     if (selectedRows.size === 1) {
         for (const el of cells) el.classList.add('cm-live-cell-selected');
+        keepCopyableSelection(wrap);
         return;
     }
     // 段階1 → セルの中身が既に全選択なら、その行へ
@@ -988,10 +1013,10 @@ function selectAllStepInTable(
         sel.toString().length > 0 &&
         sel.toString() === (cell.textContent ?? '');
     if (cell && cellFullySelected) {
-        sel?.removeAllRanges();
         for (const el of cells) {
             if (el.dataset.row === cell.dataset.row) el.classList.add('cm-live-cell-selected');
         }
+        keepCopyableSelection(wrap);
         return;
     }
     // 最初は「そのセルを全部」

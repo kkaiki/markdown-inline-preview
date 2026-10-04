@@ -74,6 +74,9 @@ Windows supports both Notion's `Ctrl+Shift+Number` and the traditional `Alt+Ctrl
 | Move to line end (smart) | `⌘→` | `End` | ✅ | ❌ |
 | Select to line start | `⇧⌘←` | `Shift+Home` | ✅ | ❌ |
 | Move up / down (table: same column) | `↑` / `↓` | same | ✅ | ❌ |
+| Line break inside a table cell | `⇧Enter` | `Shift+Enter` | ❌ | ✅ |
+| Select table cells | `⇧←↑↓→` | `Shift+←↑↓→` | ❌ | ✅ |
+| Select table cells to the row / column edge | `⇧⌘←↑↓→` | `Ctrl+Shift+←↑↓→` | ❌ | ✅ |
 | Find & replace | `⌘F` | `Ctrl+F` | VS Code default | ✅ |
 | Jump to next / previous match | `⌘G` / `⇧⌘G` | `Ctrl+G` / `Ctrl+Shift+G` | VS Code default | ✅ |
 | Toggle Live / Raw | `⌘⇧.` | `Ctrl+Shift+.` | ✅ | ✅ |
@@ -108,7 +111,7 @@ Run from the command palette (`⌘⇧P` → search for "Markdown Inline Preview:
 | Empty marker line | Remove the marker |
 | Unclosed fence line (Live) | Add body content and closing fence |
 
-`⇧Enter` never continues a marker—it inserts a line break only.
+`⇧Enter` never continues a marker—it inserts a line break only. In a table cell (Live), `Enter` does nothing and `⇧Enter` inserts `<br>`; the cell shows it as a line break once you leave the cell.
 
 ### `⌘←` (Mac) / `Home` (Windows)
 

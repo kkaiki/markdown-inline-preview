@@ -89,6 +89,30 @@ describe('Live モード: 表のキーボードでの範囲選択（実ブラウ
         assert.deepStrictEqual(await selectedCells(h), [3, 4, 6, 7]);
     });
 
+    it('範囲が無くても、セルの末尾で ⌘Shift+→ を押すと行の右端までセルの範囲が伸びる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, T);
+        await clickCell(h, 3);
+        await keys(h, 'End', 'ControlOrMeta+Shift+ArrowRight');
+        assert.deepStrictEqual(await selectedCells(h), [3, 4, 5]);
+    });
+
+    it('範囲が無くても、セルの先頭で ⌘Shift+← を押すと行の左端までセルの範囲が伸びる', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, T);
+        await clickCell(h, 8);
+        await keys(h, 'Home', 'ControlOrMeta+Shift+ArrowLeft');
+        assert.deepStrictEqual(await selectedCells(h), [6, 7, 8]);
+    });
+
+    it('セルの途中で ⌘Shift+→ を押したときは、まずセル内の文字を行末まで選ぶ（範囲にしない）', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, T);
+        await clickCell(h, 3);
+        await keys(h, 'Home', 'ControlOrMeta+Shift+ArrowRight');
+        assert.deepStrictEqual(await selectedCells(h), []);
+    });
+
     it('セルの途中で Shift+→ を押したときは、セル内の文字選択のまま（範囲にしない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, T);
@@ -175,5 +199,34 @@ describe('Live モード: 表のキーボードでの範囲選択（実ブラウ
         await clickCell(h, 4);
         await keys(h, 'End', 'Shift+ArrowRight', 'Shift+ArrowDown', 'ControlOrMeta+c');
         assert.strictEqual(await h.page.evaluate<string | null>('window.__copied'), 'a2\ta3\nb2\tb3');
+    });
+
+    it('セルの末尾で ⌘Shift+→ して ⌘C すると、そのセルから行の右端までがタブ区切りでコピーされる', async function () {
+        if (!browser) { this.skip(); return; }
+        const BADGE = '<span style="color:#2b8a3e">🟢 着手可能</span>';
+        h = await openLive(browser, `前\n\n| 状態 | ID | 内容 |\n| --- | --- | --- |\n| ${BADGE} | V1-001 | **更新** API |\n\n後\n`);
+        await h.page.evaluate(() => {
+            const w = window as unknown as { __copied: string | null };
+            w.__copied = null;
+            document.addEventListener(
+                'copy',
+                (e: ClipboardEvent) => {
+                    const cd = e.clipboardData;
+                    if (!cd) return;
+                    const orig = cd.setData.bind(cd);
+                    cd.setData = (t: string, d: string): void => {
+                        if (t === 'text/plain') w.__copied = d;
+                        orig(t, d);
+                    };
+                },
+                true
+            );
+        });
+        await clickCell(h, 3);
+        await keys(h, 'End', 'ControlOrMeta+Shift+ArrowRight', 'ControlOrMeta+c');
+        assert.strictEqual(
+            await h.page.evaluate<string | null>('window.__copied'),
+            `${BADGE}\tV1-001\t**更新** API`
+        );
     });
 });

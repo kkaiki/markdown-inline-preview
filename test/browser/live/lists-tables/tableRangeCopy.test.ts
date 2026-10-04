@@ -174,4 +174,53 @@ describe('Live モード: 表の範囲選択のコピー（選び方ごと・実
         await h.page.waitForTimeout(100);
         assert.strictEqual(await copyAndRead(h), null, 'セル内の選択を自前で書き換えている');
     });
+
+    /**
+     * 実 VS Code / Cursor では ⌘C はメニュー経由（`webContents.copy()`）で届き、ブラウザの選択が空だと
+     * コピーのコマンド自体が無効になって copy イベントが来ない（ユーザー報告 2026-10-04「コピーしても何も反映されない」）。
+     * Playwright のキー入力は選択が空でも copy イベントを起こしてしまうので、「コピー可能な選択がある」ことを直接見る。
+     */
+    async function copyEnabled(live: LiveHandle): Promise<{ enabled: boolean; selected: string }> {
+        return live.page.evaluate(() => ({
+            enabled: document.queryCommandEnabled('copy'),
+            selected: window.getSelection()?.toString() ?? ''
+        }));
+    }
+
+    it('ドラッグで範囲を選んだあと、ブラウザ側にもコピー可能な選択が残る（実機の ⌘C はこれが無いと届かない）', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, TABLE);
+        await dragCells(h, 3, 7);
+        const r = await copyEnabled(h);
+        assert.ok(r.enabled && r.selected !== '', `コピー可能な選択が無い: ${JSON.stringify(r)}`);
+    });
+
+    it('⌘A で行を選んだあとも、ブラウザ側にコピー可能な選択が残る', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, TABLE);
+        await h.page.locator('.cm-live-table [contenteditable="true"]').nth(6).click();
+        await h.page.keyboard.press('ControlOrMeta+a');
+        await h.page.keyboard.press('ControlOrMeta+a');
+        await h.page.waitForTimeout(100);
+        const r = await copyEnabled(h);
+        assert.ok(r.enabled && r.selected !== '', `コピー可能な選択が無い: ${JSON.stringify(r)}`);
+    });
+
+    it('右クリックの「列を選択」のあとも、ブラウザ側にコピー可能な選択が残る', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, TABLE);
+        await rightClickMenu(h, 5, 'Select column');
+        const r = await copyEnabled(h);
+        assert.ok(r.enabled && r.selected !== '', `コピー可能な選択が無い: ${JSON.stringify(r)}`);
+    });
+
+    it('Shift+↓ のキーボード選択のあとも、ブラウザ側にコピー可能な選択が残る', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, TABLE);
+        await h.page.locator('.cm-live-table [contenteditable="true"]').nth(3).click();
+        await h.page.keyboard.press('Shift+ArrowDown');
+        await h.page.waitForTimeout(100);
+        const r = await copyEnabled(h);
+        assert.ok(r.enabled && r.selected !== '', `コピー可能な選択が無い: ${JSON.stringify(r)}`);
+    });
 });

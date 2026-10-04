@@ -9,6 +9,7 @@
  * リスナーは開いている間だけ document に付け、閉じるときに必ず外す（漏らさない）。
  */
 import { t } from './i18n';
+import { keepCopyableSelection } from './tableCopySelection';
 import type { EditorView } from '@codemirror/view';
 import {
     applyTableCommand,
@@ -56,8 +57,8 @@ function highlightLine(wrap: HTMLElement, target: CellPos, kind: 'row' | 'col'):
     for (const el of wrap.querySelectorAll<HTMLElement>('[contenteditable="true"]')) {
         if (el.dataset[key] === value) el.classList.add('cm-live-cell-selected');
     }
-    // セル内のキャレット選択が残っていると2種類の選択が同時に見えるので消す
-    window.getSelection()?.removeAllRanges();
+    // セル内のキャレット選択を、コピーできる選択に置き換える（空だと実機の ⌘C が届かない）
+    keepCopyableSelection(wrap);
 }
 
 /** コマンドを実行する。 */

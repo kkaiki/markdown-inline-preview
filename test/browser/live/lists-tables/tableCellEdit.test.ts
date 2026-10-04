@@ -159,6 +159,30 @@ describe('Live モード: 表のセル内編集（実ブラウザ）', function 
         assert.strictEqual(await h.doc(), TABLE, '表のソースが変わってしまった');
     });
 
+    it('セル内で Shift+Enter するとキャレット位置に <br> が入り、表の行は増えない', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, TABLE);
+        await focusCell(h, 2); // a1 の末尾
+        await h.page.keyboard.press('Shift+Enter');
+        await h.page.keyboard.type('x');
+        await h.page.waitForTimeout(150);
+        assert.strictEqual(
+            await h.doc(),
+            '前の段落\n\n| 列A | 列B |\n| --- | --- |\n| a1<br>x | b1 |\n\n後の段落\n'
+        );
+    });
+
+    it('セルの <br> はフォーカスが外れると改行として描画される（タグ文字は見えない）', async function () {
+        if (!browser) { this.skip(); return; }
+        h = await openLive(browser, '| 列A | 列B |\n| --- | --- |\n| a1<br>a2<br/>a3 | b1 |\n');
+        const info = await h.page.evaluate<{ text: string; brs: number }>(`(() => {
+            const td = document.querySelectorAll('.cm-live-table td')[0];
+            return { text: td.textContent, brs: td.querySelectorAll('br').length };
+        })()`);
+        assert.strictEqual(info.text, 'a1a2a3', '<br> がタグ文字のまま見えている');
+        assert.strictEqual(info.brs, 2);
+    });
+
     it('セルの中のインライン記法は装飾されて表示される（記法文字は出ない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, '| **太字** | `code` |\n| --- | --- |\n| a | b |\n');

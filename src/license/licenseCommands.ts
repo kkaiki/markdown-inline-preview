@@ -132,7 +132,7 @@ export async function refreshLicenseQuietly(store: LicenseStore): Promise<void> 
  */
 function createProStatusBarItem(): vscode.StatusBarItem {
     const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 0);
-    item.name = vscode.l10n.t('iPreview Pro');
+    item.name = vscode.l10n.t('Markdown Inline Preview PRO+');
     item.text = '$(star-full) PRO+';
     item.tooltip = vscode.l10n.t('PDF export is free. Click to remove the credit line (one-time purchase).');
     item.command = 'markdownInline.upgradeToPro';

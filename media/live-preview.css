@@ -768,6 +768,10 @@ body {
 .cm-live-table:has(.cm-live-cell-selected) [contenteditable='true']:focus:not(.cm-live-cell-selected) {
     box-shadow: none;
 }
+/* 範囲選択中のブラウザ側の選択は、⌘C を届かせるためだけのもの。見せない */
+.cm-live-table:has(.cm-live-cell-selected) *::selection {
+    background: transparent;
+}
 .cm-live-table .cm-live-cell-selected,
 .cm-live-table tbody tr:hover td.cm-live-cell-selected,
 .cm-live-table [contenteditable='true'].cm-live-cell-selected:focus {

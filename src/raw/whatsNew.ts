@@ -58,7 +58,7 @@ export function showWhatsNewIfUpdated(context: vscode.ExtensionContext, licenseS
         const buttons = offerPro ? [changelog, walkthrough, removeCredit] : [changelog, walkthrough];
 
         const choice = await vscode.window.showInformationMessage(
-            vscode.l10n.t("iPreview has been updated to v{0}. Check out what's new.", current),
+            vscode.l10n.t("Markdown Inline Preview has been updated to v{0}. Check out what's new.", current),
             ...buttons
         );
 

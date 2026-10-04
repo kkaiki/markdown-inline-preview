@@ -1,5 +1,5 @@
 {
-  "walkthrough.title": "Get started with iPreview",
+  "walkthrough.title": "Get started with Markdown Inline Preview",
   "walkthrough.description": "Notion-style Markdown editing — Live / Raw toggle, slash menu, shortcuts",
   "walkthrough.toggle.title": "Switch between Live and Raw",
   "walkthrough.toggle.description": "Move between Live (edit with formatting shown, like Obsidian) and Raw (the plain Markdown source).\n[Toggle Live / Raw](command:markdownInline.toggleLive)",

@@ -1,5 +1,5 @@
 {
-  "walkthrough.title": "iPreview をはじめる",
+  "walkthrough.title": "Markdown Inline Preview をはじめる",
   "walkthrough.description": "Notion 風の Markdown 編集 — Live / Raw 切り替え、スラッシュメニュー、ショートカット",
   "walkthrough.toggle.title": "Live と Raw を切り替える",
   "walkthrough.toggle.description": "Live（書式を表示したまま編集。Obsidian のような画面）と Raw（Markdown の素のソース）を行き来できます。\n[Live / Raw を切り替える](command:markdownInline.toggleLive)",
