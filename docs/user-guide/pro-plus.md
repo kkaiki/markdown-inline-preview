@@ -81,5 +81,7 @@ Exports your open Markdown to `<filename>.slides.pdf` (one page per slide, 16:9 
 
 - Your license is stored locally and never contacts the network to verify. It auto-updates
   in the background every 30 days, but if the update fails, your features keep working
-- Refunds are full and no-questions-asked. After refund, PRO+ features stop working, but the
-  extension itself remains free and usable
+- Because PRO+ is a digital product, purchases are not refundable. Please try the free PDF export
+  before you buy. The extension itself stays free either way
+- PRO+ is the right to use the features offered today. Features may change, and PRO+ may be
+  discontinued; if so, we will try to give notice on the website or in the extension beforehand
