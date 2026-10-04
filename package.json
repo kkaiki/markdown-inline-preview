@@ -2,7 +2,7 @@
   "name": "markdown-inline-preview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "publisher": "markdown-inline-preview",
   "license": "MIT",
   "repository": {
