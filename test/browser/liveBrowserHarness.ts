@@ -118,6 +118,10 @@ export interface LiveSettings {
     showProBadge?: boolean;
     /** ツールバーに Word 書き出しボタンを出すか（host が「PRO+ 販売中」のときだけ true にする）。 */
     proPlusOnSale?: boolean;
+    /** リストの Tab のインデント幅（host が設定 markdownInline.indentation と VS Code の設定から決めて渡す）。 */
+    indent?: { unit: string; tabSize: number };
+    /** コードブロックの中に行番号を出すか（設定 markdownInline.live.codeBlockLineNumbers）。 */
+    codeBlockLineNumbers?: boolean;
 }
 
 /**

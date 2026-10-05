@@ -181,6 +181,8 @@ More: [docs/user-guide/keyboard-shortcuts.md](./docs/user-guide/keyboard-shortcu
 | `markdownInline.live.rememberMode` | `true` | Reopen each file in the mode you last used |
 | `markdownInline.live.showToolbar` | `true` | Top toolbar |
 | `markdownInline.live.showLineNumbers` | `true` | Line-number gutter |
+| `markdownInline.live.codeBlockLineNumbers` | `false` | Line numbers inside code blocks (from 1 in each block; fences excluded) |
+| `markdownInline.indentation` | `default` | List indentation with Tab / Shift+Tab: `default` = 2 spaces in Raw, a tab in Live; `editor` = follow VS Code's `editor.tabSize` / `editor.insertSpaces` |
 | `markdownInline.live.showDiffGutter` | `true` | Git diff gutter |
 | `markdownInline.live.enableSlashMenu` | `true` | `/` command menu |
 

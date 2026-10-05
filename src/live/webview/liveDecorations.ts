@@ -15,7 +15,7 @@
  */
 import { t } from './i18n';
 import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view';
-import { StateEffect, StateField, type EditorState, type Range } from '@codemirror/state';
+import { Facet, StateEffect, StateField, type EditorState, type Range } from '@codemirror/state';
 import katex from 'katex';
 import mermaid from 'mermaid';
 import { scanSyntaxRanges, type SyntaxKind, type SyntaxRange } from '../shared/syntaxRanges';
@@ -226,6 +226,37 @@ class MermaidWidget extends WidgetType {
     }
     ignoreEvent(): boolean {
         return false;
+    }
+}
+
+/**
+ * コードブロックの中に行番号を出すか（設定 `markdownInline.live.codeBlockLineNumbers`。既定は出さない）。
+ * host から受け取った値を liveApp が `.of(...)` で渡す。
+ */
+export const codeBlockLineNumbers = Facet.define<boolean, boolean>({
+    combine: (values) => values.some(Boolean)
+});
+
+/**
+ * コードブロックの中の行番号。フェンスの行を除いた中身の行の先頭に出し、ブロックごとに 1 から振る。
+ * 文書の中身ではない（保存される Markdown に混ざらず、選択・コピーの対象にもならない）。
+ */
+class CodeLineNumberWidget extends WidgetType {
+    constructor(private readonly n: number) {
+        super();
+    }
+    eq(other: CodeLineNumberWidget): boolean {
+        return other.n === this.n;
+    }
+    toDOM(): HTMLElement {
+        const el = document.createElement('span');
+        el.className = 'cm-live-code-ln';
+        el.textContent = String(this.n);
+        el.setAttribute('aria-hidden', 'true');
+        return el;
+    }
+    ignoreEvent(): boolean {
+        return true;
     }
 }
 
@@ -1267,6 +1298,16 @@ function pushRange(
             // 角丸と枠線を付けるため、ブロックの最初/最後の行だけ別クラスにする
             const edge = n === first ? ' cm-live-code-first' : n === last ? ' cm-live-code-last' : '';
             decos.push(lineDeco(`cm-live-code-line${edge}`).range(state.doc.line(n).from));
+        }
+        if (state.facet(codeBlockLineNumbers)) {
+            // フェンスの行（first と last）を除いた中身の行に、ブロックごとに 1 から振る
+            for (let n = first + 1; n < last; n++) {
+                decos.push(
+                    Decoration.widget({ widget: new CodeLineNumberWidget(n - first), side: -1 }).range(
+                        state.doc.line(n).from
+                    )
+                );
+            }
         }
         if (r.info === 'mermaid' && last > first + 1) {
             // ソースはそのまま、下に図を出す

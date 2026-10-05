@@ -156,3 +156,43 @@ describe('package.json の多言語化', () => {
         assert.deepStrictEqual(Object.keys(en).sort(), Object.keys(ja).sort());
     });
 });
+
+describe('設定 markdownInline.indentation（リストのインデント幅）の宣言', () => {
+    const pkg = readJson('package.json') as { contributes: { configuration: { properties: Record<string, { type?: string; default?: unknown; enum?: string[]; description?: string }> } } };
+    const prop = pkg.contributes.configuration.properties['markdownInline.indentation'];
+    const en = readJson('package.nls.json');
+    const ja = readJson('package.nls.ja.json');
+
+    it('default / editor の 2 択で、既定は default（今までの見た目を変えない）', () => {
+        assert.ok(prop, 'markdownInline.indentation が宣言されていない');
+        assert.deepStrictEqual(prop.enum, ['default', 'editor']);
+        assert.strictEqual(prop.default, 'default');
+    });
+
+    it('説明は %key% で、英語・日本語の両方がある', () => {
+        const m = /^%(.+)%$/.exec(prop?.description ?? '');
+        assert.ok(m, `説明が %key% でない: ${prop?.description}`);
+        assert.ok(typeof en[m[1]] === 'string' && (en[m[1]] as string).length > 0, '英語の説明が無い');
+        assert.ok(typeof ja[m[1]] === 'string' && hasJapanese(ja[m[1]] as string), '日本語の説明が無い');
+    });
+});
+
+describe('設定 markdownInline.live.codeBlockLineNumbers（コードブロックの行番号）の宣言', () => {
+    const pkg = readJson('package.json') as { contributes: { configuration: { properties: Record<string, { type?: string; default?: unknown; description?: string }> } } };
+    const prop = pkg.contributes.configuration.properties['markdownInline.live.codeBlockLineNumbers'];
+    const en = readJson('package.nls.json');
+    const ja = readJson('package.nls.ja.json');
+
+    it('真偽値で、既定は false（今までの見た目を変えない）', () => {
+        assert.ok(prop, 'markdownInline.live.codeBlockLineNumbers が宣言されていない');
+        assert.strictEqual(prop.type, 'boolean');
+        assert.strictEqual(prop.default, false);
+    });
+
+    it('説明は %key% で、英語・日本語の両方がある', () => {
+        const m = /^%(.+)%$/.exec(prop?.description ?? '');
+        assert.ok(m, `説明が %key% でない: ${prop?.description}`);
+        assert.ok(typeof en[m[1]] === 'string' && (en[m[1]] as string).length > 0, '英語の説明が無い');
+        assert.ok(typeof ja[m[1]] === 'string' && hasJapanese(ja[m[1]] as string), '日本語の説明が無い');
+    });
+});

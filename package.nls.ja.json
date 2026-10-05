@@ -72,5 +72,9 @@
   "command.convertToCodeBlock": "コードブロックに変換",
   "command.convertToQuote": "引用に変換",
   "command.noop": "何もしない（内部用）",
-  "command.openLive.short": "Live モードで開く"
+  "command.openLive.short": "Live モードで開く",
+  "config.indentation": "Tab / Shift+Tab でリストをインデントするときの幅。「default」: Raw は半角スペース 2 つ、Live はタブ 1 文字（従来どおり）。「editor」: VS Code の editor.tabSize と editor.insertSpaces に従う。",
+  "config.indentation.enum.default": "Raw は半角スペース 2 つ、Live はタブ 1 文字（従来どおり）",
+  "config.indentation.enum.editor": "VS Code の editor.tabSize と editor.insertSpaces に従う",
+  "config.live.codeBlockLineNumbers": "Live モードで、コードブロックの中に行番号を表示する（ブロックごとに 1 から。フェンスの行は数えない）。エディタを開き直すと反映されます。"
 }

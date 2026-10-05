@@ -72,5 +72,9 @@
   "command.convertToCodeBlock": "Convert to Code Block",
   "command.convertToQuote": "Convert to Quote",
   "command.noop": "No-op (internal)",
-  "command.openLive.short": "Open in Live mode"
+  "command.openLive.short": "Open in Live mode",
+  "config.indentation": "How the Tab / Shift+Tab keys indent list items. \"default\": 2 spaces in Raw mode and a tab character in Live mode (as before). \"editor\": follow VS Code's editor.tabSize and editor.insertSpaces.",
+  "config.indentation.enum.default": "2 spaces in Raw mode, a tab character in Live mode (as before)",
+  "config.indentation.enum.editor": "Follow VS Code's editor.tabSize and editor.insertSpaces",
+  "config.live.codeBlockLineNumbers": "Show line numbers inside code blocks in Live mode (starting from 1 in each block, fences excluded). Takes effect when the editor is reopened."
 }

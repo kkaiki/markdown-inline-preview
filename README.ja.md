@@ -177,6 +177,8 @@ CodeMirror 6 ベースのカスタムエディタで開きます。生 Markdown 
 | `markdownInline.live.rememberMode` | `true` | 直前のモードを覚えて次も同じモードで開く |
 | `markdownInline.live.showToolbar` | `true` | 上部ツールバー |
 | `markdownInline.live.showLineNumbers` | `true` | 行番号ガター |
+| `markdownInline.live.codeBlockLineNumbers` | `false` | コードブロックの中の行番号（ブロックごとに 1 から。フェンスの行は数えない） |
+| `markdownInline.indentation` | `default` | Tab / Shift+Tab でのリストのインデント幅。`default` = Raw は半角スペース 2 つ・Live はタブ、`editor` = VS Code の `editor.tabSize` / `editor.insertSpaces` に従う |
 | `markdownInline.live.showDiffGutter` | `true` | Git 差分ガター |
 | `markdownInline.live.enableSlashMenu` | `true` | `/` メニュー |
 

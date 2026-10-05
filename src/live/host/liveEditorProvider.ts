@@ -36,6 +36,7 @@ import { FEATURE_BATCH_EXPORT, FEATURE_DOCX_EXPORT, FEATURE_MARP_EXPORT, FEATURE
 import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
 import { showProLockedDialog } from '../../license/proGate';
 import { exportPromptButtons, decideExportPromptChoice } from '../../shared/license/dialogChoices';
+import { resolveIndentStyle, LEGACY_LIVE_INDENT, type IndentationMode } from '../../shared/indentation';
 import type { LicenseVerifyResult } from '../../shared/license/token';
 import {
     computeEditorAssociations,
@@ -277,6 +278,22 @@ export function setLicenseStore(store: { verify(): Promise<LicenseVerifyResult> 
     licenseStore = store;
 }
 
+/**
+ * Live のリストの Tab のインデント幅。設定 markdownInline.indentation が editor なら、
+ * その文書の VS Code の設定（editor.tabSize / editor.insertSpaces。markdown 用の上書きも反映）に従う。
+ */
+function liveIndentStyle(document: vscode.TextDocument): { unit: string; tabSize: number } {
+    const mode = vscode.workspace
+        .getConfiguration('markdownInline', document.uri)
+        .get<IndentationMode>('indentation', 'default');
+    const editorConfig = vscode.workspace.getConfiguration('editor', { uri: document.uri, languageId: 'markdown' });
+    return resolveIndentStyle(
+        mode,
+        { tabSize: editorConfig.get<number | string>('tabSize'), insertSpaces: editorConfig.get<boolean | string>('insertSpaces') },
+        LEGACY_LIVE_INDENT
+    );
+}
+
 /** 書き出し前の確認ダイアログの結果。 */
 type ExportPromptDecision = 'export' | 'upgrade' | 'enterKey' | 'cancel';
 
@@ -504,6 +521,10 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                     enableSlashMenu: vscode.workspace
                         .getConfiguration('markdownInline')
                         .get<boolean>('live.enableSlashMenu', true),
+                    indent: liveIndentStyle(document),
+                    codeBlockLineNumbers: vscode.workspace
+                        .getConfiguration('markdownInline')
+                        .get<boolean>('live.codeBlockLineNumbers', false),
                     showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED }),
                     proPlusOnSale: MONETIZATION_ENABLED
                 }

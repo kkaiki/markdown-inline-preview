@@ -40,6 +40,7 @@ import {
     liveCompositionWatcher,
     liveComposingField,
     liveDecorationField,
+    codeBlockLineNumbers,
     liveFocusField,
     liveFocusWatcher
 } from './liveDecorations';
@@ -61,6 +62,10 @@ interface LiveSettings {
     showProBadge?: boolean;
     /** ツールバーに Word 書き出しボタンを出すか（host が「PRO+ 販売中」のときだけ true にする）。 */
     proPlusOnSale?: boolean;
+    /** リストの Tab のインデント幅（設定 markdownInline.indentation と VS Code の設定から host が決める）。無ければタブ 1 文字。 */
+    indent?: { unit: string; tabSize: number };
+    /** コードブロックの中に行番号を出すか（設定 markdownInline.live.codeBlockLineNumbers）。 */
+    codeBlockLineNumbers?: boolean;
 }
 
 const vscode: VsCodeApi | null = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
@@ -112,8 +117,11 @@ function extensions(settings: LiveSettings): Extension[] {
         diffField,
         ...(settings.showDiffGutter === false ? [] : [liveDiffGutter]),
         EditorView.lineWrapping,
-        // 実測どおり、インデントはタブ1文字（Obsidian の既定 useTab: true と同じ）
-        indentUnit.of('\t'),
+        // 既定は実測どおりタブ 1 文字（Obsidian の既定 useTab: true と同じ）。
+        // 設定 markdownInline.indentation が editor なら、VS Code の editor.tabSize / insertSpaces に従う（host が決めて渡す）
+        indentUnit.of(settings.indent?.unit ?? '\t'),
+        EditorState.tabSize.of(settings.indent?.tabSize ?? 4),
+        codeBlockLineNumbers.of(settings.codeBlockLineNumbers === true),
         // 記法の展開/収縮。ブロックウィジェット（表など）を扱うため StateField 供給にしている。
         liveFocusField,
         liveComposingField,

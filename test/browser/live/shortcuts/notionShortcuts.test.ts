@@ -130,6 +130,34 @@ describe('Live モード: Notion 準拠のショートカット（実ブラウ�
         });
     });
 
+    describe('リストの Tab のインデント幅（設定 markdownInline.indentation）', () => {
+        it('指定が無ければ、これまでどおりタブ 1 文字でインデントする', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '- a\n- b\n');
+            await h.setCursor(5);
+            await h.press('Tab');
+            assert.strictEqual(await h.doc(), '- a\n\t- b\n');
+        });
+
+        it('host が「半角スペース 4 つ」を渡したら、Tab は半角スペース 4 つでインデントする', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '- a\n- b\n', { showLineNumbers: false, indent: { unit: '    ', tabSize: 4 } });
+            await h.setCursor(5);
+            await h.press('Tab');
+            assert.strictEqual(await h.doc(), '- a\n    - b\n');
+        });
+
+        it('「半角スペース 2 つ」なら 2 つ。Shift+Tab で戻る', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '- a\n- b\n', { showLineNumbers: false, indent: { unit: '  ', tabSize: 2 } });
+            await h.setCursor(5);
+            await h.press('Tab');
+            assert.strictEqual(await h.doc(), '- a\n  - b\n');
+            await h.press('Shift+Tab');
+            assert.strictEqual(await h.doc(), '- a\n- b\n');
+        });
+    });
+
     describe('ブロック操作', () => {
         it('⌘D でカーソル行が複製される', async function () {
             if (!browser) { this.skip(); return; }

@@ -1003,3 +1003,16 @@ body {
     width: auto;
     font-size: 12px;
 }
+
+/* コードブロックの中の行番号（設定 markdownInline.live.codeBlockLineNumbers）。文書の中身ではないので選択・コピーされない */
+.cm-live-code-ln {
+  display: inline-block;
+  min-width: 2.2em;
+  margin-right: 0.9em;
+  text-align: right;
+  opacity: 0.45;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}

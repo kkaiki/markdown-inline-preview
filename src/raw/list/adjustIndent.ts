@@ -2,12 +2,24 @@ import * as vscode from 'vscode';
 
 import { getAllTableCells, getTableCellInfo } from '../table';
 import { renumberLists } from './renumberLists';
+import {
+    resolveIndentStyle,
+    indentLine,
+    outdentLine,
+    LEGACY_RAW_INDENT,
+    type IndentationMode
+} from '../../shared/indentation';
 
 /** インデントを増減する。続く番号の振り直しまで終えて解決する Thenable を返す */
 export function adjustIndent(editor: vscode.TextEditor, increase: boolean): Thenable<unknown> {
     const selection = editor.selection;
     const document = editor.document;
-    const indentStr = '  ';
+    // 設定 markdownInline.indentation: default は従来どおり半角スペース 2 つ、
+    // editor は VS Code の editor.tabSize / editor.insertSpaces（このエディタの実際の値）に従う
+    const mode = vscode.workspace
+        .getConfiguration('markdownInline', document.uri)
+        .get<IndentationMode>('indentation', 'default');
+    const style = resolveIndentStyle(mode, editor.options, LEGACY_RAW_INDENT);
 
     if (selection.isEmpty) {
         const position = selection.active;
@@ -61,16 +73,9 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): Then
                 const range = new vscode.Range(i, 0, i, line.length);
 
                 if (increase) {
-                    editBuilder.replace(range, indentStr + line);
+                    editBuilder.replace(range, indentLine(line, style));
                 } else {
-                    let newLine = line;
-                    if (/^\t/.test(newLine)) {
-                        newLine = newLine.replace(/^\t/, '');
-                    } else if (newLine.startsWith('  ')) {
-                        newLine = newLine.slice(2);
-                    } else if (/^ /.test(newLine)) {
-                        newLine = newLine.slice(1);
-                    }
+                    const newLine = outdentLine(line, style);
                     if (newLine !== line) editBuilder.replace(range, newLine);
                 }
             }
@@ -94,21 +99,14 @@ export function adjustIndent(editor: vscode.TextEditor, increase: boolean): Then
         );
 
         if (increase) {
-            editBuilder.replace(range, indentStr + line);
+            editBuilder.replace(range, indentLine(line, style));
         } else {
-            let newLine = line;
-            if (/^\t/.test(newLine)) {
-                newLine = newLine.replace(/^\t/, '');
-            } else if (newLine.startsWith('  ')) {
-                newLine = newLine.slice(2);
-            } else if (/^ /.test(newLine)) {
-                newLine = newLine.slice(1);
-            }
+            const newLine = outdentLine(line, style);
             if (newLine !== line) editBuilder.replace(range, newLine);
         }
     }).then(() => {
         if (increase) {
-            const newPosition = new vscode.Position(selection.active.line, cursorPos + 2);
+            const newPosition = new vscode.Position(selection.active.line, cursorPos + style.unit.length);
             editor.selection = new vscode.Selection(newPosition, newPosition);
         } else {
             const currentLine = document.lineAt(selection.active.line).text;

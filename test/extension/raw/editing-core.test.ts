@@ -54,6 +54,71 @@ suite('Raw: editing-core', () => {
         });
     });
 
+    suite('14b. インデント幅の設定（markdownInline.indentation）', () => {
+        const config = () => vscode.workspace.getConfiguration('markdownInline');
+
+        teardown(async () => {
+            // 他のテストに設定を残さない
+            await config().update('indentation', undefined, vscode.ConfigurationTarget.Global);
+        });
+
+        test('14.3 indentation=editor で tabSize 4 なら、Tab は半角スペース 4 つでインデントする', async function() {
+            this.timeout(8000);
+            await config().update('indentation', 'editor', vscode.ConfigurationTarget.Global);
+            const editor = await createTestDocument('- a\n- b');
+            editor.options = { tabSize: 4, insertSpaces: true };
+            editor.selection = new vscode.Selection(1, 3, 1, 3);
+            await vscode.commands.executeCommand('markdownInline.increaseIndent');
+            await waitFor(() => editor.document.lineAt(1).text === '    - b');
+            assert.strictEqual(editor.document.lineAt(1).text, '    - b');
+            // カーソルも、増えた分だけ右へ
+            assert.strictEqual(editor.selection.active.character, 7);
+        });
+
+        test('14.4 indentation=editor で insertSpaces が false なら、Tab はタブ文字でインデントする', async function() {
+            this.timeout(8000);
+            await config().update('indentation', 'editor', vscode.ConfigurationTarget.Global);
+            const editor = await createTestDocument('- a\n- b');
+            editor.options = { tabSize: 4, insertSpaces: false };
+            editor.selection = new vscode.Selection(1, 3, 1, 3);
+            await vscode.commands.executeCommand('markdownInline.increaseIndent');
+            await waitFor(() => editor.document.lineAt(1).text === '\t- b');
+            assert.strictEqual(editor.document.lineAt(1).text, '\t- b');
+        });
+
+        test('14.5 indentation=editor で tabSize 4 なら、Shift+Tab は半角スペース 4 つを取り除く', async function() {
+            this.timeout(8000);
+            await config().update('indentation', 'editor', vscode.ConfigurationTarget.Global);
+            const editor = await createTestDocument('- a\n    - b');
+            editor.options = { tabSize: 4, insertSpaces: true };
+            editor.selection = new vscode.Selection(1, 7, 1, 7);
+            await vscode.commands.executeCommand('markdownInline.decreaseIndent');
+            await waitFor(() => editor.document.lineAt(1).text === '- b');
+            assert.strictEqual(editor.document.lineAt(1).text, '- b');
+        });
+
+        test('14.6 既定（indentation=default）では VS Code の tabSize を見ず、従来どおり半角スペース 2 つ', async function() {
+            this.timeout(8000);
+            const editor = await createTestDocument('- a\n- b');
+            editor.options = { tabSize: 8, insertSpaces: false };
+            editor.selection = new vscode.Selection(1, 3, 1, 3);
+            await vscode.commands.executeCommand('markdownInline.increaseIndent');
+            await waitFor(() => editor.document.lineAt(1).text === '  - b');
+            assert.strictEqual(editor.document.lineAt(1).text, '  - b');
+        });
+
+        test('14.7 範囲選択した複数行も、設定の幅でインデントする', async function() {
+            this.timeout(8000);
+            await config().update('indentation', 'editor', vscode.ConfigurationTarget.Global);
+            const editor = await createTestDocument('- a\n- b\n- c');
+            editor.options = { tabSize: 4, insertSpaces: true };
+            editor.selection = new vscode.Selection(1, 0, 2, 3);
+            await vscode.commands.executeCommand('markdownInline.increaseIndent');
+            await waitFor(() => editor.document.lineAt(2).text === '    - c');
+            assert.strictEqual(editor.document.getText().replace(/\r\n/g, '\n'), '- a\n    - b\n    - c');
+        });
+    });
+
     suite('11. 実 VS Code 環境でのバグハンティング', () => {
 
         test('11.3 最左（インデント0）の番号付きリスト項目で Shift+Tab してもクラッシュせず内容が変化しない', async function () {

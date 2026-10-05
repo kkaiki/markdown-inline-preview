@@ -2,7 +2,7 @@
   "name": "markdown-inline-preview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.3.3",
+  "version": "3.3.4",
   "publisher": "markdown-inline-preview",
   "license": "MIT",
   "repository": {
@@ -1120,6 +1120,24 @@
           "minimum": 8,
           "maximum": 80,
           "description": "Column width (characters) for wrapped table hover preview"
+        },
+        "markdownInline.indentation": {
+          "type": "string",
+          "enum": [
+            "default",
+            "editor"
+          ],
+          "enumDescriptions": [
+            "%config.indentation.enum.default%",
+            "%config.indentation.enum.editor%"
+          ],
+          "default": "default",
+          "description": "%config.indentation%"
+        },
+        "markdownInline.live.codeBlockLineNumbers": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.live.codeBlockLineNumbers%"
         },
         "markdownInline.live.showLineNumbers": {
           "type": "boolean",
