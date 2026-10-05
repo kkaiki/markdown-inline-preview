@@ -35,6 +35,7 @@ import {
 import { FEATURE_BATCH_EXPORT, FEATURE_DOCX_EXPORT, FEATURE_MARP_EXPORT, FEATURE_PDF_STYLING } from '../../shared/license/token';
 import { DEFAULT_PDF_STYLING, isDefaultPdfStyling, readPdfStyling, type PdfStyling } from '../../shared/pdfStyling';
 import { showProLockedDialog } from '../../license/proGate';
+import { exportPromptButtons, decideExportPromptChoice } from '../../shared/license/dialogChoices';
 import type { LicenseVerifyResult } from '../../shared/license/token';
 import {
     computeEditorAssociations,
@@ -277,7 +278,7 @@ export function setLicenseStore(store: { verify(): Promise<LicenseVerifyResult> 
 }
 
 /** 書き出し前の確認ダイアログの結果。 */
-type ExportPromptDecision = 'export' | 'upgrade' | 'cancel';
+type ExportPromptDecision = 'export' | 'upgrade' | 'enterKey' | 'cancel';
 
 /**
  * 「このまま無料で出すか、購入して消すか」を書き出しの**前**に確認する
@@ -285,17 +286,18 @@ type ExportPromptDecision = 'export' | 'upgrade' | 'cancel';
  * 課金する稼働かを確認するようにしてから一手間つけてから、pdf の書き出しに移る」）。
  */
 async function confirmExportWithCredit(): Promise<ExportPromptDecision> {
-    const continueLabel = vscode.l10n.t('Export with credit line (free)');
-    const upgradeLabel = vscode.l10n.t('Remove credit line (one-time purchase)');
+    const labels = {
+        exportFree: vscode.l10n.t('Export with credit line (free)'),
+        upgrade: vscode.l10n.t('Remove credit line (one-time purchase)'),
+        // どの購入案内でも、購入後に戻れなかった人がキーを貼れるようにする
+        enterKey: vscode.l10n.t('Enter license key')
+    };
     const choice = await vscode.window.showInformationMessage(
         vscode.l10n.t('This PDF will include a small credit line at the bottom of each page.'),
         { modal: true },
-        continueLabel,
-        upgradeLabel
+        ...exportPromptButtons(labels)
     );
-    if (choice === upgradeLabel) return 'upgrade';
-    if (choice === continueLabel) return 'export';
-    return 'cancel'; // Esc・ダイアログを閉じた
+    return decideExportPromptChoice(choice, labels);
 }
 
 /** PDF 書き出し。失敗しても webview は壊さず、メッセージだけ出す。 */
@@ -341,6 +343,10 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
             if (decision === 'upgrade') {
                 await vscode.commands.executeCommand('markdownInline.upgradeToPro');
                 return; // 購入ページを開いただけ。今回は書き出さない
+            }
+            if (decision === 'enterKey') {
+                await vscode.commands.executeCommand('markdownInline.enterLicenseKey');
+                return; // キーを入れたあと、もう一度書き出してもらう
             }
             // decision === 'export' → このまま下へ進んで書き出す
         }

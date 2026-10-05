@@ -6,39 +6,32 @@
  * （docs/private/specifications/pro-export-pdf-onetime.md §1「未購入のとき」）。
  */
 import * as vscode from 'vscode';
+import { lockedDialogButtons, decideLockedChoice } from '../shared/license/dialogChoices';
 
-export type ProLockedDecision = 'upgrade' | 'continue' | 'cancel';
+/** `upgrade` は購入ページを開き、`enterKey` はキーの入力を出した。どちらも今回の操作は行わない。 */
+export type ProLockedDecision = 'upgrade' | 'enterKey' | 'continue' | 'cancel';
 
 /**
  * 「{機能} は PRO+ の機能です」を出す。
- * `continueLabel` を渡すと「PRO+ なしで続ける」選択肢を足す（PDF の体裁のように、無しでも書き出せる機能用）。
- * 渡さないときは購入とライセンスキー入力だけ。
+ * ボタンは「購入」「ライセンスキーを入力」。`continueLabel` を渡すと「PRO+ なしで続ける」も足す
+ * （PDF の体裁のように、無しでも書き出せる機能用）。**どの機能でもキー入力を出す**。
  */
 export async function showProLockedDialog(featureLabel: string, continueLabel?: string): Promise<ProLockedDecision> {
-    const getLabel = vscode.l10n.t('Get PRO+');
-    const enterKeyLabel = vscode.l10n.t('Enter license key');
-    const second = continueLabel ?? enterKeyLabel;
+    const labels = { get: vscode.l10n.t('Get PRO+'), enterKey: vscode.l10n.t('Enter license key') };
 
     const choice = await vscode.window.showInformationMessage(
         vscode.l10n.t('{0} is a PRO+ feature.', featureLabel),
         {
             modal: true,
             detail: vscode.l10n.t(
-                'PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.'
+                'PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export. Purchases are not refundable, so please try the free PDF export first.'
             )
         },
-        getLabel,
-        second
+        ...lockedDialogButtons(labels, continueLabel)
     );
 
-    if (choice === getLabel) {
-        await vscode.commands.executeCommand('markdownInline.upgradeToPro');
-        return 'upgrade';
-    }
-    if (choice === second) {
-        if (continueLabel) return 'continue';
-        await vscode.commands.executeCommand('markdownInline.enterLicenseKey');
-        return 'cancel';
-    }
-    return 'cancel';
+    const decision = decideLockedChoice(choice, labels, continueLabel);
+    if (decision === 'upgrade') await vscode.commands.executeCommand('markdownInline.upgradeToPro');
+    if (decision === 'enterKey') await vscode.commands.executeCommand('markdownInline.enterLicenseKey');
+    return decision;
 }

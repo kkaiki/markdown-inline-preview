@@ -62,7 +62,6 @@
   "Get PRO+": "PRO+ を購入",
   "Enter license key": "ライセンスキーを入力",
   "{0} is a PRO+ feature.": "{0}は PRO+ の機能です。",
-  "PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export.": "PRO+ は買い切り（¥150 / $1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。",
   "PDF layout options": "PDF の体裁の設定",
   "Export without layout options": "体裁なしで書き出す",
   "Contents": "目次",
@@ -110,5 +109,6 @@
   "Exported {0} of {1} files (failed: {2}, skipped: {3}).": "{1} 件中 {0} 件を書き出しました（失敗 {2} 件・スキップ {3} 件）。",
   "Exported {0} PDF files.": "{0} 件の PDF を書き出しました。",
   "Open Folder": "フォルダを開く",
-  "Details": "詳細"
+  "Details": "詳細",
+  "PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export. Purchases are not refundable, so please try the free PDF export first.": "PRO+ は買い切り（¥150 / $1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。購入後の返金はできませんので、先に無料の PDF 書き出しをお試しください。"
 }
