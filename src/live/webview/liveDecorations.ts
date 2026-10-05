@@ -39,6 +39,7 @@ import {
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
 import { keepCopyableSelection } from './tableCopySelection';
 import { applyTableCommand } from '../shared/tableEdit';
+import { estimateTableHeight, estimateCalloutHeight, MERMAID_ESTIMATE, MATH_BLOCK_ESTIMATE } from '../shared/blockHeightEstimate';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
 const HIDE = Decoration.replace({});
@@ -120,6 +121,10 @@ class MathWidget extends WidgetType {
     toDOM(): HTMLElement {
         return renderMath(this.source, this.display);
     }
+    /** ブロックの数式だけ高さを推定する（描き終わるまで 1 行分とみなされ、スクロールが飛ぶため）。 */
+    get estimatedHeight(): number {
+        return this.display ? MATH_BLOCK_ESTIMATE : -1;
+    }
 }
 
 /** 画像。読み込めなくてもレイアウトが崩れないよう alt を持たせる。 */
@@ -149,6 +154,9 @@ class CalloutWidget extends WidgetType {
     }
     eq(other: CalloutWidget): boolean {
         return other.type === this.type && other.source === this.source;
+    }
+    get estimatedHeight(): number {
+        return estimateCalloutHeight(this.source);
     }
     toDOM(): HTMLElement {
         const box = document.createElement('div');
@@ -187,9 +195,16 @@ class MermaidWidget extends WidgetType {
     eq(other: MermaidWidget): boolean {
         return other.source === this.source;
     }
+    /** 図は非同期で描かれ、描き終わるまで高さが 0 に近い。実測に近い高さを先に確保する。 */
+    get estimatedHeight(): number {
+        return MERMAID_ESTIMATE;
+    }
     toDOM(): HTMLElement {
         const box = document.createElement('div');
         box.className = 'cm-live-mermaid';
+        // 図は非同期で描かれ、描き終わるまで中身が空（高さほぼ 0）と測られてしまう。
+        // 描き終わると約 520px 伸び、全体の高さが変わってスクロール位置が飛ぶので、先に場所を確保しておく。
+        box.style.minHeight = `${MERMAID_ESTIMATE}px`;
         if (!mermaidReady) {
             mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });
             mermaidReady = true;
@@ -199,9 +214,11 @@ class MermaidWidget extends WidgetType {
             .render(id, this.source)
             .then(({ svg }) => {
                 box.innerHTML = svg;
+                box.style.minHeight = ''; // 実際の高さに任せる
             })
             .catch((err: unknown) => {
                 // 図が壊れていてもエディタは壊さない。理由だけ出す。
+                box.style.minHeight = '';
                 box.classList.add('cm-live-mermaid-error');
                 box.textContent = err instanceof Error ? err.message : String(err);
             });
@@ -349,6 +366,15 @@ class TableWidget extends WidgetType {
 
     eq(other: TableWidget): boolean {
         return other.source === this.source && other.from === this.from && other.index === this.index;
+    }
+
+    private estimated: number | undefined;
+    /** 表は描き終わるまで 1 行分とみなされ、表が多い文書でスクロールが大きく飛ぶ。中身から高さを見積もる。 */
+    get estimatedHeight(): number {
+        this.estimated ??= estimateTableHeight(
+            parseTableCells(this.source, this.from).map((row) => row.cells.map((c) => c.text))
+        );
+        return this.estimated;
     }
 
     toDOM(view: EditorView): HTMLElement {

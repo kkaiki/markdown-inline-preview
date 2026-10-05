@@ -1,3 +1,7 @@
+## 3.3.3 - 2026-10-05
+
+- Fix: In Live mode, scrolling a long document with many tables, Mermaid diagrams or colored labels could throw the view to an unrelated place and make it jump back and forth. Off-screen lines are laid out from an *estimate* of their height, and block parts — tables, Mermaid diagrams, callouts, display math — had no estimate, so each counted as a single line until it was drawn; every time one scrolled into view the whole document's height changed by hundreds of pixels (a table-heavy 200-line document measured 1,855px for one table against a one-line guess). They now give an estimate close to what they really measure — for tables it follows the browser's table layout (column widths, unbreakable words and `nowrap` labels, wrapped lines) — and a Mermaid diagram reserves its space while it is still being rendered. Guarded by `test/suite/live/rendering/blockHeightEstimate.test.ts` and `test/browser/live/rendering/scrollStability.test.ts`.
+
 ## 3.3.2 - 2026-10-05
 
 - Feature: `⌘⇧0` (Notion's "turn into text") now converts the block to plain text on Mac, in both Raw and Live. The existing `⌥⌘0` keeps working. In Live, `⌘⇧0` is also assigned to a no-op at the editor level so no VS Code / Cursor default (or other binding) reacts to it. Spec: `docs/specifications/notion-shortcuts.md` §1.2; guarded by `test/suite/shared/notionKeybindings.test.ts` and `test/browser/live/shortcuts/notionShortcuts.test.ts`.
