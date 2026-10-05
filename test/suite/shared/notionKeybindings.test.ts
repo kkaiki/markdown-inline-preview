@@ -84,6 +84,27 @@ describe('Notion 準拠キーバインドの宣言（package.json）', () => {
         });
     });
 
+    describe('§1.2 ⌘⇧0（Notion の「テキストに変換」）', () => {
+        it('Raw: ⌘⇧0 が「本文に変換」に割り当てられ、markdown のときだけ効く（設定を切ると外れる）', () => {
+            const found = bindings.find((b) => b.command === 'markdownInline.convertToNormal' && sameKey(b.mac, 'cmd+shift+0'));
+            assert.ok(found, '⌘⇧0 → convertToNormal の宣言が無い');
+            assert.ok((found.when ?? '').includes('editorLangId == markdown'), 'markdown 限定でない');
+            assert.ok((found.when ?? '').includes('markdownInline.notionKeymap'), '設定で切れない');
+        });
+
+        it('Live: ⌘⇧0 に VS Code 本体の割り当てが反応しないよう noop を割り当てる（Live のときだけ・設定で切れる）', () => {
+            const found = bindings.find((b) => b.command === 'markdownInline.noop' && sameKey(b.mac, 'cmd+shift+0'));
+            assert.ok(found, '⌘⇧0 の noop 割り当てが無い');
+            assert.ok((found.when ?? '').includes("activeCustomEditorId == 'ipreview.live'"), 'Live 限定でない');
+            assert.ok((found.when ?? '').includes('markdownInline.notionKeymap'), '設定で切れない');
+        });
+
+        it('従来の ⌥⌘0 も残っている（既存の手癖を壊さない）', () => {
+            const found = bindings.find((b) => b.command === 'markdownInline.convertToNormal' && sameKey(b.mac, 'alt+cmd+0'));
+            assert.ok(found, '⌥⌘0 が消えている');
+        });
+    });
+
     describe('§3.1 Raw モード: 既定の上書き', () => {
         /**
          * 仕様 §1 の「Notion 準拠のキー」= インライン書式・ブロック変換・ブロック操作。

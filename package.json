@@ -708,6 +708,12 @@
       },
       {
         "command": "markdownInline.convertToNormal",
+        "key": "cmd+shift+0",
+        "mac": "cmd+shift+0",
+        "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
+      },
+      {
+        "command": "markdownInline.convertToNormal",
         "key": "ctrl+shift+0",
         "win": "ctrl+shift+0",
         "linux": "ctrl+shift+0",
@@ -845,6 +851,11 @@
         "mac": "shift+cmd+h",
         "win": "ctrl+shift+h",
         "linux": "ctrl+shift+h"
+      },
+      {
+        "command": "markdownInline.noop",
+        "mac": "cmd+shift+0",
+        "when": "activeCustomEditorId == 'ipreview.live' && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.noop",

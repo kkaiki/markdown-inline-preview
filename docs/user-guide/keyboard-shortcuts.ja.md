@@ -40,7 +40,7 @@ HTML / 拡張記法（`==` は Obsidian 互換）で表現している。
 
 | 機能 | Mac | Windows/Linux |
 |------|-----|---------------|
-| 通常テキストに戻す | `⌥⌘0` | `Ctrl+Shift+0` または `Alt+Ctrl+0` |
+| 通常テキストに戻す | `⌥⌘0` または `⌘⇧0` | `Ctrl+Shift+0` または `Alt+Ctrl+0` |
 | 見出し 1 / 2 / 3 | `⌥⌘1` `⌥⌘2` `⌥⌘3` | `Ctrl+Shift+1〜3` または `Alt+Ctrl+1〜3` |
 | チェックボックス | `⌥⌘4` | `Ctrl+Shift+4` または `Alt+Ctrl+4` |
 | 箇条書き | `⌥⌘5` | `Ctrl+Shift+5` または `Alt+Ctrl+5` |

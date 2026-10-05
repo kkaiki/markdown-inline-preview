@@ -83,6 +83,32 @@ describe('Live モード: Notion 準拠のショートカット（実ブラウ�
         });
     });
 
+    describe('⌘⇧0（Notion の「テキストに変換」）', () => {
+        it('⌘⇧0 で見出しが本文（段落）に戻る', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '## 見出し\n');
+            await h.setCursor(5);
+            await h.press('Meta+Shift+Digit0');
+            assert.strictEqual(await h.doc(), '見出し\n');
+        });
+
+        it('⌘⇧0 でチェックボックスが本文に戻る', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '- [ ] 項目\n');
+            await h.setCursor(7);
+            await h.press('Meta+Shift+Digit0');
+            assert.strictEqual(await h.doc(), '項目\n');
+        });
+
+        it('従来の ⌥⌘0 でも同じく本文に戻る（既存のキーは残す）', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '## 見出し\n');
+            await h.setCursor(5);
+            await h.press('Meta+Alt+Digit0');
+            assert.strictEqual(await h.doc(), '見出し\n');
+        });
+    });
+
     describe('ブロック変換', () => {
         it('⌥⌘7 でトグルリスト（details）になる', async function () {
             if (!browser) { this.skip(); return; }

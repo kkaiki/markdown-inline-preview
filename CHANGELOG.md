@@ -1,3 +1,7 @@
+## Unreleased
+
+- Feature: `⌘⇧0` (Notion's "turn into text") now converts the block to plain text on Mac, in both Raw and Live. The existing `⌥⌘0` keeps working. In Live, `⌘⇧0` is also assigned to a no-op at the editor level so no VS Code / Cursor default (or other binding) reacts to it. Spec: `docs/specifications/notion-shortcuts.md` §1.2; guarded by `test/suite/shared/notionKeybindings.test.ts` and `test/browser/live/shortcuts/notionShortcuts.test.ts`.
+
 ## 3.3.1 - 2026-10-04
 
 - Feature: In a table cell in Live mode, `Shift+Enter` inserts `<br>` at the caret to break the line inside the cell (plain `Enter` still does nothing, because a raw newline would break the table). `<br>`, `<br/>` and `<br />` in a cell are shown as line breaks when the cell is not focused, with no tag text; while the cell is focused the raw `<br>` is visible. Guarded by `test/browser/live/lists-tables/tableCellEdit.test.ts`.

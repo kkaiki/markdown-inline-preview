@@ -271,6 +271,12 @@ for (let n = 0; n <= 9; n++) {
         run: (view: EditorView) => applyBlockActionToSelection(view, action)
     });
 }
+// ⌘⇧0（Notion の「テキストに変換」）も段落への変換。⌥⌘0 は残す。
+// 1〜9 は macOS のスクリーンショット（⌘⇧3/4/5）などと衝突するので 0 だけ。
+blockKeymap.push({
+    key: 'Mod-Shift-0',
+    run: (view: EditorView) => applyBlockActionToSelection(view, 'paragraph')
+});
 
 /**
  * 段階的な ⌘A で最後に設定した選択。

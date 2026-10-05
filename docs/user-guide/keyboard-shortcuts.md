@@ -41,7 +41,7 @@ They're represented as HTML and extended syntax (Obsidian-compatible for `==`).
 
 | Action | Mac | Windows/Linux |
 |---|---|---|
-| Convert to plain text | `⌥⌘0` | `Ctrl+Shift+0` or `Alt+Ctrl+0` |
+| Convert to plain text | `⌥⌘0` or `⌘⇧0` | `Ctrl+Shift+0` or `Alt+Ctrl+0` |
 | Heading 1 / 2 / 3 | `⌥⌘1` `⌥⌘2` `⌥⌘3` | `Ctrl+Shift+1–3` or `Alt+Ctrl+1–3` |
 | Checkbox | `⌥⌘4` | `Ctrl+Shift+4` or `Alt+Ctrl+4` |
 | Bullet list | `⌥⌘5` | `Ctrl+Shift+5` or `Alt+Ctrl+5` |
