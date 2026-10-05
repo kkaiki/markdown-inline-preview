@@ -97,6 +97,25 @@ export function proFeatureAccess(
  * 署名が壊れている・知らないバージョンといった「取り直しても直らない」失敗では
  * サーバーを叩かない（無駄なリクエストを毎回投げないため）。
  */
+/** 起動中にサーバーへ再確認する間隔（24 時間）。返金・チャージバックを、最長で 1 日で拾うため。 */
+export const RECHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 保存済みのキーで、サーバーに「まだ有効か」を確認するか。
+ *
+ * 以前は期限の 7 日前になるまで確認しなかったので、返金してもトークンの期限（最長 30 日）まで
+ * PRO+ が動き続けた。**キーがあれば、期限に関係なく確認する**（起動時と 24 時間ごと）。
+ * 署名が壊れている・知らないバージョンのような、取り直しても直らない失敗ではサーバーを叩かない。
+ * 繋がらなかったときは保存済みトークンを維持する（`applyEntitlementOutcome`）ので、オフラインは困らない。
+ */
+export function shouldRecheckWithServer(input: { hasKey: boolean; license: LicenseVerifyResult }): boolean {
+    if (!input.hasKey) return false;
+    if (isLicenseFailure(input.license)) {
+        return input.license.reason === 'malformed' || input.license.reason === 'expired';
+    }
+    return true;
+}
+
 export function needsTokenRefresh(license: LicenseVerifyResult, nowSec: number): boolean {
     if (isLicenseFailure(license)) {
         return license.reason === 'malformed' || license.reason === 'expired';

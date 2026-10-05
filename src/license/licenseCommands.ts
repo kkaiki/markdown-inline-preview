@@ -20,7 +20,7 @@ import {
 } from '../shared/license/activationUri';
 import { fetchEntitlement } from '../shared/license/client';
 import { applyEntitlementOutcome } from '../shared/license/refresh';
-import { needsTokenRefresh, shouldShowProBadge, MONETIZATION_ENABLED } from '../shared/license/entitlement';
+import { shouldRecheckWithServer, RECHECK_INTERVAL_MS, shouldShowProBadge, MONETIZATION_ENABLED } from '../shared/license/entitlement';
 import { verifyLicenseToken } from '../shared/license/token';
 import { LICENSE_PUBLIC_KEYS } from './publicKey';
 import { LicenseStore } from './licenseStore';
@@ -109,10 +109,9 @@ async function redeemKey(store: LicenseStore, key: string): Promise<void> {
  */
 export async function refreshLicenseQuietly(store: LicenseStore): Promise<void> {
     const current = await store.verify();
-    if (!needsTokenRefresh(current, Math.floor(Date.now() / 1000))) return;
-
     const key = await store.getLicenseKey();
-    if (!key) return; // キーを持っていなければ取り直しようがない
+    // キーがあれば、期限に関係なくサーバーに確認する（返金・チャージバックで無効になったら、ここで拾う）。
+    if (!key || !shouldRecheckWithServer({ hasKey: true, license: current })) return;
 
     try {
         const outcome = await fetchEntitlement({ baseUrl: baseUrl(), licenseKey: key }, httpJson);
@@ -218,8 +217,10 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
     // （以前は誤って「ライセンスキーを入力」の中にあり、キーを入れるまで出なかった。docs/specifications/fixes/pro-plus-context-key.md）
     void setContextKey('markdownInline.proPlusOnSale', MONETIZATION_ENABLED);
     void refreshStatusBar();
-    // 起動時に一度だけ静かに更新する。失敗しても何も起きない。
+    // 起動時と、その後 24 時間ごとに静かに確認する。失敗しても何も起きない（オフラインでも困らない）。
     void refreshLicenseQuietly(store).then(() => refreshStatusBar());
+    const recheckTimer = setInterval(() => void refreshLicenseQuietly(store).then(() => refreshStatusBar()), RECHECK_INTERVAL_MS);
+    context.subscriptions.push({ dispose: () => clearInterval(recheckTimer) });
 
     return store;
 }

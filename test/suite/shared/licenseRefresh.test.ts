@@ -55,3 +55,31 @@ describe('サーバー応答の反映', () => {
         assert.deepStrictEqual(apply({ kind: 'not-entitled' }, undefined), { action: 'clear' });
     });
 });
+
+
+import { shouldRecheckWithServer, RECHECK_INTERVAL_MS } from '../../../src/shared/license/entitlement';
+import type { LicenseVerifyResult } from '../../../src/shared/license/token';
+
+describe('サーバーへの再確認（返金・チャージバックを拾う）', () => {
+    const FRESH: LicenseVerifyResult = {
+        ok: true,
+        claims: { sub: 'u', features: ['pdf-nocredit'], iat: 1_000, exp: 1_000 + 30 * 86_400 }
+    } as unknown as LicenseVerifyResult;
+
+    it('キーを持っていれば、期限まで余裕のあるトークンでも確認する（返金を拾うため）', () => {
+        assert.strictEqual(shouldRecheckWithServer({ hasKey: true, license: FRESH }), true);
+    });
+
+    it('キーが無ければ確認しようがない', () => {
+        assert.strictEqual(shouldRecheckWithServer({ hasKey: false, license: FRESH }), false);
+    });
+
+    it('署名が壊れているなど、取り直しても直らない失敗ではサーバーを叩かない', () => {
+        const broken = { ok: false, reason: 'bad-signature' } as unknown as LicenseVerifyResult;
+        assert.strictEqual(shouldRecheckWithServer({ hasKey: true, license: broken }), false);
+    });
+
+    it('起動中は 24 時間ごとに確認する', () => {
+        assert.strictEqual(RECHECK_INTERVAL_MS, 24 * 60 * 60 * 1000);
+    });
+});
