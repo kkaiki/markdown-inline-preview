@@ -1,6 +1,9 @@
-## Unreleased
+## 3.3.2 - 2026-10-05
 
 - Feature: `⌘⇧0` (Notion's "turn into text") now converts the block to plain text on Mac, in both Raw and Live. The existing `⌥⌘0` keeps working. In Live, `⌘⇧0` is also assigned to a no-op at the editor level so no VS Code / Cursor default (or other binding) reacts to it. Spec: `docs/specifications/notion-shortcuts.md` §1.2; guarded by `test/suite/shared/notionKeybindings.test.ts` and `test/browser/live/shortcuts/notionShortcuts.test.ts`.
+- Change: The PRO+ prompt (shown when you use Word / Slides / batch export without a purchase) now says that purchases are not refundable and suggests trying the free PDF export first. The license server's terms, seller information, landing page and checkout screen say the same, and the user guides no longer promise refunds.
+- Fix: The "Enter license key" choice was missing from the PDF prompts (the credit-line prompt shown before exporting, and the PDF layout options prompt); only Word, slides and batch export offered it. Every PRO+ prompt now offers Get PRO+ / Enter license key, so anyone who could not be taken back to the editor after paying can paste the key from whichever feature they started with. Guarded by `test/suite/shared/proDialogChoices.test.ts`.
+- Fix: Buying PRO+ from the extension could not return to the editor automatically. "Get PRO+" opens the website's home page, but its Buy button did not pass the extension's one-time value and editor scheme on, so after paying the thank-you page could not hand the license back (and in Cursor pointed at `vscode://`). The Buy button now carries them (a server-side fix, effective for 3.3.1 as well).
 
 ## 3.3.1 - 2026-10-04
 
