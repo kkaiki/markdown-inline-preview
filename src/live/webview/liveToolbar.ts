@@ -6,6 +6,7 @@
  */
 import type { EditorView } from '@codemirror/view';
 import { t } from './i18n';
+import { SLASH_MENU_ITEMS } from '../../shared/slash/slashMenuItems';
 import type { NotionBlockAction } from '../../shared/notionBlockKeymap';
 import type { InlineFormat } from '../../shared/inlineFormat';
 import {
@@ -77,6 +78,8 @@ interface ToolbarButton {
     mode?: 'raw';
     /** その他のホスト側コマンド。 */
     command?: HostCommand;
+    /** 押すとスニペットを挿入するなら true（表）。 */
+    insertTable?: boolean;
 }
 
 const BUTTONS: ToolbarButton[] = [
@@ -88,6 +91,7 @@ const BUTTONS: ToolbarButton[] = [
     { label: '1.', name: 'Numbered list', block: 'orderedList' },
     { label: '❝', name: 'Quote', block: 'blockquote' },
     { label: '▸', name: 'Toggle list', block: 'toggleList' },
+    { label: '▦', name: 'Table', insertTable: true },
     { label: 'B', name: 'Bold', format: 'bold' },
     { label: 'I', name: 'Italic', format: 'italic' },
     { label: 'U', name: 'Underline', format: 'underline' },
@@ -394,6 +398,7 @@ function makeButton(
     if (b.format) el.dataset.format = b.format;
     if (b.mode) el.dataset.mode = b.mode;
     if (b.command) el.dataset.command = b.command;
+    if (b.insertTable) el.dataset.insert = 'table';
     const tipName = !pro
         ? b.name
         : b.command === 'exportPdf'
@@ -403,11 +408,28 @@ function makeButton(
     // ボタンを押してもエディタのフォーカス・選択を失わないようにする
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', () => {
-        if (b.command) handlers.runCommand(b.command);
+        if (b.insertTable) insertTable(view);
+        else if (b.command) handlers.runCommand(b.command);
         else if (b.mode) handlers.switchMode(b.mode);
         else if (b.block) handlers.applyBlock(view, b.block);
         else if (b.format) handlers.applyInlineFormat(view, b.format);
         view.focus();
     });
     return el;
+}
+
+/**
+ * `/table` と同じ表をカーソル位置に挿入する。空行ならその行に、文のある行なら空行を 1 つ挟んで下に置く
+ * （直下だと段落の続きとして解釈され、表にならない）。
+ */
+function insertTable(view: EditorView): void {
+    const table = SLASH_MENU_ITEMS.find((i) => i.id === 'table')?.previewMarkdown;
+    if (!table) return;
+    const line = view.state.doc.lineAt(view.state.selection.main.head);
+    if (line.text.trim() === '') {
+        view.dispatch({ changes: { from: line.from, to: line.to, insert: table }, userEvent: 'input' });
+        return;
+    }
+    const insert = `\n\n${table}`;
+    view.dispatch({ changes: { from: line.to, insert }, userEvent: 'input' });
 }

@@ -432,8 +432,48 @@ body {
 .cm-live-table-wrap {
     overflow-x: auto;
     padding: var(--live-block-gap) 0;
-    /* 列幅つまみ（.cm-live-col-resizers）の位置の基準 */
+    /* 列幅つまみ（.cm-live-col-resizers）と「＋」ボタンの位置の基準 */
     position: relative;
+    /* 右端の「列を追加」・下端の「行を追加」を置く余白 */
+    padding-right: 24px;
+    padding-bottom: calc(var(--live-block-gap) + 22px);
+}
+/* 表の右端・下端の「＋」。表にマウスを乗せている間（フォーカス中も）だけ見せる */
+.cm-live-table-add {
+    position: absolute;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px dashed var(--live-border, rgba(128, 128, 128, 0.4));
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+.cm-live-table-add-col {
+    top: var(--live-block-gap);
+    bottom: calc(var(--live-block-gap) + 22px);
+    right: 2px;
+    width: 20px;
+}
+.cm-live-table-add-row {
+    left: 0;
+    right: 24px;
+    bottom: var(--live-block-gap);
+    height: 20px;
+}
+.cm-live-table-wrap:hover .cm-live-table-add,
+.cm-live-table-wrap:focus-within .cm-live-table-add {
+    opacity: 1;
+}
+.cm-live-table-add:hover {
+    background: rgba(128, 128, 128, 0.18);
 }
 /* 列幅つまみ: 表に重ねたレイヤーに置く（セルは contenteditable で作り直されるため） */
 .cm-live-col-resizers {

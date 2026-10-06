@@ -1,3 +1,9 @@
+## 3.3.5 - 2026-10-06
+
+- Feature: In Live mode, hovering a table shows a "+" at its right edge (add a column) and at its bottom edge (add a row), so rows and columns can be added without knowing about the right-click menu. Guarded by `test/browser/live/lists-tables/tableAddButtons.test.ts`.
+- Feature: The Live toolbar has a table button that inserts the same 2-column table as `/table` (on an empty line, or below the current line with a blank line between). Guarded by `test/browser/live/shortcuts/toolbarAndSlash.test.ts`.
+- Change: The `/` menu is ordered by how often the items are used (h1, h2, h3, bullet, todo, numbered, quote, code, table, divider, callouts, h4–h6, heading). Live used to list them alphabetically. Guarded by `test/suite/shared/slashMenuItems.test.ts`.
+
 ## 3.3.4 - 2026-10-06
 
 - Feature: New setting `markdownInline.indentation` — `default` keeps today's behaviour (Tab indents a list item by 2 spaces in Raw and by a tab character in Live), `editor` makes Tab / Shift+Tab follow VS Code's `editor.tabSize` and `editor.insertSpaces` in both modes (including `[markdown]` overrides). Fixes the report that the extension ignored VS Code's indentation settings (GitHub issue #3). Guarded by `test/suite/shared/indentation.test.ts`, real-VS-Code tests 14.3–14.7 and `test/browser/live/shortcuts/notionShortcuts.test.ts`.

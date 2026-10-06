@@ -16,4 +16,17 @@ describe('slash menu items', function() {
             assert.ok(item.sortOrder.length > 0, `missing sortOrder for ${item.id}`);
         }
     });
+
+    it('よく使う順に並ぶ（見出し・リスト・チェックボックス・引用・コード・表が先頭、h4〜h6 は後ろ）', function() {
+        const ids = SLASH_MENU_ITEMS.map(item => item.id);
+        assert.deepStrictEqual(ids.slice(0, 9), [
+            'h1', 'h2', 'h3', 'bullet', 'todo', 'numbered', 'quote', 'code', 'table'
+        ]);
+        assert.ok(ids.indexOf('h4') > ids.indexOf('callout-danger'), 'h4 はコールアウトより後');
+    });
+
+    it('sortOrder（Raw の補完の並び）が配列の並びと一致する', function() {
+        const bySort = [...SLASH_MENU_ITEMS].sort((a, b) => a.sortOrder.localeCompare(b.sortOrder));
+        assert.deepStrictEqual(bySort.map(i => i.id), SLASH_MENU_ITEMS.map(i => i.id));
+    });
 });

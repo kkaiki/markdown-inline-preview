@@ -112,6 +112,24 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
             assert.strictEqual(await h.doc(), '**abc** def\n');
         });
 
+        it('表ボタンで空行に 2 列の表を挿入する', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '\n');
+            await h.setCursor(0);
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Table"]');
+            await h.page.waitForTimeout(150);
+            assert.strictEqual(await h.doc(), '|  |  |\n| --- | --- |\n|  |  |\n');
+        });
+
+        it('表ボタンは文のある行では空行を挟んで下に表を挿入する', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '本文\n');
+            await h.setCursor(2);
+            await h.page.click('.cm-live-toolbar-button[aria-label^="Table"]');
+            await h.page.waitForTimeout(150);
+            assert.strictEqual(await h.doc(), '本文\n\n|  |  |\n| --- | --- |\n|  |  |\n');
+        });
+
         it('Raw ボタンで host へモード切替を送る', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '本文\n');
@@ -152,6 +170,21 @@ describe('Live モード: ツールバーとショートカット（実ブラウ
                 `document.querySelectorAll('.cm-tooltip-autocomplete li').length`
             );
             assert.ok(n > 0, 'スラッシュメニューが出ていない');
+        });
+
+        it('"/" だけのメニューは、よく使う順（見出し・箇条書き・チェックボックス…）に並ぶ', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '\n');
+            await h.setCursor(0);
+            await h.type('/');
+            await h.page.waitForTimeout(300);
+            const labels = await h.page.evaluate<string[]>(
+                `Array.from(document.querySelectorAll('.cm-tooltip-autocomplete li .cm-completionLabel')).map(e => e.textContent)`
+            );
+            assert.deepStrictEqual(
+                labels.slice(0, 9),
+                ['/h1', '/h2', '/h3', '/bullet', '/todo', '/numbered', '/quote', '/code', '/table']
+            );
         });
 
         it('絞り込むと候補が減る', async function () {

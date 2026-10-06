@@ -38,7 +38,7 @@ import {
 } from '../shared/tableGrid';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
 import { keepCopyableSelection } from './tableCopySelection';
-import { applyTableCommand } from '../shared/tableEdit';
+import { applyTableCommand, columnCount as sourceColumnCount, contentLineIndexes, type TableCommand } from '../shared/tableEdit';
 import { estimateTableHeight, estimateCalloutHeight, MERMAID_ESTIMATE, MATH_BLOCK_ESTIMATE } from '../shared/blockHeightEstimate';
 
 /** 収縮時に記法文字を DOM から消すための decoration（幅0の置換）。 */
@@ -439,6 +439,9 @@ class TableWidget extends WidgetType {
         table.appendChild(thead);
         table.appendChild(tbody);
         wrap.appendChild(table);
+        wrap.dataset.srcLen = String(this.source.length);
+        wrap.appendChild(this.makeAddButton(wrap, view, 'col'));
+        wrap.appendChild(this.makeAddButton(wrap, view, 'row'));
 
         // 列幅つまみ（一時的な列幅調整）。記憶があれば先に当てる。
         attachColumnResizers(wrap, this.index);
@@ -486,11 +489,39 @@ class TableWidget extends WidgetType {
         const cells = editableCells(dom);
         const fresh = parseTableCells(this.source, this.from).flatMap((r) => r.cells);
         if (cells.length !== fresh.length) return false;
+        dom.dataset.srcLen = String(this.source.length);
         cells.forEach((el, i) => {
             el.dataset.from = String(fresh[i].from);
             el.dataset.to = String(fresh[i].to);
         });
         return true;
+    }
+
+    /**
+     * 表の右端（列）・下端（行）の「＋」。ホバー中だけ見える（CSS）。
+     * セル編集のたびに widget は作り直されない（`updateDOM`）ので、ソースは `this` ではなく
+     * その時点の文書から読む。
+     */
+    private makeAddButton(wrap: HTMLElement, view: EditorView, kind: 'col' | 'row'): HTMLElement {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `cm-live-table-add cm-live-table-add-${kind}`;
+        btn.textContent = '+';
+        btn.setAttribute('aria-label', t(kind === 'col' ? 'Add column' : 'Add row'));
+        btn.addEventListener('mousedown', (e) => e.preventDefault());
+        btn.addEventListener('click', () => {
+            const from = view.posAtDOM(wrap);
+            const to = from + Number(wrap.dataset.srcLen);
+            const source = view.state.doc.sliceString(from, to);
+            const lines = source.split('\n');
+            const target = { row: contentLineIndexes(lines).length - 1, col: sourceColumnCount(lines) - 1 };
+            const command: TableCommand = kind === 'col' ? 'insertColumnRight' : 'insertRowBelow';
+            const next = applyTableCommand(source, target, command);
+            if (next === null) return;
+            view.dispatch({ changes: { from, to, insert: next }, userEvent: 'input' });
+            view.focus();
+        });
+        return btn;
     }
 
     /** セルの中のイベントは CodeMirror に渡さず、ウィジェット側で処理する。 */

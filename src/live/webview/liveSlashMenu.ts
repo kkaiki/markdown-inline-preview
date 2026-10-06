@@ -24,10 +24,12 @@ function slashSource(context: CompletionContext): CompletionResult | null {
     const from = match.from + slashAt;
     if (!context.explicit && from === context.pos) return null;
 
-    const options: Completion[] = SLASH_MENU_ITEMS.map((item) => ({
+    const options: Completion[] = SLASH_MENU_ITEMS.map((item, index) => ({
         label: `/${item.label}`,
         detail: t(item.detail),
         type: 'keyword',
+        // 何も絞り込まないときの並びを定義順（よく使う順）にする。既定だと同点はラベルの辞書順になる
+        boost: SLASH_MENU_ITEMS.length - index,
         apply: (view, _completion, applyFrom, applyTo) => {
             const insert = item.previewMarkdown;
             view.dispatch({
