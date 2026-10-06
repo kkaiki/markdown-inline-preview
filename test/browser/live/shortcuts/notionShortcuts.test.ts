@@ -199,6 +199,24 @@ describe('Live モード: Notion 準拠のショートカット（実ブラウ�
             assert.strictEqual(await h.doc(), 'あ\nい\n');
         });
 
+        it('⌥↑ / ⌥↓ でも行が上下へ移動する（⌘⇧↑↓ と同じ）', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, 'あ\nい\nう\n');
+            await h.setCursor(2);
+            await h.press('Alt+ArrowDown');
+            assert.strictEqual(await h.doc(), 'あ\nう\nい\n');
+            await h.press('Alt+ArrowUp');
+            assert.strictEqual(await h.doc(), 'あ\nい\nう\n');
+        });
+
+        it('⌥↓ で子の項目もいっしょに動く', async function () {
+            if (!browser) { this.skip(); return; }
+            h = await openLive(browser, '- 親\n  - 子\n- 次\n');
+            await h.setCursor(2);
+            await h.press('Alt+ArrowDown');
+            assert.strictEqual(await h.doc(), '- 次\n- 親\n  - 子\n');
+        });
+
         it('⌘Enter でチェックボックスが切り替わる', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, '- [ ] やること\n');

@@ -328,6 +328,9 @@ export const liveKeymap: KeyBinding[] = [
     { key: 'Mod-d', run: liveDuplicateBlock },
     { key: 'Mod-Shift-ArrowUp', run: (view) => liveMoveBlock(view, 'up') },
     { key: 'Mod-Shift-ArrowDown', run: (view) => liveMoveBlock(view, 'down') },
+    // ⌥↑↓ も ⌘⇧↑↓ と同じ（CodeMirror 標準の moveLineUp/Down は 1 行だけで子が取り残される。memento と同じ）
+    { key: 'Alt-ArrowUp', run: (view) => liveMoveBlock(view, 'up') },
+    { key: 'Alt-ArrowDown', run: (view) => liveMoveBlock(view, 'down') },
     { key: 'Mod-Enter', run: liveToggleTask },
     { key: 'Shift-Enter', run: livePlainNewline },
     { key: 'Mod-Shift-.', run: liveSwitchToRaw },

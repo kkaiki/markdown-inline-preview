@@ -1,3 +1,7 @@
+## 3.3.6 - 2026-10-07
+
+- Change: In Live mode, `⌥↑` / `⌥↓` now move the block together with its child items, the same as `⌘⇧↑` / `⌘⇧↓`. They used to move only the current line (CodeMirror's default), leaving the children behind. Guarded by `test/browser/live/shortcuts/notionShortcuts.test.ts`.
+
 ## 3.3.5 - 2026-10-06
 
 - Feature: In Live mode, hovering a table shows a "+" at its right edge (add a column) and at its bottom edge (add a row), so rows and columns can be added without knowing about the right-click menu. Guarded by `test/browser/live/lists-tables/tableAddButtons.test.ts`.
