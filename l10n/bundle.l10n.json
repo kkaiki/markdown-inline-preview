@@ -31,5 +31,7 @@
   "Could not copy this image: its source is not a local file in this document.": "Could not copy this image: its source is not a local file in this document.",
   "Open a Markdown file first.": "Open a Markdown file first.",
   "No double-fenced code blocks found in this file.": "No double-fenced code blocks found in this file.",
-  "Repaired {0} double-fenced code block(s).": "Repaired {0} double-fenced code block(s)."
+  "Repaired {0} double-fenced code block(s).": "Repaired {0} double-fenced code block(s).",
+  "Save the Markdown file first to paste images.": "Save the Markdown file first to paste images.",
+  "Could not save the pasted image: {0}": "Could not save the pasted image: {0}"
 }

@@ -17,6 +17,7 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { imageExtension, pickImageFileName } from '../shared/imagePaste';
 import { buildPreviewCsp } from './csp';
 import { changeToRange, createEchoGuard, type DocChange } from '../shared/documentSync';
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
@@ -489,7 +490,12 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
         void closeOppositeTabs(document.uri, 'live');
         panel.webview.options = {
             enableScripts: true,
-            localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, 'media')]
+            // md ファイルのディレクトリとワークスペースも読めるようにする（`./img.gif` などの手元の画像を出すため）
+            localResourceRoots: [
+                vscode.Uri.joinPath(this.extensionUri, 'media'),
+                vscode.Uri.joinPath(document.uri, '..'),
+                ...(vscode.workspace.workspaceFolders ?? []).map((f) => f.uri)
+            ]
         };
         panel.webview.html = html(panel.webview, this.extensionUri);
 
@@ -526,7 +532,9 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                         .getConfiguration('markdownInline')
                         .get<boolean>('live.codeBlockLineNumbers', false),
                     showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED }),
-                    proPlusOnSale: MONETIZATION_ENABLED
+                    proPlusOnSale: MONETIZATION_ENABLED,
+                    // 相対パスの画像の基準（md ファイルのディレクトリ。末尾 `/` が無いと最後の段が落ちる）
+                    imageBaseUri: `${panel.webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..')).toString()}/`
                 }
             });
         };
@@ -554,6 +562,10 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
             }
             if (msg.type === 'exportDocx') {
                 await exportDocx(document, extensionPath);
+                return;
+            }
+            if (msg.type === 'pasteImage') {
+                await savePastedImage(document, msg as PasteImageRequest, post);
                 return;
             }
             if (msg.type === 'switchMode') {
@@ -749,4 +761,42 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
             );
         })
     );
+}
+
+/** webview からの画像の保存依頼（`liveImagePaste.ts` の `PasteImageMessage`）。 */
+interface PasteImageRequest {
+    type: 'pasteImage';
+    id: number;
+    mime: string;
+    name: string;
+    data: string;
+}
+
+/**
+ * 貼り付けた画像を md ファイルと同じディレクトリに保存し、ファイル名を webview へ返す
+ * （requirements.md §2「画像の貼り付け」）。保存できなければ fileName 無しで返す（webview は何も入れない）。
+ */
+async function savePastedImage(
+    document: vscode.TextDocument,
+    req: PasteImageRequest,
+    post: (message: unknown) => void
+): Promise<void> {
+    const ext = imageExtension(req.mime);
+    if (document.uri.scheme !== 'file' || !ext) {
+        void vscode.window.showWarningMessage(
+            vscode.l10n.t('Save the Markdown file first to paste images.')
+        );
+        post({ type: 'imageSaved', id: req.id });
+        return;
+    }
+    try {
+        const dir = vscode.Uri.joinPath(document.uri, '..');
+        const taken = new Set((await vscode.workspace.fs.readDirectory(dir)).map(([n]) => n));
+        const fileName = pickImageFileName(req.name, ext, (n) => taken.has(n));
+        await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(dir, fileName), Buffer.from(req.data, 'base64'));
+        post({ type: 'imageSaved', id: req.id, fileName });
+    } catch (e) {
+        void vscode.window.showErrorMessage(vscode.l10n.t('Could not save the pasted image: {0}', String(e)));
+        post({ type: 'imageSaved', id: req.id });
+    }
 }

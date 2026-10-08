@@ -122,6 +122,8 @@ export interface LiveSettings {
     indent?: { unit: string; tabSize: number };
     /** コードブロックの中に行番号を出すか（設定 markdownInline.live.codeBlockLineNumbers）。 */
     codeBlockLineNumbers?: boolean;
+    /** 相対パスの画像を解決する基準（md ファイルのディレクトリの URL、末尾 `/`）。 */
+    imageBaseUri?: string;
 }
 
 /**

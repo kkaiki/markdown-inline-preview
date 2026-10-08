@@ -36,6 +36,7 @@ import {
     verticalTarget,
     type Direction
 } from '../shared/tableGrid';
+import { resolveImageSrc } from '../shared/imageSrc';
 import { closeTableMenu, openTableMenu } from './liveTableMenu';
 import { keepCopyableSelection } from './tableCopySelection';
 import { applyTableCommand, columnCount as sourceColumnCount, contentLineIndexes, type TableCommand } from '../shared/tableEdit';
@@ -235,6 +236,14 @@ class MermaidWidget extends WidgetType {
  */
 export const codeBlockLineNumbers = Facet.define<boolean, boolean>({
     combine: (values) => values.some(Boolean)
+});
+
+/**
+ * 相対パスの画像を解決する基準（md ファイルのディレクトリの webview URL、末尾 `/`）。
+ * host から受け取った値を liveApp が `.of(...)` で渡す。無ければ解決しない。
+ */
+export const imageBaseUri = Facet.define<string, string | undefined>({
+    combine: (values) => values[0]
 });
 
 /**
@@ -1390,7 +1399,7 @@ function pushRange(
     if (!revealed && r.kind === 'image' && r.info) {
         const alt = state.doc.sliceString(r.markFrom, r.markTo);
         decos.push(
-            Decoration.replace({ widget: new ImageWidget(r.info, alt) }).range(r.revealFrom, r.revealTo)
+            Decoration.replace({ widget: new ImageWidget(resolveImageSrc(r.info, state.facet(imageBaseUri)), alt) }).range(r.revealFrom, r.revealTo)
         );
         return;
     }

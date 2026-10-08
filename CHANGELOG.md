@@ -1,3 +1,8 @@
+## 3.3.7 - 2026-10-09
+
+- Feature: Paste an image in Live mode to insert it. The image is saved next to the Markdown file (`image.png`, then `image-1.png`, … if the name is taken; a copied file keeps its own name) and `![](image.png)` is inserted where you pasted. Clipboard content that also has text (for example a spreadsheet range) is still pasted as text / a table. Guarded by `test/suite/live/editing-core/imagePaste.test.ts` and `test/browser/live/editing-core/imagePaste.test.ts`.
+- Fix: Local images (`![](./cat.gif)`, `img/a.png`, `../x.png`) did not show in Live mode; only web URLs did. Relative paths are now resolved from the Markdown file's folder, and GIFs animate. Guarded by `test/suite/live/rendering/imageSrc.test.ts` and `test/browser/live/rendering/localImage.test.ts`.
+
 ## 3.3.6 - 2026-10-07
 
 - Change: In Live mode, `⌥↑` / `⌥↓` now move the block together with its child items, the same as `⌘⇧↑` / `⌘⇧↓`. They used to move only the current line (CodeMirror's default), leaving the children behind. Guarded by `test/browser/live/shortcuts/notionShortcuts.test.ts`.

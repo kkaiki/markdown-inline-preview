@@ -34,6 +34,7 @@ import { shouldIgnoreHostSelectAll } from '../shared/hostSelectAll';
 import { liveSlashMenu } from './liveSlashMenu';
 import { mountLiveToolbar } from './liveToolbar';
 import { liveSpreadsheetPaste } from './liveSpreadsheetPaste';
+import { insertSavedImage, liveImagePaste } from './liveImagePaste';
 import { liveLineNumbers } from './liveLineNumbers';
 import { diffBaseField, diffField, liveDiffGutter, setDiffBase } from './liveDiffGutter';
 import {
@@ -41,6 +42,7 @@ import {
     liveComposingField,
     liveDecorationField,
     codeBlockLineNumbers,
+    imageBaseUri,
     liveFocusField,
     liveFocusWatcher
 } from './liveDecorations';
@@ -66,6 +68,8 @@ interface LiveSettings {
     indent?: { unit: string; tabSize: number };
     /** コードブロックの中に行番号を出すか（設定 markdownInline.live.codeBlockLineNumbers）。 */
     codeBlockLineNumbers?: boolean;
+    /** 相対パスの画像を解決する基準（md ファイルのディレクトリの webview URL、末尾 `/`）。host が渡す。 */
+    imageBaseUri?: string;
 }
 
 const vscode: VsCodeApi | null = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
@@ -122,6 +126,7 @@ function extensions(settings: LiveSettings): Extension[] {
         indentUnit.of(settings.indent?.unit ?? '\t'),
         EditorState.tabSize.of(settings.indent?.tabSize ?? 4),
         codeBlockLineNumbers.of(settings.codeBlockLineNumbers === true),
+        ...(settings.imageBaseUri ? [imageBaseUri.of(settings.imageBaseUri)] : []),
         // 記法の展開/収縮。ブロックウィジェット（表など）を扱うため StateField 供給にしている。
         liveFocusField,
         liveComposingField,
@@ -130,6 +135,8 @@ function extensions(settings: LiveSettings): Extension[] {
         liveCompositionWatcher,
         // Excel・スプレッドシートの範囲を貼ったら Markdown の表にする（無料・既定。requirements.md §2.7.3）
         liveSpreadsheetPaste,
+        // 画像の貼り付け（保存は host が md ファイルと同じディレクトリに行う）
+        liveImagePaste((m) => vscode?.postMessage(m)),
         sendEdits,
         theme,
         // スラッシュコマンド（/ でメニュー）
@@ -244,6 +251,8 @@ window.addEventListener('message', (event: MessageEvent) => {
         settings?: LiveSettings;
         changes?: DocChange[];
         revision?: number;
+        id?: number;
+        fileName?: string;
     };
     if (!msg || typeof msg.type !== 'string') return;
     switch (msg.type) {
@@ -252,6 +261,9 @@ window.addEventListener('message', (event: MessageEvent) => {
             break;
         case 'apply':
             applyRemote(msg.changes ?? [], msg.revision);
+            break;
+        case 'imageSaved':
+            if (view && typeof msg.id === 'number') insertSavedImage(view, msg.id, msg.fileName);
             break;
         case 'diffBase':
             view?.dispatch({ effects: setDiffBase.of(msg.text ?? null) });

@@ -110,5 +110,7 @@
   "Exported {0} PDF files.": "{0} 件の PDF を書き出しました。",
   "Open Folder": "フォルダを開く",
   "Details": "詳細",
-  "PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export. Purchases are not refundable, so please try the free PDF export first.": "PRO+ は買い切り（¥150 / $1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。購入後の返金はできませんので、先に無料の PDF 書き出しをお試しください。"
+  "PRO+ is a one-time purchase (¥150 / $1) with no subscription. It removes the PDF credit line and adds PDF layout options, Word (.docx) export, batch export and Marp slide export. Purchases are not refundable, so please try the free PDF export first.": "PRO+ は買い切り（¥150 / $1）で、サブスクではありません。PDF のクレジット行が消え、PDF の体裁の設定・Word（.docx）書き出し・まとめて書き出し・Marp スライド書き出しが使えるようになります。購入後の返金はできませんので、先に無料の PDF 書き出しをお試しください。",
+  "Save the Markdown file first to paste images.": "画像を貼り付けるには、先に Markdown ファイルを保存してください。",
+  "Could not save the pasted image: {0}": "貼り付けた画像を保存できませんでした: {0}"
 }
