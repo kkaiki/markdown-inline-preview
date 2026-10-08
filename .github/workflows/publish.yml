@@ -57,11 +57,12 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         id: vsce
-        run: vsce publish -p ${{ secrets.VSCE_PAT }}
+        # 公開済みの版は成功扱い（一部だけ成功した公開を再実行しても、後続の VSIX 保存と Release 作成まで進む）
+        run: vsce publish --skip-duplicate -p ${{ secrets.VSCE_PAT }}
         continue-on-error: true  # Marketplace側が失敗してもOpen VSXへの公開を続行
 
       - name: Publish to Open VSX
-        run: ovsx publish *.vsix -p ${{ secrets.OVSX_PAT }}
+        run: ovsx publish *.vsix --skip-duplicate -p ${{ secrets.OVSX_PAT }}
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
