@@ -1,3 +1,7 @@
+## 3.3.8 - 2026-10-14
+
+- Feature: Stacked inline formatting now renders in Live mode. `==**example**==` shows *example* both highlighted and bold with all markers hidden; the order does not matter (`**==example==**`), and bold text can contain italic, strikethrough or inline code. Inline code still keeps its content as plain text. Requested in GitHub issue #4. Guarded by `test/suite/live/rendering/nestedInline.test.ts` and `test/browser/live/rendering/nestedInline.test.ts`.
+
 ## 3.3.7 - 2026-10-09
 
 - Feature: Paste an image in Live mode to insert it. The image is saved next to the Markdown file (`image.png`, then `image-1.png`, … if the name is taken; a copied file keeps its own name) and `![](image.png)` is inserted where you pasted. Clipboard content that also has text (for example a spreadsheet range) is still pasted as text / a table. Guarded by `test/suite/live/editing-core/imagePaste.test.ts` and `test/browser/live/editing-core/imagePaste.test.ts`.

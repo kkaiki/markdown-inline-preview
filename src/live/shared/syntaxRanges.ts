@@ -252,6 +252,8 @@ function scanInline(text: string, base: number, out: SyntaxRange[]): void {
                     markFrom: base + contentFrom,
                     markTo: base + close
                 });
+                // 中身も同じ規則で走査する（`==**x**==` を蛍光ペンかつ太字にする。GitHub issue 2026-10-14）
+                scanInline(text.slice(contentFrom, close), base + contentFrom, out);
                 i = close + marker.length;
                 continue;
             }
