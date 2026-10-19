@@ -52,14 +52,15 @@ describe('Live モード: Word ボタンと PRO+ バッジ（実ブラウザ）'
         assert.ok(word.x >= pdf.x + pdf.width - 1, `Word が PDF の右にない: ${word.x} < ${pdf.x + pdf.width}`);
     });
 
-    it('未購入（showProBadge）なら Word ボタンに色付きの「PRO+」バッジが付く', async function () {
+    it('未購入（showProBadge）なら Word ボタンに「PRO+」バッジが付く（色は付けない）', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, '本文\n', { showLineNumbers: false, proPlusOnSale: true, showProBadge: true });
         assert.strictEqual((await h.page.locator(BADGE).textContent())?.trim(), 'PRO+');
         const bg = await h.page.evaluate<string>(
             `getComputedStyle(document.querySelector('${BADGE}')).backgroundColor`
         );
-        assert.notStrictEqual(bg, 'rgba(0, 0, 0, 0)', 'バッジに背景色が付いていない');
+        // 2026-10-15: 「Author added ads」と言われたので、目立つ背景色をやめた
+        assert.strictEqual(bg, 'rgba(0, 0, 0, 0)', 'バッジに背景色が付いている');
     });
 
     it('購入済み（販売中だが showProBadge なし）なら Word ボタンはあるがバッジは出ない', async function () {

@@ -18,6 +18,7 @@ import * as path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { imageExtension, pickImageFileName } from '../shared/imagePaste';
+import { proPromotionsEnabled } from '../../license/promotionSetting';
 import { buildPreviewCsp } from './csp';
 import { changeToRange, createEchoGuard, type DocChange } from '../shared/documentSync';
 import { buildLiveWebviewHtml } from '../shared/liveWebviewHtml';
@@ -27,7 +28,7 @@ import { exportDocxLocal } from './docxExport';
 import { runBatchExportCommand } from './batchExport';
 import {
     shouldIncludeCredit,
-    shouldShowProBadge,
+    shouldShowProPromotion,
     shouldPromptBeforeExport,
     proFeatureAccess,
     MONETIZATION_ENABLED,
@@ -49,6 +50,10 @@ import { fileMode, rememberFileMode, tabsToClose, type ModeMemory, type TabLike 
 import { chooseDocumentGroup, type GroupTabLike } from './editorGroups';
 
 const execFileAsync = promisify(execFile);
+
+
+/** いちばん最近アクティブだった Live の webview（「目次を開閉」コマンドの送り先）。 */
+let activeLivePanel: vscode.WebviewPanel | undefined;
 
 export const LIVE_VIEW_TYPE = 'ipreview.live';
 
@@ -355,7 +360,10 @@ async function exportPdf(document: vscode.TextDocument, extensionPath: string): 
     }
 
     if (credit && !upsellShown) {
-        if (shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED })) {
+        if (
+            proPromotionsEnabled() &&
+            shouldPromptBeforeExport({ license, monetizationEnabled: MONETIZATION_ENABLED })
+        ) {
             const decision = await confirmExportWithCredit();
             if (decision === 'cancel') return;
             if (decision === 'upgrade') {
@@ -482,10 +490,18 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
          */
         const relocate = (): void => void relocateOutOfPanelGroup(document.uri);
         relocate();
+        // 「目次を開閉」コマンドの送り先（いちばん最近アクティブだった Live）
+        if (panel.active) activeLivePanel = panel;
         const viewStateSub = panel.onDidChangeViewState(() => {
-            if (panel.active) relocate();
+            if (panel.active) {
+                activeLivePanel = panel;
+                relocate();
+            }
         });
-        panel.onDidDispose(() => viewStateSub.dispose());
+        panel.onDidDispose(() => {
+            viewStateSub.dispose();
+            if (activeLivePanel === panel) activeLivePanel = undefined;
+        });
         setTimeout(relocate, 200);
         void closeOppositeTabs(document.uri, 'live');
         panel.webview.options = {
@@ -531,7 +547,11 @@ class LiveEditorProvider implements vscode.CustomTextEditorProvider {
                     codeBlockLineNumbers: vscode.workspace
                         .getConfiguration('markdownInline')
                         .get<boolean>('live.codeBlockLineNumbers', false),
-                    showProBadge: shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED }),
+                    showProBadge: shouldShowProPromotion({
+                        license,
+                        monetizationEnabled: MONETIZATION_ENABLED,
+                        promotionsEnabled: proPromotionsEnabled()
+                    }),
                     proPlusOnSale: MONETIZATION_ENABLED,
                     // 相対パスの画像の基準（md ファイルのディレクトリ。末尾 `/` が無いと最後の段が落ちる）
                     imageBaseUri: `${panel.webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..')).toString()}/`
@@ -700,6 +720,10 @@ export function activateLiveFeature(context: vscode.ExtensionContext): void {
     );
 
     context.subscriptions.push(
+        // 目次ドロワーを開閉する（既定のキーは割り当てない。docs/specifications/live-mode/outline-drawer-design.md）
+        vscode.commands.registerCommand('markdownInline.live.toggleOutline', () => {
+            void activeLivePanel?.webview.postMessage({ type: 'toggleOutline' });
+        }),
         vscode.commands.registerCommand('markdownInline.exportPdf', async () => {
             const doc =
                 vscode.window.activeTextEditor?.document ??

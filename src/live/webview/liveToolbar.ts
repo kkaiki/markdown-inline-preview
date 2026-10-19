@@ -141,6 +141,8 @@ export interface ToolbarHandlers {
     switchMode(mode: 'raw'): void;
     /** ホスト側のコマンドを実行する。 */
     runCommand(command: HostCommand): void;
+    /** 目次ドロワーを開閉する。あればツールバーの左端に ☰ を出す。 */
+    toggleOutline?: () => void;
 }
 
 export interface ToolbarOptions {
@@ -164,6 +166,7 @@ export function mountLiveToolbar(
 
     const left = document.createElement('div');
     left.className = 'cm-live-toolbar-group';
+    if (handlers.toggleOutline) left.appendChild(makeOutlineButton(handlers.toggleOutline, tip));
     for (const b of BUTTONS) {
         left.appendChild(makeButton(b, view, handlers, tip));
     }
@@ -206,6 +209,23 @@ export function mountLiveToolbar(
 
     parent.insertBefore(bar, parent.firstChild);
     return bar;
+}
+
+/**
+ * 目次ドロワーの開閉ボタン（☰）。ツールバーの左端に置く（docs/specifications/live-mode/outline-drawer-design.md）。
+ * 押してもエディタの選択は崩さない。開閉の状態は `aria-expanded` で表す（ドロワー側が書き換える）。
+ */
+function makeOutlineButton(toggle: () => void, tip: ShortcutTip): HTMLButtonElement {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'cm-live-toolbar-button';
+    el.dataset.outline = 'toggle';
+    el.textContent = '☰';
+    el.setAttribute('aria-expanded', 'false');
+    tip.attach(el, t('Outline'));
+    el.addEventListener('mousedown', (e) => e.preventDefault());
+    el.addEventListener('click', toggle);
+    return el;
 }
 
 /** ホバー中のボタンに出す「操作名 + ショートカットキー」。 */

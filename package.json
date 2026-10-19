@@ -2,7 +2,7 @@
   "name": "markdown-inline-preview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.3.8",
+  "version": "3.3.9",
   "publisher": "markdown-inline-preview",
   "license": "MIT",
   "repository": {
@@ -261,6 +261,11 @@
       {
         "command": "markdownInline.exportDocx",
         "title": "%command.exportDocx%"
+      },
+      {
+        "command": "markdownInline.live.toggleOutline",
+        "title": "%command.live.toggleOutline%",
+        "enablement": "activeCustomEditorId == 'ipreview.live'"
       },
       {
         "command": "markdownInline.batchExport",
@@ -1009,6 +1014,11 @@
             "Use the Markdown Inline Preview Pro server API (requires Pro subscription — currently shows upgrade prompt)"
           ],
           "description": "How PDF export is generated. \"local\" uses your installed Chromium-based browser via headless mode; \"server\" routes to the Pro cloud API."
+        },
+        "markdownInline.showProPromotions": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.showProPromotions%"
         },
         "markdownInline.export.creditLine": {
           "type": "string",

@@ -76,5 +76,7 @@
   "config.indentation": "How the Tab / Shift+Tab keys indent list items. \"default\": 2 spaces in Raw mode and a tab character in Live mode (as before). \"editor\": follow VS Code's editor.tabSize and editor.insertSpaces.",
   "config.indentation.enum.default": "2 spaces in Raw mode, a tab character in Live mode (as before)",
   "config.indentation.enum.editor": "Follow VS Code's editor.tabSize and editor.insertSpaces",
-  "config.live.codeBlockLineNumbers": "Show line numbers inside code blocks in Live mode (starting from 1 in each block, fences excluded). Takes effect when the editor is reopened."
+  "config.live.codeBlockLineNumbers": "Show line numbers inside code blocks in Live mode (starting from 1 in each block, fences excluded). Takes effect when the editor is reopened.",
+  "config.showProPromotions": "Show PRO+ prompts: the PRO+ item in the status bar, the PRO+ badge on the Live toolbar, the purchase button in the update notification, and the confirmation before PDF export. Turn off to hide them. Exported PDFs still include the credit line until you purchase its removal.",
+  "command.live.toggleOutline": "Markdown Inline Preview: Toggle Outline"
 }

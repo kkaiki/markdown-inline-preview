@@ -76,5 +76,7 @@
   "config.indentation": "Tab / Shift+Tab でリストをインデントするときの幅。「default」: Raw は半角スペース 2 つ、Live はタブ 1 文字（従来どおり）。「editor」: VS Code の editor.tabSize と editor.insertSpaces に従う。",
   "config.indentation.enum.default": "Raw は半角スペース 2 つ、Live はタブ 1 文字（従来どおり）",
   "config.indentation.enum.editor": "VS Code の editor.tabSize と editor.insertSpaces に従う",
-  "config.live.codeBlockLineNumbers": "Live モードで、コードブロックの中に行番号を表示する（ブロックごとに 1 から。フェンスの行は数えない）。エディタを開き直すと反映されます。"
+  "config.live.codeBlockLineNumbers": "Live モードで、コードブロックの中に行番号を表示する（ブロックごとに 1 から。フェンスの行は数えない）。エディタを開き直すと反映されます。",
+  "config.showProPromotions": "PRO+ の案内を表示します（ステータスバーの PRO+、Live のツールバーの PRO+ バッジ、更新通知の購入ボタン、PDF 書き出し前の確認）。オフにすると表示しません。PDF のクレジット行は、削除を購入するまで残ります。",
+  "command.live.toggleOutline": "Markdown Inline Preview: 目次の表示を切り替える"
 }

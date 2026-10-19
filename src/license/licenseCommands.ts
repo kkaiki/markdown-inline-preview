@@ -20,7 +20,8 @@ import {
 } from '../shared/license/activationUri';
 import { fetchEntitlement } from '../shared/license/client';
 import { applyEntitlementOutcome } from '../shared/license/refresh';
-import { shouldRecheckWithServer, RECHECK_INTERVAL_MS, shouldShowProBadge, MONETIZATION_ENABLED } from '../shared/license/entitlement';
+import { shouldRecheckWithServer, RECHECK_INTERVAL_MS, shouldShowProPromotion, MONETIZATION_ENABLED } from '../shared/license/entitlement';
+import { proPromotionsEnabled } from './promotionSetting';
 import { verifyLicenseToken } from '../shared/license/token';
 import { LICENSE_PUBLIC_KEYS } from './publicKey';
 import { LicenseStore } from './licenseStore';
@@ -135,7 +136,6 @@ function createProStatusBarItem(): vscode.StatusBarItem {
     item.text = '$(star-full) PRO+';
     item.tooltip = vscode.l10n.t('PDF export is free. Click to remove the credit line (one-time purchase).');
     item.command = 'markdownInline.upgradeToPro';
-    item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     return item;
 }
 
@@ -146,7 +146,7 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
     /** ステータスバーの表示・非表示を、保存済みトークンから再評価する。 */
     const refreshStatusBar = async (): Promise<void> => {
         const license = await store.verify();
-        if (shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED })) {
+        if (shouldShowProPromotion({ license, monetizationEnabled: MONETIZATION_ENABLED, promotionsEnabled: proPromotionsEnabled() })) {
             statusBarItem.show();
         } else {
             statusBarItem.hide();
@@ -166,6 +166,10 @@ export function registerLicenseCommands(context: vscode.ExtensionContext): Licen
 
     context.subscriptions.push(
         statusBarItem,
+        // 設定で案内を消したら、その場でステータスバーからも消す
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration('markdownInline.showProPromotions')) void refreshStatusBar();
+        }),
 
         vscode.commands.registerCommand('markdownInline.removePdfCredit', openPurchasePage),
 

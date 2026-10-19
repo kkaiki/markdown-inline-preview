@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { shouldShowProBadge, MONETIZATION_ENABLED } from '../shared/license/entitlement';
+import { shouldShowProPromotion, MONETIZATION_ENABLED } from '../shared/license/entitlement';
+import { proPromotionsEnabled } from '../license/promotionSetting';
 import type { LicenseVerifyResult } from '../shared/license/token';
 
 /**
@@ -50,7 +51,11 @@ export function showWhatsNewIfUpdated(context: vscode.ExtensionContext, licenseS
 
     void (async () => {
         const license = (await licenseStore?.verify().catch(() => undefined)) ?? { ok: false, reason: 'malformed' };
-        const offerPro = shouldShowProBadge({ license, monetizationEnabled: MONETIZATION_ENABLED });
+        const offerPro = shouldShowProPromotion({
+            license,
+            monetizationEnabled: MONETIZATION_ENABLED,
+            promotionsEnabled: proPromotionsEnabled()
+        });
 
         const changelog = vscode.l10n.t('Release notes');
         const walkthrough = vscode.l10n.t('Getting started');

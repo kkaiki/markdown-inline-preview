@@ -607,9 +607,87 @@ body {
     display: flex;
     flex-direction: column;
 }
-.cm-live-editor-host {
+/* 目次（左）と本文を横に並べる行（docs/specifications/live-mode/outline-drawer-design.md） */
+.cm-live-body {
     flex: 1 1 auto;
     min-height: 0;
+    display: flex;
+    position: relative;
+}
+.cm-live-editor-host {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+/* 目次ドロワー。幅が広いときは本文を押し出す（flex の左端） */
+.cm-live-outline {
+    flex: 0 0 240px;
+    width: 240px;
+    overflow-y: auto;
+    border-right: 1px solid var(--live-border);
+    /*
+     * 本文と同じ配色（--live-*）だけを使う。VS Code のサイドバーの色を混ぜると、
+     * サイドバーが暗く本文が明るいテーマで、濃い背景に濃い文字になって読めない（2026-10-17 実機）。
+     */
+    background: var(--live-bg);
+    color: var(--live-fg);
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: 13px;
+}
+.cm-live-outline[hidden] {
+    display: none;
+}
+/* 狭いときは本文に重ねる（本文が細くなりすぎないように） */
+@media (max-width: 899px) {
+    .cm-live-outline {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 30;
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.25);
+    }
+}
+.cm-live-outline-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 0;
+}
+.cm-live-outline-item {
+    display: block;
+    width: 100%;
+    padding: 3px 12px;
+    border: none;
+    border-left: 2px solid transparent;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.cm-live-outline-h2 {
+    padding-left: 24px;
+}
+.cm-live-outline-h3 {
+    padding-left: 36px;
+    opacity: 0.85;
+}
+.cm-live-outline-item:hover,
+.cm-live-outline-item:focus-visible {
+    background: rgba(128, 128, 128, 0.15);
+    outline: none;
+}
+/* 今いる節: 背景で塗らず、左端の線と文字の太さで示す */
+.cm-live-outline-item[aria-current='true'] {
+    border-left-color: var(--live-link);
+    font-weight: 700;
+}
+.cm-live-outline-empty {
+    padding: 8px 12px;
+    opacity: 0.7;
 }
 .cm-live-toolbar {
     flex: 0 0 auto;
@@ -700,8 +778,11 @@ body {
     right: 2px;
     padding: 2px 4px;
     border-radius: 3px;
-    background: #f59e0b;
-    color: #1f1300;
+    /* 色は付けない（2026-10-15:「Author added ads」と言われた）。ボタンの文字と同じ色の枠線だけ */
+    background: transparent;
+    color: inherit;
+    border: 1px solid currentColor;
+    opacity: 0.7;
     font-size: 8px;
     font-weight: 800;
     letter-spacing: 0.02em;

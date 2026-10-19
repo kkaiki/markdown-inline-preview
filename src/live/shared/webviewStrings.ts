@@ -24,6 +24,8 @@ export const JA_STRINGS: Record<string, string> = {
     Quote: '引用',
     'Toggle list': 'トグルリスト',
     'Table': '表',
+    'Outline': '目次',
+    'No headings': '見出しがありません',
     'Add column': '列を追加',
     'Add row': '行を追加',
     Bold: '太字',

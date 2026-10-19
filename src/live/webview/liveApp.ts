@@ -35,6 +35,7 @@ import { liveSlashMenu } from './liveSlashMenu';
 import { mountLiveToolbar } from './liveToolbar';
 import { liveSpreadsheetPaste } from './liveSpreadsheetPaste';
 import { insertSavedImage, liveImagePaste } from './liveImagePaste';
+import { createOutlineDrawer, type OutlineDrawer } from './liveOutline';
 import { liveLineNumbers } from './liveLineNumbers';
 import { diffBaseField, diffField, liveDiffGutter, setDiffBase } from './liveDiffGutter';
 import {
@@ -79,6 +80,8 @@ const echo = createEchoGuard();
 let applyingRemote = false;
 
 let view: EditorView | null = null;
+/** 目次ドロワー（エディタを作るたびに作り直す）。 */
+let outline: OutlineDrawer | null = null;
 
 /** 編集を差分として host へ送る。 */
 const sendEdits = EditorView.updateListener.of((u: ViewUpdate) => {
@@ -200,11 +203,16 @@ function createEditor(text: string, settings: LiveSettings): void {
     const parent = document.getElementById('live-root');
     if (!parent) throw new Error('#live-root not found');
     parent.innerHTML = '';
+    // 目次（左）と本文を横に並べる行。目次は既定で閉じている（docs/specifications/live-mode/outline-drawer-design.md）
+    const body = document.createElement('div');
+    body.className = 'cm-live-body';
+    parent.appendChild(body);
     const host = document.createElement('div');
     host.className = 'cm-live-editor-host';
-    parent.appendChild(host);
+    body.appendChild(host);
+    outline = createOutlineDrawer(body, () => view);
     view = new EditorView({
-        state: EditorState.create({ doc: text, extensions: extensions(settings) }),
+        state: EditorState.create({ doc: text, extensions: [...extensions(settings), outline.extension] }),
         parent: host
     });
     if (settings.showToolbar !== false) {
@@ -220,7 +228,8 @@ function createEditor(text: string, settings: LiveSettings): void {
             runCommand: (command) => {
                 vscode?.postMessage({ type: command });
                 pushSent({ type: command });
-            }
+            },
+            toggleOutline: () => outline?.toggle()
         }, { showProBadge: settings.showProBadge === true, proPlusOnSale: settings.proPlusOnSale === true });
     }
     guardHostSelectAll();
@@ -261,6 +270,9 @@ window.addEventListener('message', (event: MessageEvent) => {
             break;
         case 'apply':
             applyRemote(msg.changes ?? [], msg.revision);
+            break;
+        case 'toggleOutline':
+            outline?.toggle();
             break;
         case 'imageSaved':
             if (view && typeof msg.id === 'number') insertSavedImage(view, msg.id, msg.fileName);

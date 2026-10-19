@@ -14,6 +14,7 @@ import {
     shouldIncludeCredit,
     shouldShowProBadge,
     shouldPromptBeforeExport,
+    shouldShowProPromotion,
     proFeatureAccess,
     needsTokenRefresh,
     REFRESH_BEFORE_EXPIRY_SEC,
@@ -191,5 +192,26 @@ describe('トークンを更新しに行くかの判定', () => {
             }
         };
         assert.strictEqual(needsTokenRefresh(soon, NOW), true);
+    });
+});
+
+describe('PRO+ の案内（バッジ・ステータスバー・更新通知・書き出し前の確認）の表示', () => {
+    // ユーザー要望（2026-10-15）: 案内を設定で非表示にできるようにする。最初に目に入れば十分なので既定は表示
+    const unpaid = { license: { ok: false, reason: 'malformed' } as LicenseVerifyResult, monetizationEnabled: true };
+
+    it('未購入・販売中で、設定が既定（表示）なら出す', () => {
+        assert.strictEqual(shouldShowProPromotion({ ...unpaid, promotionsEnabled: true }), true);
+    });
+
+    it('設定で非表示にしたら、未購入でも出さない', () => {
+        assert.strictEqual(shouldShowProPromotion({ ...unpaid, promotionsEnabled: false }), false);
+    });
+
+    it('購入者・販売前には、設定に関係なく出さない', () => {
+        assert.strictEqual(shouldShowProPromotion({ ...unpaid, monetizationEnabled: false, promotionsEnabled: true }), false);
+    });
+
+    it('非表示にしても PDF のクレジット行の有無は変わらない（案内だけを消す）', () => {
+        assert.strictEqual(shouldIncludeCredit({ ...unpaid, setting: 'auto' }), true);
     });
 });

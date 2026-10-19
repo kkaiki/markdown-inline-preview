@@ -64,6 +64,18 @@ export function shouldShowProBadge(input: Pick<CreditDecisionInput, 'license' | 
     return shouldIncludeCredit({ ...input, setting: 'auto' });
 }
 
+/**
+ * PRO+ の案内（ステータスバー・ツールバーのバッジ・更新通知のボタン・PDF 書き出し前の確認）を出すか。
+ * 未購入・販売中でも、設定 `markdownInline.showProPromotions` を false にしたら出さない
+ * （ユーザー要望 2026-10-15: 「Author added ads」と言われた。最初に目に入れば十分なので既定は表示）。
+ * クレジット行そのものは `shouldIncludeCredit` が決め、この設定では変わらない。
+ */
+export function shouldShowProPromotion(
+    input: Pick<CreditDecisionInput, 'license' | 'monetizationEnabled'> & { promotionsEnabled: boolean }
+): boolean {
+    return input.promotionsEnabled && shouldShowProBadge(input);
+}
+
 export type ExportPromptInput = Pick<CreditDecisionInput, 'license' | 'monetizationEnabled'>;
 
 /**

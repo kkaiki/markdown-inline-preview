@@ -48,7 +48,8 @@ describe('Live モード: PDF ボタンの PRO+ バッジ（実ブラウザ）',
         assert.strictEqual(await h.page.locator(BADGE).count(), 0);
     });
 
-    it('バッジは PDF ボタンの右上に、色付きで表示される', async function () {
+    it('バッジは PDF ボタンの右上に、色を付けずにボタンの文字と同じ色で表示される', async function () {
+        // ユーザー要望（2026-10-15）: 「Author added ads into extension」と言われたので、目立つ黄色をやめて色を消す
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, '本文\n', { showLineNumbers: false, showProBadge: true });
         const btn = await h.page.locator(PDF).boundingBox();
@@ -56,10 +57,12 @@ describe('Live モード: PDF ボタンの PRO+ バッジ（実ブラウザ）',
         assert.ok(btn && badge, 'ボタンとバッジの位置が取れない');
         assert.ok(badge.x + badge.width / 2 > btn.x + btn.width / 2, `バッジが右寄りでない: ${badge.x}`);
         assert.ok(badge.y + badge.height / 2 < btn.y + btn.height / 2, `バッジが上寄りでない: ${badge.y}`);
-        const bg = await h.page.evaluate<string>(
-            `getComputedStyle(document.querySelector('${BADGE}')).backgroundColor`
-        );
-        assert.notStrictEqual(bg, 'rgba(0, 0, 0, 0)', 'バッジに背景色が付いていない');
+        const style = await h.page.evaluate<{ bg: string; color: string; buttonColor: string }>(`(() => {
+            const b = getComputedStyle(document.querySelector('${BADGE}'));
+            return { bg: b.backgroundColor, color: b.color, buttonColor: getComputedStyle(document.querySelector('${PDF}')).color };
+        })()`);
+        assert.strictEqual(style.bg, 'rgba(0, 0, 0, 0)', 'バッジに背景色が付いている');
+        assert.strictEqual(style.color, style.buttonColor, 'バッジの文字色がボタンの文字と違う');
     });
 
     it('バッジはツールバーの領域内に収まり、切れない', async function () {
