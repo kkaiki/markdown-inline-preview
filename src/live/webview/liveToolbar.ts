@@ -7,6 +7,8 @@
 import type { EditorView } from '@codemirror/view';
 import { t } from './i18n';
 import { SLASH_MENU_ITEMS } from '../../shared/slash/slashMenuItems';
+import { runTableActionOnCell, tableActionsForCell } from './liveTableMenu';
+import type { TableCommand } from '../shared/tableEdit';
 import type { NotionBlockAction } from '../../shared/notionBlockKeymap';
 import type { InlineFormat } from '../../shared/inlineFormat';
 import {
@@ -167,6 +169,7 @@ export function mountLiveToolbar(
     const left = document.createElement('div');
     left.className = 'cm-live-toolbar-group';
     if (handlers.toggleOutline) left.appendChild(makeOutlineButton(handlers.toggleOutline, tip));
+    left.appendChild(makeTableActions(view, tip));
     for (const b of BUTTONS) {
         left.appendChild(makeButton(b, view, handlers, tip));
     }
@@ -226,6 +229,70 @@ function makeOutlineButton(toggle: () => void, tip: ShortcutTip): HTMLButtonElem
     el.addEventListener('mousedown', (e) => e.preventDefault());
     el.addEventListener('click', toggle);
     return el;
+}
+
+/** ツールバーに出す表の操作の短い名前（ホバーでは右クリックメニューと同じ名前を出す）。英語ソースを `t()` で訳す。 */
+const TABLE_ACTION_SHORT: Record<TableCommand, string> = {
+    selectRow: 'Sel. row',
+    selectColumn: 'Sel. col',
+    insertRowAbove: '+Row ↑',
+    insertRowBelow: '+Row ↓',
+    insertColumnLeft: '+Col ←',
+    insertColumnRight: '+Col →',
+    deleteRow: '−Row',
+    deleteColumn: '−Col',
+    deleteTable: '−Table'
+};
+
+/** フォーカスが表のセルにあれば、そのセル。 */
+function focusedTableCell(): HTMLElement | null {
+    const el = document.activeElement;
+    return el instanceof HTMLElement && el.closest('.cm-live-table') && el.contentEditable === 'true' ? el : null;
+}
+
+/**
+ * 表のセルにいる間だけ出す、表の操作（右クリックメニューと同じ項目・同じ処理）。
+ * ツールバーの左端（☰ のすぐ右）に置く（ユーザー要望 2026-10-20）。
+ * 押してもセルのフォーカスを失わないので、操作の対象は「いま押す直前にいたセル」。
+ */
+function makeTableActions(view: EditorView, tip: ShortcutTip): HTMLElement {
+    const group = document.createElement('div');
+    group.className = 'cm-live-toolbar-group cm-live-toolbar-table';
+    group.hidden = true;
+    const buttons = new Map<TableCommand, HTMLButtonElement>();
+
+    const refresh = (): void => {
+        const cell = focusedTableCell();
+        const actions = cell ? tableActionsForCell(cell, view) : [];
+        group.hidden = actions.length === 0;
+        for (const a of actions) {
+            let el = buttons.get(a.id);
+            if (!el) {
+                el = document.createElement('button');
+                el.type = 'button';
+                el.className = 'cm-live-toolbar-button';
+                el.dataset.tableCommand = a.id;
+                el.textContent = t(TABLE_ACTION_SHORT[a.id]);
+                tip.attach(el, t(a.label));
+                el.addEventListener('mousedown', (e) => e.preventDefault()); // セルのフォーカスを保つ
+                const command = a.id;
+                el.addEventListener('click', () => {
+                    const target = focusedTableCell();
+                    if (target && el?.getAttribute('aria-disabled') !== 'true') runTableActionOnCell(target, view, command);
+                    refresh();
+                });
+                group.appendChild(el);
+                buttons.set(a.id, el);
+            }
+            if (a.enabled) el.removeAttribute('aria-disabled');
+            else el.setAttribute('aria-disabled', 'true');
+        }
+    };
+
+    // フォーカスの移動（セルに入る・出る）と、表の書き換え後のフォーカス喪失に追従する
+    document.addEventListener('focusin', refresh);
+    document.addEventListener('focusout', () => window.setTimeout(refresh, 0));
+    return group;
 }
 
 /** ホバー中のボタンに出す「操作名 + ショートカットキー」。 */

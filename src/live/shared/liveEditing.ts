@@ -197,3 +197,83 @@ export function resolveFenceEnter(doc: string, pos: number): FenceEnterResult | 
 
     return { insert: `\n\n${marker}`, cursorDelta: 1 };
 }
+
+/** リストの Enter の結果（`from`〜`to` を `insert` に置き換え、カーソルを `cursor` に置く）。 */
+export interface ListEnterPlan {
+    from: number;
+    to: number;
+    insert: string;
+    cursor: number;
+}
+
+/**
+ * リストの行で Enter したときの編集を、番号リストを整理した形で決める（ユーザー報告 2026-10-20）。
+ *
+ * - 行の途中で割るとき、後ろ半分が既にマーカー（`4. ` `- ` など）で始まっていれば、新しいマーカーを足さない
+ *   （「3. …。4. …」の「4.」の手前で Enter して「4. 4. …」になるのを防ぐ）。割り目の前後の空白は捨てる。
+ * - 番号リストなら、Enter のあとに続く同じ深さの項目を、手前の項目の次の番号から順に振り直す。
+ *   子の項目（深いインデント）はまたぎ、空行や浅い行・別の種類の行で止める。
+ *
+ * それ以外（空の項目でマーカーを消す・行末で次の項目を足す・引用）は `resolveEnter` と同じ。
+ * リストでも引用でもない行なら null（既定の Enter に任せる）。
+ */
+export function planListEnter(doc: string, pos: number): ListEnterPlan | null {
+    const lineStart = doc.lastIndexOf('\n', pos - 1) + 1;
+    const nl = doc.indexOf('\n', pos);
+    const lineEnd = nl < 0 ? doc.length : nl;
+    const line = doc.slice(lineStart, lineEnd);
+    const col = pos - lineStart;
+
+    const r = resolveEnter(line, col);
+    if (!r) return null;
+    if (r.deleteFrom !== null) {
+        const from = lineStart + r.deleteFrom;
+        return { from, to: pos, insert: r.insert, cursor: from + r.insert.length };
+    }
+
+    const p = parseQuotePrefix(line) ? NONE : parseLinePrefix(line);
+    let cutFrom = pos;
+    let cutTo = pos;
+    let insert = r.insert;
+    if (p.kind !== 'none') {
+        const rest = line.slice(col);
+        const lead = /^[ \t]*/.exec(rest)?.[0] ?? '';
+        if (parseLinePrefix(rest.slice(lead.length)).kind !== 'none') {
+            const trail = /[ \t]*$/.exec(line.slice(p.contentStart, col))?.[0] ?? '';
+            cutFrom = pos - trail.length;
+            cutTo = pos + lead.length;
+            insert = `\n${p.indent}`;
+        }
+    }
+    const cursor = cutFrom + insert.length;
+    let next = doc.slice(0, cutFrom) + insert + doc.slice(cutTo);
+    let regionEnd = cutFrom + insert.length; // 置き換える範囲の終わり（新しい文書での位置）
+
+    if (p.kind === 'ordered') {
+        const lines = next.split('\n');
+        const origLine = doc.slice(0, lineStart).split('\n').length - 1;
+        let expected = (p.ordinal ?? 0) + 1;
+        let offset = next.split('\n').slice(0, origLine + 1).join('\n').length + 1;
+        for (let i = origLine + 1; i < lines.length; i++) {
+            const text = lines[i];
+            if (text.trim() === '') break;
+            const q = parseLinePrefix(text);
+            const lead = /^[ \t]*/.exec(text)?.[0] ?? '';
+            if (q.kind === 'ordered' && q.indent === p.indent) {
+                const sep = q.marker.trimEnd().slice(-1);
+                const fixed = `${q.indent}${expected}${sep} ${text.slice(q.contentStart)}`;
+                lines[i] = fixed;
+                expected += 1;
+            } else if (lead.length <= p.indent.length) {
+                break;
+            }
+            regionEnd = offset + lines[i].length;
+            offset += lines[i].length + 1;
+        }
+        next = lines.join('\n');
+    }
+
+    const delta = next.length - doc.length;
+    const to = Math.max(cutTo, regionEnd - delta);
+    return { from: cutFrom, to, insert: next.slice(cutFrom, to + delta), cursor };
+}

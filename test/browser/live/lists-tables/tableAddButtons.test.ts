@@ -51,6 +51,27 @@ describe('Live モード: 表の「＋」ボタン（実ブラウザ）', functi
         assert.strictEqual(await opacity(h.page, '.cm-live-table-add-row'), '1');
     });
 
+    it('横にはみ出す広い表でも、右端の「＋」はセルに重ならず、最後の列のさらに右に出る', async function () {
+        // 実機（2026-10-20）: 横スクロールする表で「＋」が見えている右端に貼り付き、セルの上に破線と「+」が重なっていた
+        if (!browser) { this.skip(); return; }
+        const head = '| ' + Array.from({ length: 8 }, (_, i) => `列${i}の見出しを長めにする`).join(' | ') + ' |';
+        const sep = '|' + ' --- |'.repeat(8);
+        const row = '| ' + Array.from({ length: 8 }, (_, i) => `https://example.com/a-very-long-unbreakable-path-${i}`).join(' | ') + ' |';
+        h = await openLive(browser, `前\n\n${head}\n${sep}\n${row}\n\n後\n`);
+        await h.page.locator('.cm-live-table [contenteditable="true"]').first().hover();
+        await h.page.waitForTimeout(300);
+        const r = await h.page.evaluate<{ overflow: boolean; btnLeft: number; tableRight: number; rowTop: number; tableBottom: number }>(`(() => {
+            const wrap = document.querySelector('.cm-live-table-wrap');
+            const t = document.querySelector('.cm-live-table').getBoundingClientRect();
+            const col = document.querySelector('.cm-live-table-add-col').getBoundingClientRect();
+            const row = document.querySelector('.cm-live-table-add-row').getBoundingClientRect();
+            return { overflow: wrap.scrollWidth > wrap.clientWidth, btnLeft: col.left, tableRight: t.right, rowTop: row.top, tableBottom: t.bottom };
+        })()`);
+        assert.ok(r.overflow, '表が横にはみ出していない（テストの前提が崩れている）');
+        assert.ok(r.btnLeft >= r.tableRight - 1, `「＋」が表のセルに重なっている: 左端 ${r.btnLeft} < 表の右端 ${r.tableRight}`);
+        assert.ok(r.rowTop >= r.tableBottom - 1, `下の「＋」が表に重なっている: ${r.rowTop} < ${r.tableBottom}`);
+    });
+
     it('右端の「＋」で全行の末尾に空の列が増える', async function () {
         if (!browser) { this.skip(); return; }
         h = await openLive(browser, TABLE);

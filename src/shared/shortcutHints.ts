@@ -60,8 +60,9 @@ export const COMMAND_SHORTCUTS: Readonly<Record<ShortcutCommand, ShortcutKeys>> 
     switchRaw: { mac: ['⌘', '⇧', '.'], win: ['Ctrl', 'Shift', '.'] },
     toggleTask: { mac: ['⌘', '⏎'], win: ['Ctrl', 'Enter'] },
     duplicateBlock: { mac: ['⌘', 'D'], win: ['Ctrl', 'D'] },
-    moveBlockUp: { mac: ['⌘', '⇧', '↑'], win: ['Ctrl', 'Shift', '↑'] },
-    moveBlockDown: { mac: ['⌘', '⇧', '↓'], win: ['Ctrl', 'Shift', '↓'] },
+    // ⌘⇧↑↓ は「先頭/末尾まで選択」に戻した（2026-10-20）
+    moveBlockUp: { mac: ['⌥', '↑'], win: ['Alt', '↑'] },
+    moveBlockDown: { mac: ['⌥', '↓'], win: ['Alt', '↓'] },
     blockNewline: { mac: ['⇧', '⏎'], win: ['Shift', 'Enter'] }
 };
 

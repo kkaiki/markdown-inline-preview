@@ -140,4 +140,25 @@ describe('Notion 準拠キーバインドの宣言（package.json）', () => {
             assert.deepStrictEqual(wrong, []);
         });
     });
+
+    it('⌘⇧↑ / ⌘⇧↓（Ctrl+Shift+↑↓）には割り当てず、VS Code 既定の「先頭/末尾まで選択」に任せる', () => {
+        // ユーザー要望（2026-10-20）: 上全て選択・下全て選択を使いたいので、ブロック移動の割り当てだけ外す
+        for (const b of bindings) {
+            for (const k of [b.key, b.mac, b.win, b.linux]) {
+                assert.ok(
+                    !['shift+cmd+up', 'shift+cmd+down', 'cmd+shift+up', 'cmd+shift+down', 'ctrl+shift+up', 'ctrl+shift+down'].includes(k ?? ''),
+                    `${b.command} が ${k} に割り当てられている`
+                );
+            }
+        }
+    });
+
+    it('ブロックの移動は ⌥↑ / ⌥↓（Alt+↑↓）に割り当てる', () => {
+        const up = bindings.find((b) => b.command === 'markdownInline.moveLineUp');
+        const down = bindings.find((b) => b.command === 'markdownInline.moveLineDown');
+        assert.strictEqual(up?.mac, 'alt+up');
+        assert.strictEqual(up?.win, 'alt+up');
+        assert.strictEqual(down?.mac, 'alt+down');
+        assert.strictEqual(down?.linux, 'alt+down');
+    });
 });

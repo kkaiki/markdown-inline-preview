@@ -2,7 +2,7 @@
   "name": "markdown-inline-preview",
   "displayName": "Markdown Inline Preview",
   "description": "Notion-like Markdown editing for Cursor / VSCode — inline decorations, slash commands, smart navigation",
-  "version": "3.3.9",
+  "version": "3.3.10",
   "publisher": "markdown-inline-preview",
   "license": "MIT",
   "repository": {
@@ -673,18 +673,18 @@
       },
       {
         "command": "markdownInline.moveLineUp",
-        "key": "ctrl+shift+up",
-        "mac": "shift+cmd+up",
-        "win": "ctrl+shift+up",
-        "linux": "ctrl+shift+up",
+        "key": "alt+up",
+        "mac": "alt+up",
+        "win": "alt+up",
+        "linux": "alt+up",
         "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {
         "command": "markdownInline.moveLineDown",
-        "key": "ctrl+shift+down",
-        "mac": "shift+cmd+down",
-        "win": "ctrl+shift+down",
-        "linux": "ctrl+shift+down",
+        "key": "alt+down",
+        "mac": "alt+down",
+        "win": "alt+down",
+        "linux": "alt+down",
         "when": "editorTextFocus && editorLangId == markdown && markdownInline.notionKeymap"
       },
       {

@@ -61,7 +61,7 @@ Windows supports both Notion's `Ctrl+Shift+Number` and the traditional `Alt+Ctrl
 |---|---|---|---|
 | Toggle checkbox | `⌘Enter` | `Ctrl+Enter` | Converts a bullet to a checkbox if not already one |
 | Duplicate block | `⌘D` | `Ctrl+D` | Also duplicates indented child lines |
-| Move block up / down | `⌘⇧↑` / `⌘⇧↓` | `Ctrl+Shift+↑` / `↓` | Also moves child lines |
+| Move block up / down | `⌥↑` / `⌥↓` | `Alt+↑` / `↓` | Also moves child lines. `⌘⇧↑` / `⌘⇧↓` keep their default (select to the top / bottom) |
 
 ## Editing & navigation
 

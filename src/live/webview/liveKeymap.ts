@@ -19,7 +19,7 @@ import type { EditorView } from '@codemirror/view';
 import {
     parseLinePrefix,
     parseQuotePrefix,
-    resolveEnter,
+    planListEnter,
     resolveFenceEnter,
     resolveSmartHome
 } from '../shared/liveEditing';
@@ -58,23 +58,12 @@ function liveEnter(view: EditorView): boolean {
         return true;
     }
 
-    const line = view.state.doc.lineAt(sel.head);
-    const r = resolveEnter(line.text, sel.head - line.from);
-    if (!r) return false;
-
-    if (r.deleteFrom !== null) {
-        const from = line.from + r.deleteFrom;
-        view.dispatch({
-            changes: { from, to: sel.head, insert: r.insert },
-            selection: { anchor: from + r.insert.length },
-            scrollIntoView: true,
-            userEvent: 'input'
-        });
-        return true;
-    }
+    // リストの継続。マーカーを重ねず、番号リストは続く項目の番号を振り直す（ユーザー報告 2026-10-20）
+    const plan = planListEnter(view.state.doc.toString(), sel.head);
+    if (!plan) return false;
     view.dispatch({
-        changes: { from: sel.head, insert: r.insert },
-        selection: { anchor: sel.head + r.insert.length },
+        changes: { from: plan.from, to: plan.to, insert: plan.insert },
+        selection: { anchor: plan.cursor },
         scrollIntoView: true,
         userEvent: 'input'
     });
@@ -326,9 +315,8 @@ export const liveKeymap: KeyBinding[] = [
     ...blockKeymap,
     ...inlineFormatKeymap,
     { key: 'Mod-d', run: liveDuplicateBlock },
-    { key: 'Mod-Shift-ArrowUp', run: (view) => liveMoveBlock(view, 'up') },
-    { key: 'Mod-Shift-ArrowDown', run: (view) => liveMoveBlock(view, 'down') },
-    // ⌥↑↓ も ⌘⇧↑↓ と同じ（CodeMirror 標準の moveLineUp/Down は 1 行だけで子が取り残される。memento と同じ）
+    // ⌘⇧↑↓ は割り当てない（CodeMirror 既定の「先頭/末尾まで選択」に任せる。ユーザー要望 2026-10-20）
+    // ⌥↑↓ でブロックを子ごと動かす（CodeMirror 標準の moveLineUp/Down は 1 行だけで子が取り残される。memento と同じ）
     { key: 'Alt-ArrowUp', run: (view) => liveMoveBlock(view, 'up') },
     { key: 'Alt-ArrowDown', run: (view) => liveMoveBlock(view, 'down') },
     { key: 'Mod-Enter', run: liveToggleTask },

@@ -57,7 +57,9 @@ describe('ショートカットのホバー表示（チートシート）', () =
         assert.deepStrictEqual(COMMAND_SHORTCUTS.switchRaw.mac, ['⌘', '⇧', '.']);
         assert.deepStrictEqual(COMMAND_SHORTCUTS.toggleTask.mac, ['⌘', '⏎']);
         assert.deepStrictEqual(COMMAND_SHORTCUTS.duplicateBlock.win, ['Ctrl', 'D']);
-        assert.deepStrictEqual(COMMAND_SHORTCUTS.moveBlockUp.mac, ['⌘', '⇧', '↑']);
+        // ⌘⇧↑↓ は「先頭/末尾まで選択」に戻した（2026-10-20）。ブロックの移動は ⌥↑↓
+        assert.deepStrictEqual(COMMAND_SHORTCUTS.moveBlockUp.mac, ['⌥', '↑']);
+        assert.deepStrictEqual(COMMAND_SHORTCUTS.moveBlockDown.win, ['Alt', '↓']);
     });
 
     it('プラットフォームに応じて表示するキー列を選ぶ', () => {

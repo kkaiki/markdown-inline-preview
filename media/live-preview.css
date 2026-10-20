@@ -432,16 +432,27 @@ body {
 .cm-live-table-wrap {
     overflow-x: auto;
     padding: var(--live-block-gap) 0;
-    /* 列幅つまみ（.cm-live-col-resizers）と「＋」ボタンの位置の基準 */
+    /* 列幅つまみ（.cm-live-col-resizers）の位置の基準 */
     position: relative;
-    /* 右端の「列を追加」・下端の「行を追加」を置く余白 */
-    padding-right: 24px;
-    padding-bottom: calc(var(--live-block-gap) + 22px);
+}
+/* 表・列の「＋」（右）・行の「＋」（下）の格子。表と一緒に横スクロールする */
+.cm-live-table-grid {
+    display: inline-grid;
+    grid-template-columns: auto 20px;
+    grid-template-rows: auto 20px;
+    column-gap: 4px;
+    row-gap: 4px;
+    vertical-align: top;
+}
+/*
+ * 表は角丸のため overflow: hidden で、格子の中ではそのままだと幅 0 まで縮められる扱いになる。
+ * すると列の幅が画面幅で止まり、はみ出した表の上に「＋」が重なる（2026-10-20 実機）。中身の最小幅までは縮めない。
+ */
+.cm-live-table-grid > .cm-live-table {
+    min-width: min-content;
 }
 /* 表の右端・下端の「＋」。表にマウスを乗せている間（フォーカス中も）だけ見せる */
 .cm-live-table-add {
-    position: absolute;
-    z-index: 4;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -457,16 +468,12 @@ body {
     transition: opacity 0.12s;
 }
 .cm-live-table-add-col {
-    top: var(--live-block-gap);
-    bottom: calc(var(--live-block-gap) + 22px);
-    right: 2px;
-    width: 20px;
+    grid-column: 2;
+    grid-row: 1;
 }
 .cm-live-table-add-row {
-    left: 0;
-    right: 24px;
-    bottom: var(--live-block-gap);
-    height: 20px;
+    grid-column: 1;
+    grid-row: 2;
 }
 .cm-live-table-wrap:hover .cm-live-table-add,
 .cm-live-table-wrap:focus-within .cm-live-table-add {
@@ -768,6 +775,23 @@ body {
 }
 /* PDF ボタンの右上に重ねる PRO+ バッジ（クレジット行の除去が有料であることの示唆）。
    クリックは下のボタンに通す。ツールバーのスクロール領域から切れないよう、ボタン内に収める */
+.cm-live-toolbar-table[hidden] {
+    display: none;
+}
+/* 表の操作（表のセルにいる間だけ）。H1 以降の書式ボタンと線で区切る */
+.cm-live-toolbar-table {
+    padding-right: 6px;
+    margin-right: 6px;
+    border-right: 1px solid var(--live-border);
+}
+.cm-live-toolbar-table .cm-live-toolbar-button {
+    font-size: 12px;
+    white-space: nowrap;
+}
+.cm-live-toolbar-button[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
+}
 .cm-live-toolbar-button-pro {
     position: relative;
     padding-right: 38px;

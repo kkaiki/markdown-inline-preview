@@ -175,27 +175,36 @@ describe('Live モード: Notion 準拠のショートカット（実ブラウ�
             assert.strictEqual(await h.doc(), '- 親\n  - 子\n- 親\n  - 子\n');
         });
 
-        it('⌘⇧↓ で行が下へ移動する', async function () {
+        it('⌘⇧↑ はブロックを動かさず、カーソルから文書の先頭までを選択する', async function () {
+            // ユーザー要望（2026-10-20）: ⌘⇧↑↓ は「上全て選択・下全て選択」に使いたい。ブロックの移動は ⌥↑↓
             if (!browser) { this.skip(); return; }
-            h = await openLive(browser, 'あ\nい\n');
-            await h.setCursor(0);
-            await h.press('Meta+Shift+ArrowDown');
-            assert.strictEqual(await h.doc(), 'い\nあ\n');
+            h = await openLive(browser, 'あ\nい\nう\n');
+            await h.setCursor(3);
+            await h.press('Meta+Shift+ArrowUp');
+            assert.strictEqual(await h.doc(), 'あ\nい\nう\n');
+            const sel = await h.page.evaluate<{ from: number; to: number }>(
+                '({ from: window.__liveView.state.selection.main.from, to: window.__liveView.state.selection.main.to })'
+            );
+            assert.deepStrictEqual(sel, { from: 0, to: 3 });
         });
 
-        it('⌘⇧↑ で行が上へ移動する', async function () {
+        it('⌘⇧↓ はブロックを動かさず、カーソルから文書の末尾までを選択する', async function () {
             if (!browser) { this.skip(); return; }
-            h = await openLive(browser, 'あ\nい\n');
+            h = await openLive(browser, 'あ\nい\nう\n');
             await h.setCursor(2);
-            await h.press('Meta+Shift+ArrowUp');
-            assert.strictEqual(await h.doc(), 'い\nあ\n');
+            await h.press('Meta+Shift+ArrowDown');
+            assert.strictEqual(await h.doc(), 'あ\nい\nう\n');
+            const sel = await h.page.evaluate<{ from: number; to: number }>(
+                '({ from: window.__liveView.state.selection.main.from, to: window.__liveView.state.selection.main.to })'
+            );
+            assert.deepStrictEqual(sel, { from: 2, to: 6 });
         });
 
-        it('先頭行で ⌘⇧↑ を押しても文書は変わらない', async function () {
+        it('先頭行で ⌥↑ を押しても文書は変わらない', async function () {
             if (!browser) { this.skip(); return; }
             h = await openLive(browser, 'あ\nい\n');
             await h.setCursor(0);
-            await h.press('Meta+Shift+ArrowUp');
+            await h.press('Alt+ArrowUp');
             assert.strictEqual(await h.doc(), 'あ\nい\n');
         });
 

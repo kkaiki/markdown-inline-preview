@@ -447,10 +447,17 @@ class TableWidget extends WidgetType {
         table.appendChild(colgroup);
         table.appendChild(thead);
         table.appendChild(tbody);
-        wrap.appendChild(table);
+        /*
+         * 表と「＋」を格子に並べる（列の「＋」は表の右、行の「＋」は表の下）。表と一緒に横スクロールするので、
+         * はみ出す表でも「＋」がセルに重ならない。格子は position を持たせない（列幅つまみは wrap 基準の offsetLeft で置くため）。
+         */
+        const grid = document.createElement('div');
+        grid.className = 'cm-live-table-grid';
+        grid.appendChild(table);
+        grid.appendChild(this.makeAddButton(wrap, view, 'col'));
+        grid.appendChild(this.makeAddButton(wrap, view, 'row'));
+        wrap.appendChild(grid);
         wrap.dataset.srcLen = String(this.source.length);
-        wrap.appendChild(this.makeAddButton(wrap, view, 'col'));
-        wrap.appendChild(this.makeAddButton(wrap, view, 'row'));
 
         // 列幅つまみ（一時的な列幅調整）。記憶があれば先に当てる。
         attachColumnResizers(wrap, this.index);

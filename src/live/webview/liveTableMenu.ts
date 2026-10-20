@@ -93,6 +93,33 @@ function run(command: TableCommand, ctx: TableMenuContext): void {
 }
 
 /**
+ * セルから右クリックメニューと同じ文脈を作る（ツールバーの表の操作から使う）。
+ * 表のソースはその時点の文書から読む（セル編集では widget が作り直されないため）。
+ */
+function contextOfCell(cell: HTMLElement, view: EditorView): TableMenuContext | null {
+    const wrap = cell.closest<HTMLElement>('.cm-live-table-wrap');
+    if (!wrap) return null;
+    const from = view.posAtDOM(wrap);
+    const source = view.state.doc.sliceString(from, from + Number(wrap.dataset.srcLen));
+    return { source, from, target: { row: Number(cell.dataset.row), col: Number(cell.dataset.col) }, view, wrap };
+}
+
+/** いるセルで使える表の操作（右クリックメニューと同じ並び・同じ有効/無効）。表の外なら空。 */
+export function tableActionsForCell(cell: HTMLElement, view: EditorView): { id: TableCommand; label: string; enabled: boolean }[] {
+    const ctx = contextOfCell(cell, view);
+    return ctx ? tableMenuItems(ctx.source, ctx.target) : [];
+}
+
+/** いるセルに表の操作を当てる（ツールバーから。右クリックメニューと同じ処理）。無効な操作なら何もしない。 */
+export function runTableActionOnCell(cell: HTMLElement, view: EditorView, command: TableCommand): void {
+    const ctx = contextOfCell(cell, view);
+    if (!ctx) return;
+    const item = tableMenuItems(ctx.source, ctx.target).find((i) => i.id === command);
+    if (!item?.enabled) return;
+    run(command, ctx);
+}
+
+/**
  * セルの右クリックでメニューを開く。
  * 画面からはみ出さないよう、右端・下端では内側へ寄せる。
  */
